@@ -1,0 +1,100 @@
+#!/usr/bin/perl 
+
+use utf8;
+use 5.010;
+
+use strict;
+use warnings;
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use Pod::Usage;
+use HTTP::Server::Brick;
+use Getopt::Mixed;
+use Text::Dapper qw< run new >;
+
+my $PORT = 8000;
+
+my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $HELP, $VERSION ) =
+  ( undef,    "_source", "_output", "_templates", undef, undef );
+
+=head1 USAGE
+
+=over 5
+
+=item dapper -h       # Help
+
+=item dapper -v       # Version
+
+=item dapper -s <dir> # Source dir name (default: _source)
+
+=item dapper -o <dir> # Output dir name (default: _output)
+
+=item dapper -t <dir> # Templates dir name (default: _templates)
+
+=item dapper new      # Create new skeleton project
+
+=item dapper build    # Build site
+
+=item dapper serve    # Serve locally
+
+=back
+=cut
+
+sub newish {
+    Text::Dapper::new();
+}
+
+sub build {
+    Text::Dapper::build();
+}
+
+sub serve {
+    my $s = HTTP::Server::Brick->new(port=>$PORT);
+    $s->mount("/"=>{path=>"_output"});
+    $s->start
+}
+
+sub help() {
+    pod2usage({-sections => [ qw(USAGE) ] });
+    exit(0);
+}
+
+sub version() {
+    print "$Text::Dapper::VERSION\n";
+    exit(0);
+}
+
+Getopt::Mixed::init(
+    q{h
+    v   version>v
+    s=s source>s
+    o=s output>o
+    l=s layout>l
+});
+
+while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
+    $SOURCE  = $value if $option eq 's';
+    $OUTPUT  = $value if $option eq 'o';
+    $LAYOUT  = $value if $option eq 'l';
+    help()            if $option eq 'h';
+    version()         if $option eq 'v';
+}
+
+Getopt::Mixed::cleanup();
+
+$COMMAND = $ARGV[0];
+$COMMAND = "help" if not $COMMAND;
+
+my $switch = {
+  'new'     => sub { newish() },
+  'build'   => sub { build() },
+  'serve'   => sub { serve() },
+  'default' => sub { help(); }
+};
+$switch->{$COMMAND} ? $switch->{$COMMAND}->() : $switch->{'default'}->();
+
+return 1 if caller;
+exit run(@ARGV);
+
