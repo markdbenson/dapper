@@ -8,7 +8,7 @@ WriteMakefile(
     AUTHOR           => q{Mark Benson <markbenson@vanilladraft.com>},
     VERSION_FROM     => 'lib/Text/Dapper.pm',
     ABSTRACT_FROM    => 'lib/Text/Dapper.pm',
-    LICENSE          => 'Artistic_2_0',
+    LICENSE          => 'mit',
     PL_FILES         => {},
     EXE_FILES         => ['bin/dapper'],
     MIN_PERL_VERSION => 5.006,
