@@ -19,13 +19,14 @@ WriteMakefile(
         'Test::More' => 0,
     },
     PREREQ_PM => {
-        'FindBin'               => 1.51,
-        'Pod::Usage'            => 1.63,
+        'FindBin'               => 0,
+        'Pod::Usage'            => 0,
         'HTTP::Server::Brick'   => 0,
-        'Getopt::Mixed'         => 1.11,
-        'IO::Dir'               => 1.07,
-        'File::Spec::Functions' => 3.40,
+        'Getopt::Mixed'         => 0,
+        'IO::Dir'               => 0,
+        'File::Spec::Functions' => 0,
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'Text-Dapper-*' },
 );
+
