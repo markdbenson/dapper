@@ -10,9 +10,8 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 
 use Pod::Usage;
-use HTTP::Server::Brick;
 use Getopt::Mixed;
-use Text::Dapper qw< run new >;
+use Text::Dapper qw< new >;
 
 my $PORT = 8000;
 
@@ -51,9 +50,7 @@ sub build {
 }
 
 sub serve {
-    my $s = HTTP::Server::Brick->new(port=>$PORT);
-    $s->mount("/"=>{path=>"_output"});
-    $s->start
+    Text::Dapper::serve($PORT);
 }
 
 sub help() {
@@ -62,7 +59,7 @@ sub help() {
 }
 
 sub version() {
-    print "$Text::Dapper::VERSION\n";
+    print "Dapper version $Text::Dapper::VERSION\n";
     exit(0);
 }
 
@@ -95,6 +92,6 @@ my $switch = {
 };
 $switch->{$COMMAND} ? $switch->{$COMMAND}->() : $switch->{'default'}->();
 
-return 1 if caller;
-exit run(@ARGV);
+#return 1 if caller;
+#exit run(@ARGV);
 
