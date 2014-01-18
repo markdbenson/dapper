@@ -9,6 +9,12 @@ use vars '$VERSION';
 use IO::Dir;
 use File::Spec::Functions qw/ canonpath /;
 
+use Template::Liquid;
+use Text::MultiMarkdown 'markdown';
+use HTTP::Server::Brick;
+
+my $DEFAULT_PORT = 8000;
+
 my $option_file = "_dapper.cfg";
 my $project_file = "_project.cfg";
 
@@ -22,7 +28,6 @@ my %h_define;        # definition hash
 my %h_template;      # template hash (value=filename)
 my %h_tpl_content;   # template hash (value=file contents)
 my $def_template;    # holds the default template reference
-my $breadcrumb_home; # this holds the directory that the breadcrumb parser should call 'home'
 my %ignore = ();     # List of files and directories to ignore (i.e. do not copy to output directory
 
 #@dirs = ['_source',
@@ -40,14 +45,7 @@ my $source_index_name = "$source_dir_name/index.txt";
 my $source_index_content = <<'SOURCE_INDEX_CONTENT';
 use default template
 
-[section]home[/section]
-
-[content]
-
 Hello world.
-
-[/content]
-
 SOURCE_INDEX_CONTENT
 
 my $templates_index_name = "$templates_dir_name/index.html";
@@ -55,14 +53,13 @@ my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-  <title>Title -- [$title$]</title>
+  <title>Title</title>
   <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
 </head>
 
 <body>
 
-[$if section==home$]Section: Home<br />[$endif$]
-[$content$]
+{{ content }}
 
 </body>
 </html>
@@ -84,7 +81,6 @@ constant   program_author        mark benson
 constant   project_extension     .html
 
 program    warnings              1
-program    breadcrumb_lookup     1
 
 sstyle     define                [[r]][v][/[r]]
 tstyle     define                [$[r]$]
@@ -241,13 +237,6 @@ define notes
 
 define css
 
-# for now, i've disabled breadcrumbs.  to enable them, comment out the
-# next two lines.  then, start defining translations for directories and
-# files.
-
-#define use_breadcrumbs
-#define home                    Home
-
 ignore \.
 ignore ^_ 
 ignore dapper
@@ -286,8 +275,6 @@ if you don't export anything, such as for a purely object-oriented module.
 
 use Exporter qw(import);
 
-our @EXPORT_OK = qw(run);
-
 our @EXPORT = qw(new build serve $VERSION);
 
 =head1 SUBROUTINES/METHODS
@@ -303,13 +290,6 @@ our @EXPORT = qw(new build serve $VERSION);
 #    $self->{'_created'} = 1;
 #    return $self;
 #}
-
-sub run {
-    #my ($self, @argv) = @_;
-    print "OK";
-    #say { $self->stdout() } ‘Hello there!‘;
-    return 0;
-}
 
 =head2 function2
 
@@ -355,8 +335,8 @@ sub create_dir {
 sub build {
     print "BUILD\n";
     # load program and project configuration
-    read_config();  # loads h_constant, h_program, h_sstyle, and h_tstyle
-    read_project(); # loads h_constant, h_project, h_template, and h_define
+    read_config($option_file);   # loads h_constant, h_program, h_sstyle, and h_tstyle
+    read_project($project_file); # loads h_constant, h_project, h_template, and h_define
 
     # expand symbolic constants
     precompile();
@@ -364,24 +344,28 @@ sub build {
     # replaces the values of h_template with actual content
     read_templates();
 
-    # initialize the breadcrumb parser
-    $breadcrumb_home = $h_project{source}; # set the home directory to the beginning of the source tree
-
     # recurse through the project tree and generate output (combine src with templates)
     rec($h_project{source}, $h_project{output});
 
     # copy additional files and directories
-    copy(".", \%ignore);
+    copy(".", \%ignore, $h_project{output});
 
 }
 
 sub serve {
-    print "SERVE\n";
+    my $port = shift;
+
+    $port = $DEFAULT_PORT unless $port;
+
+    my $s = HTTP::Server::Brick->new(port=>$port);
+    $s->mount("/"=>{path=>"_output"});
+    $s->start
 }
 
 # read_config reads the configuration file and places the values found
 # into the appropriate hash.
 sub read_config {
+  my $option_file = shift;
   my $section   = '';             # holds the section name of the line in focus
   my $reference = '';             # holds the reference name of the line in focus
   my $value     = '';             # holds the value name of the line in focus
@@ -425,6 +409,7 @@ sub read_config {
 # read_project reads the project file and places the values found
 # into the appropriate hash.
 sub read_project {
+  my $project_file = shift;
   my $section   = '';             # holds section name of line in focus
   my $reference = '';             # holds reference name of line in focus
   my $value     = '';             # holds value name of line in focus
@@ -456,7 +441,7 @@ sub read_project {
     if($section eq 'constant')    { $h_constant{$reference} = $value;      $constant_section_count++;   }
     elsif($section eq 'project')  { $h_project{$reference}  = $value;      $project_section_count++;    }
     elsif($section eq 'define')   { $h_define{$reference}   = $value;      $define_section_count++;     }
-    elsif($section eq 'ignore')   { $ignore{$reference} = "";         $ignore_section_count++; }
+    elsif($section eq 'ignore')   { $ignore{$reference}     = "";          $ignore_section_count++;     }
     elsif($section eq 'template') { $h_template{$reference} = $value;      $template_section_count++;
                                     if($template_section_count == 1) { $def_template = $reference; } }
     else { ; } # forgive the offending line
@@ -508,7 +493,7 @@ sub precompile {
       # template content
       #foreach $akey (keys %h_tpl_content) { $h_tpl_content{$akey} =~ s/\$\($ckey\)/$h_constant{$ckey}/g; }
     }
-    if($found == 1) { last; }
+    if($found == 0) { last; }
   }
 }
 
@@ -536,14 +521,11 @@ sub rec {
 
       # print "directory element:$source/$directory_element\n";
       if(-d "$source/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-         rec("$source/$directory_element", "$destination/$directory_element");
+        rec("$source/$directory_element", "$destination/$directory_element");
       }
       elsif(-f "$source/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-        # parse the source string and build a breadcrumb string
-        # print "building breadcrumbs for $source\n";
-        build_breadcrumbs($source);
-
-        combine_source_and_template("$source/$directory_element", "$destination/$directory_element");
+        #combine_source_and_template("$source/$directory_element", "$destination/$directory_element");
+        render("$source/$directory_element", "$destination/$directory_element");
       }
     }
     undef $source_handle;
@@ -554,6 +536,55 @@ sub rec {
   #undef %b_ddm;
 }
 
+sub render {
+    my $source_file_name = shift;
+    my $destination_file_name = shift;
+    my $source_content;
+    my $template_to_use;
+    my $template_content;
+
+    open(SOURCE, "<$source_file_name") or die("could not open source file: $!\n");
+    foreach (<SOURCE>) { $source_content .= $_; }
+
+    if($source_content =~ /^use\s+([a-zA-Z0-9_]+)\s+template/) { $template_to_use = $1; }
+    else { $template_to_use = $def_template; }
+    print "template to be used: $template_to_use\n";
+
+    # Strip off all directives
+    $source_content =~ s/^(use\s+[a-zA-Z0-9_]+\s+template)//;
+
+    # Markdownify
+    $source_content = markdown($source_content);
+    print "HTML: $source_content\n";
+
+    # strip any extension
+    $destination_file_name =~ s#^(.*)\.[a-zA-Z0-9_]*$#$1#;
+
+    print "template_to_use:$template_to_use\n";
+    # print "h_template value:$h_template{$template_to_use}\n";
+    $h_template{$template_to_use} =~ m#^[a-zA-Z0-9_]*(\.[a-zA-Z0-9_]*)$#;
+    my $extension = $1;
+
+    open(DESTINATION, ">$destination_file_name$extension") or die "error: could not open destination file:$destination_file_name$extension:$!\n";
+    open(TEMPLATE, "<$h_project{templates}$h_template{$template_to_use}") or die "could not open template file $h_project{templates}$h_template{$template_to_use}: $!\n";
+
+    foreach (<TEMPLATE>) { $template_content .= $_; }
+    print $template_content;
+
+    # Make sure we have a copy of the template file
+    my $parsed_template = Template::Liquid->parse($template_content);
+
+    # Render the output file using the template and the source
+    my $destination = $parsed_template->render(content => $source_content);
+
+    # Save the output file
+    print(DESTINATION $destination) or die "error: could not print to $destination_file_name$extension: $!\n";
+
+    # close file handles
+    close (SOURCE) or die "error: could not close $source_file_name: $!\n";
+    close(DESTINATION) or die "error: could not close $destination_file_name$extension: $!\n";
+    close (TEMPLATE) or die "error: could not close $h_project{templates}$h_template{$template_to_use}: $!\n";
+}
 
 # loads the macro bins with source-file directives
 sub combine_source_and_template {
@@ -567,8 +598,8 @@ sub combine_source_and_template {
 
   ### BEGIN MDB ADDITIONS
   # load language strings, program and project configuration, and templates
-  read_config();     # loads h_constant, h_program, h_sstyle, and h_tstyle
-  read_project();    # loads h_constant, h_project, h_template, and h_define
+  read_config($option_file);   # loads h_constant, h_program, h_sstyle, and h_tstyle
+  read_project($project_file); # loads h_constant, h_project, h_template, and h_define
 
   # expand symbolic constants
   precompile();
@@ -587,8 +618,7 @@ sub combine_source_and_template {
   # get program directives
   if($file =~ /^use\s+([a-zA-Z0-9_]+)\s+template/) { $template_to_use = $1; }
   else { $template_to_use = $def_template; }
-
-  #print "template to be used: $template_to_use\n";
+  print "template to be used: $template_to_use\n";
 
   foreach $key (keys %h_define) {
     my $temp = $h_sstyle{define};
@@ -734,69 +764,15 @@ sub combine_source_and_template {
   close TEMPLATE or die "error: could not close template: $!\n";
 }
 
-# parse the source directory to create the breadcrumb trail
-sub build_breadcrumbs {
-  my $src = shift;
-  my $breadcrumb_link = '/asd/';
-  my $breadcrumb_string = '';
-  my @token = '';
-  $h_define{breadcrumb} = '';
-
-  # print "build_breadcrumbs got $src\n";
-
-
-  ## strip off the trailing '/' if there is one
-  # $src =~ s#^(.*)\/$#$1#;
-  # print "stripped \/:$src\n";
-
-  # print "breadcrumb_home:$breadcrumb_home\n";
-  # $breadcrumb_home =~ s#([0-9a-zA-Z_:]{1})(\/)([0-9a-zA-Z_:]{1})#$1$2$3#g; # escape backslashes
-  # print "escaped:$breadcrumb_home\n";
-
-  ## rip off the directory that corresponds to the breadcrumb home directory
-  $src =~ s#^$breadcrumb_home\/(.*)$#$1#;
-
-  @token = split(/\//, $src);
-  @token = ('home', @token);
-
-  # print "leftover:$src\n";
-
-  $breadcrumb_string = '<font face=\'arial, helvetica, sans-serif\' size=\'1\' color=\'#cccccc\'>';
-  foreach (@token) {
-    my $breadcrumb_substitute = $_;
-
-    # if the breadcrumb_lookup option is enabled, search through the definition list
-    # for keys that have substitutes.
-    if($h_program{breadcrumb_lookup}) {
-      if($h_define{$breadcrumb_substitute}) {
-        $breadcrumb_substitute = $h_define{$breadcrumb_substitute};
-      }
-    }
-
-    # only prepend the separater if it's not the first time
-    if($_ ne 'home') {
-      $breadcrumb_link .= $_ . '/';
-      $breadcrumb_string .= ' &nbsp;&raquo;&nbsp; ';
-    }
-
-    # don't add the link portion if it's the last link
-    if($token[-1] ne $_) {
-      $breadcrumb_string .= '<a href="' . $breadcrumb_link . '" face=\'arial, helvetica, sans-serif\' size=\'1\' class=\'breadcrumb\'>' . $breadcrumb_substitute . '</a>';
-    } else {
-      $breadcrumb_string .= $breadcrumb_substitute;
-    }
-
-    # save what we have created
-    $h_define{breadcrumb} = $breadcrumb_string;
-  }
-  $breadcrumb_string .= '</font>';
-
-  # print "final:$breadcrumb_string\n";
-}
-
+# copy(sourcdir, ignore, outputdir)
+#
+# This subroutine copies all directories and files from
+# sourcedir into outputdir as long as they do not match
+# what is contained in ignore.
 sub copy {
     my $dir = shift;
     my $ignore = shift;
+    my $output = shift;
 
     opendir(DIR, $dir) or die $!;
 
@@ -805,7 +781,6 @@ sub copy {
             next DIR if ($file =~ m/$key/);
         }
 
-        my $output = $h_project{output};
         $output =~ s/\/$//;
         my $command = "cp -r $file $output";
         print $command . "\n";
