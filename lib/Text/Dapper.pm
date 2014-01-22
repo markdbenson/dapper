@@ -8,16 +8,14 @@ use vars '$VERSION';
 
 use IO::Dir;
 use File::Spec::Functions qw/ canonpath /;
-
 use Template::Liquid;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
 
-my $DEFAULT_PORT = 8000;
-
-my $option_file = "_dapper.cfg";
-my $project_file = "_project.cfg";
-
+# Defaults
+my $DEFAULT_PORT         = 8000;
+my $DEFAULT_OPTION_FILE  = "_dapper.cfg";
+my $DEFAULT_PROJECT_FILE = "_project.cfg";
 
 my %h_constant;      # symbolic constants
 my %h_program;       # program configuration variables
@@ -65,30 +63,6 @@ my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 </html>
 
 TEMPLATES_INDEX_CONTENT
-
-my $dapper_config_name = "_dapper.cfg";
-my $dapper_config_content = <<'DAPPER_CONFIG_CONTENT';
-#-------------------------------------------------------------------------
-# Dapper program configuration file
-# Mark Benson [markbenson@vanilladraft.com]
-#-------------------------------------------------------------------------
-
-constant   program_title         dapper
-constant   program_description   an extensible text preprocessor
-constant   program_revision      0.0.1
-constant   program_author        mark benson
-
-constant   project_extension     .html
-
-program    warnings              1
-
-sstyle     define                [[r]][v][/[r]]
-tstyle     define                [$[r]$]
-
-dapper config content
-define red #ff0000
-
-DAPPER_CONFIG_CONTENT
 
 my $proj_file_template_name = "_project.cfg";
 my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
@@ -275,7 +249,7 @@ if you don't export anything, such as for a purely object-oriented module.
 
 use Exporter qw(import);
 
-our @EXPORT = qw(new build serve $VERSION);
+our @EXPORT = qw($VERSION);
 
 =head1 SUBROUTINES/METHODS
 
@@ -283,37 +257,53 @@ our @EXPORT = qw(new build serve $VERSION);
 
 =cut
 
-#sub new {
-#    my ($class_name) = @_;
-#    my ($self) = {};
-#    bless ($self, $class_name);
-#    $self->{'_created'} = 1;
-#    return $self;
-#}
+sub new {
+    my $class = shift;
+    my $self = {
+        _created     => 1,
+        _source      => shift,
+        _output      => shift,
+        _templates   => shift,
+        _project_cfg => shift,
+    };
+
+    $self->{_source}      = "_source"      unless defined($self->{_source});
+    $self->{_output}      = "_output"      unless defined($self->{_output});
+    $self->{_templates}   = "_templates"   unless defined($self->{_templates});
+    $self->{_project_cfg} = "_project_cfg" unless defined($self->{_project_cfg});
+
+    # Print all the values just for clarification.
+    print "Source:      $self->{_source}\n";
+    print "Output:      $self->{_output}\n";
+    print "Templates:   $self->{_templates}\n";
+    print "Project CFG: $self->{_project_cfg}\n";
+
+    bless $self, $class;
+    return $self;
+}
 
 =head2 function2
 
 =cut
 
-sub new {
-    print "NEW\n";
+sub init {
+    my ($self) = @_;
 
-    create_dir($source_dir_name);
-    create_dir($templates_dir_name);
+    $self->create_file($proj_file_template_name, $proj_file_template_content);
 
-    create_file($source_index_name, $source_index_content);
-    create_file($templates_index_name, $templates_index_content);
+    $self->create_dir($source_dir_name);
+    $self->create_file($source_index_name, $source_index_content);
 
-    create_file($dapper_config_name, $dapper_config_content);
-    create_file($proj_file_template_name, $proj_file_template_content);
+    $self->create_dir($templates_dir_name);
+    $self->create_file($templates_index_name, $templates_index_content);
 
     print "Project initialized.\n";
 }
 
 sub create_file {
-    my ($filename, $content) = @_;
+    my ($self, $filename, $content) = @_;
     $filename = canonpath $filename;
-    die "Invalid number of arguments to create_file" if @_ != 2;
+    die "Invalid number of arguments to create_file" if @_ != 3;
     
     #open(my $fh, '+>:encoding(UTF-8)', $filename)
     open(my $fh, '+>', $filename)
@@ -324,36 +314,37 @@ sub create_file {
 }
 
 sub create_dir {
-    my ($dirname) = @_;
+    my ($self, $dirname) = @_;
     $dirname = canonpath $dirname;
-    die "Invalid number of arguments to create_dir" if @_ != 1;
+    die "Invalid number of arguments to create_dir" if @_ != 2;
 
     mkdir($dirname)
         or die "Could not create directory '$dirname' $!";
 }
 
 sub build {
-    print "BUILD\n";
+    my($self) = @_;
+
     # load program and project configuration
-    read_config($option_file);   # loads h_constant, h_program, h_sstyle, and h_tstyle
-    read_project($project_file); # loads h_constant, h_project, h_template, and h_define
+    $self->read_project(); # loads h_constant, h_project, h_template, and h_define
 
     # expand symbolic constants
-    precompile();
+    $self->precompile();
 
     # replaces the values of h_template with actual content
-    read_templates();
+    $self->read_templates();
 
     # recurse through the project tree and generate output (combine src with templates)
-    rec($h_project{source}, $h_project{output});
+    $self->walk($h_project{source}, $h_project{output});
 
     # copy additional files and directories
-    copy(".", \%ignore, $h_project{output});
+    $self->copy(".", \%ignore, $h_project{output});
 
+    print "Project built.\n";
 }
 
 sub serve {
-    my $port = shift;
+    my($self, $port) = @_;
 
     $port = $DEFAULT_PORT unless $port;
 
@@ -362,54 +353,10 @@ sub serve {
     $s->start
 }
 
-# read_config reads the configuration file and places the values found
-# into the appropriate hash.
-sub read_config {
-  my $option_file = shift;
-  my $section   = '';             # holds the section name of the line in focus
-  my $reference = '';             # holds the reference name of the line in focus
-  my $value     = '';             # holds the value name of the line in focus
-  my $constant_section_count = 0; # number of 'constant' declarations
-  my $program_section_count  = 0; # number of 'program' declarations
-  my $sstyle_section_count   = 0; # number of 'sstyle' declarations
-  my $tstyle_section_count   = 0; # number of 'tstyle' declarations
-
-  open(CONFIG, "<$option_file") or die "error: could not open \"$option_file\": $!\n";
-
-  my $current_line_number;
-  foreach(<CONFIG>) {
-    $current_line_number++;
-
-    s/^\s*(.*)$/$1/;   # strip leading space
-    s/^(.*?)\#.*$/$1/; # strip comments
-    s/^(.*?)\s*$/$1/;  # strip trailing space
-
-    if($_ eq '') { next; } # if nothing left, proceed to next line
-
-    /^\s*([a-zA-Z0-9]+)\s+([a-zA-Z0-9_\.\^]+)\s*(.*)$/
-      or die "warning: regex did not match program configuration line: $current_line_number\n";
-
-    $section = $1;
-    $reference = $2;
-    $value = $3;
-
-    if($section eq 'constant')   { $h_constant{$reference} = $value; $constant_section_count++; }
-    elsif($section eq 'program') { $h_program{$reference}  = $value; $program_section_count++;  }
-    elsif($section eq 'sstyle')  { $h_sstyle{$reference}   = $value; $sstyle_section_count++;   }
-    elsif($section eq 'tstyle')  { $h_tstyle{$reference}   = $value; $tstyle_section_count++;   }
-    else { ; } # forgive the offending line
-  }
-
-  die "error: exactly one \"sstyle define\" must be defined in configuration file\n" unless $sstyle_section_count == 1;
-  die "error: exactly one \"tstyle define\" must be defined in configuration file\n" unless $tstyle_section_count == 1;
-
-  close CONFIG;
-}
-
 # read_project reads the project file and places the values found
 # into the appropriate hash.
 sub read_project {
-  my $project_file = shift;
+  my ($self) = @_;
   my $section   = '';             # holds section name of line in focus
   my $reference = '';             # holds reference name of line in focus
   my $value     = '';             # holds value name of line in focus
@@ -419,7 +366,7 @@ sub read_project {
   my $template_section_count = 0; # number of 'template' declarations
   my $ignore_section_count   = 0; # number of 'ignore' declarations
 
-  open(PROJECT, "<$project_file") or die "error: could not open \"$project_file\": $!\n";
+  open(PROJECT, "<$self->{_project_cfg}") or die "error: could not open \"$self->{_project_cfg}\": $!\n";
 
   my $current_line_number;
   foreach(<PROJECT>) {
@@ -459,14 +406,16 @@ sub read_project {
 
 # read_templates reads the content of the templates specified in the project configuration file.
 sub read_templates {
-  my ($key, $ckey);
+    my ($self) = @_;
+    my ($key, $ckey);
 
-  foreach $key (keys %h_template) {
-    open(TEMPLATE, "<$h_project{templates}$h_template{$key}")
-      or die "error: could not open template: $h_project{templates}$h_template{$key}\n";
-    foreach(<TEMPLATE>) { $h_tpl_content{$key} .= $_; }
-    close TEMPLATE;
-  }
+    foreach $key (keys %h_template) {
+        open(TEMPLATE, "<$h_project{templates}$h_template{$key}")
+            or die "error: could not open template: $h_project{templates}$h_template{$key}\n";
+    
+        foreach(<TEMPLATE>) { $h_tpl_content{$key} .= $_; }
+        close TEMPLATE;
+    }
 }
 
 # expand symbolic constants -- this function uses iteration to continue to expand symbolic constants until
@@ -498,9 +447,8 @@ sub precompile {
 }
 
 # recursive descent
-sub rec {
-  my $source = shift;
-  my $destination = shift;
+sub walk {
+  my ($self, $source, $destination) = @_;
   my $source_handle = new IO::Dir "$source";;
   my $destination_handle = new IO::Dir "$destination";;
   my $directory_element;
@@ -521,11 +469,11 @@ sub rec {
 
       # print "directory element:$source/$directory_element\n";
       if(-d "$source/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-        rec("$source/$directory_element", "$destination/$directory_element");
+        $self->walk("$source/$directory_element", "$destination/$directory_element");
       }
       elsif(-f "$source/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
         #combine_source_and_template("$source/$directory_element", "$destination/$directory_element");
-        render("$source/$directory_element", "$destination/$directory_element");
+        $self->render("$source/$directory_element", "$destination/$directory_element");
       }
     }
     undef $source_handle;
@@ -537,39 +485,38 @@ sub rec {
 }
 
 sub render {
-    my $source_file_name = shift;
-    my $destination_file_name = shift;
+    my ($self, $source_file_name, $destination_file_name) = @_;
     my $source_content;
     my $template_to_use;
     my $template_content;
 
-    open(SOURCE, "<$source_file_name") or die("could not open source file: $!\n");
-    foreach (<SOURCE>) { $source_content .= $_; }
+    $source_content = $self->read_file($source_file_name);
 
-    if($source_content =~ /^use\s+([a-zA-Z0-9_]+)\s+template/) { $template_to_use = $1; }
-    else { $template_to_use = $def_template; }
+    $template_to_use = $self->find_template_statement($source_content);
+    $template_content = $self->read_file("$h_project{templates}$h_template{$template_to_use}");
     print "template to be used: $template_to_use\n";
+    print "template content: $template_content\n";
 
-    # Strip off all directives
-    $source_content =~ s/^(use\s+[a-zA-Z0-9_]+\s+template)//;
+    print "\nsource content before template statements stripped\n";
+    print $source_content;
+    $source_content = $self->filter_template_statements($source_content);
+    print "\nsource content after template statements stripped\n";
+    print $source_content;
 
     # Markdownify
     $source_content = markdown($source_content);
-    print "HTML: $source_content\n";
+    print "source content after being markdownified\n";
+    print $source_content;
 
-    # strip any extension
-    $destination_file_name =~ s#^(.*)\.[a-zA-Z0-9_]*$#$1#;
-
-    print "template_to_use:$template_to_use\n";
-    # print "h_template value:$h_template{$template_to_use}\n";
-    $h_template{$template_to_use} =~ m#^[a-zA-Z0-9_]*(\.[a-zA-Z0-9_]*)$#;
-    my $extension = $1;
-
-    open(DESTINATION, ">$destination_file_name$extension") or die "error: could not open destination file:$destination_file_name$extension:$!\n";
-    open(TEMPLATE, "<$h_project{templates}$h_template{$template_to_use}") or die "could not open template file $h_project{templates}$h_template{$template_to_use}: $!\n";
-
-    foreach (<TEMPLATE>) { $template_content .= $_; }
-    print $template_content;
+    # Construct destination file name, which is a combination
+    # of the stem of the source file and the extension of the template.
+    # Example:
+    #   - Source: index.md
+    #   - Template: layout.html
+    #   - Destination: index.html
+    my $stem = $self->filter_stem($destination_file_name);
+    my $ext  = $self->filter_extension($h_template{$template_to_use});
+    $destination_file_name = "$stem$ext";
 
     # Make sure we have a copy of the template file
     my $parsed_template = Template::Liquid->parse($template_content);
@@ -578,201 +525,77 @@ sub render {
     my $destination = $parsed_template->render(content => $source_content);
 
     # Save the output file
-    print(DESTINATION $destination) or die "error: could not print to $destination_file_name$extension: $!\n";
-
-    # close file handles
-    close (SOURCE) or die "error: could not close $source_file_name: $!\n";
-    close(DESTINATION) or die "error: could not close $destination_file_name$extension: $!\n";
-    close (TEMPLATE) or die "error: could not close $h_project{templates}$h_template{$template_to_use}: $!\n";
+    open(DESTINATION, ">$destination_file_name") or die "error: could not open destination file:$destination_file_name: $!\n";
+    print(DESTINATION $destination) or die "error: could not print to $destination_file_name: $!\n";
+    close(DESTINATION) or die "error: could not close $destination_file_name: $!\n";
 }
 
-# loads the macro bins with source-file directives
-sub combine_source_and_template {
-  my $source = shift;
-  my $destination = shift;
-  my $file;
-  my $template_to_use;
-  my ($key, $ckey);
-  my $extension;
-  my ($if_tag, $endif_tag);
+# Takes a file name and returns a string of the contents
+sub read_file {
+  my ($self, $file_name) = @_;
+    my $file_contents;
 
-  ### BEGIN MDB ADDITIONS
-  # load language strings, program and project configuration, and templates
-  read_config($option_file);   # loads h_constant, h_program, h_sstyle, and h_tstyle
-  read_project($project_file); # loads h_constant, h_project, h_template, and h_define
+    open(FILE, "<$file_name") or die("could not open file: $!\n");
+    foreach (<FILE>) { $file_contents .= $_; }
+    close(FILE) or die("could not close file: $!\n");
 
-  # expand symbolic constants
-  precompile();
-  # replaces the values of h_template with actual content
-  read_templates();
-  ### END MDB ADDITIONS
-
-  #print "received:src:$source:\n";
-  #print "received:dst:$destination:\n";
-
-  open(SOURCE, "<$source") or die("could not open source file: $!\n");
-
-  foreach (<SOURCE>) { $file .= $_; }
-  foreach $ckey (keys %h_constant) { $file =~ s/\$\($ckey\)/$h_constant{$ckey}/g; }
-
-  # get program directives
-  if($file =~ /^use\s+([a-zA-Z0-9_]+)\s+template/) { $template_to_use = $1; }
-  else { $template_to_use = $def_template; }
-  print "template to be used: $template_to_use\n";
-
-  foreach $key (keys %h_define) {
-    my $temp = $h_sstyle{define};
-
-    # replace '[r]' with the reference to look for
-    $temp =~ s/\[r\]/$key/g;
-
-    # get the start and end tag
-    $temp =~ /^(.*)\[v\](.*)$/;
-    my $mlb = $1;
-    my $mle = $2;
-    # print "starting tag: $mlb\n";
-    # print "end tag: $mle\n";
-
-    # escape non-words
-    $mlb =~ s/([^a-zA-Z0-9_\.\*\(\)\|\?]{1})/\\$1/g;
-    $mle =~ s/([^a-zA-Z0-9_\.\*\(\)\|\?]{1})/\\$1/g;
-
-    # try and get a match
-    if($file =~ m/($mlb)(.*?)($mle)/s) {
-      my $res = $2;
-      $res =~ s/^\s*//; # strip leading space
-      $res =~ s/\s*$//; # strip trailing space
-
-      # print "found match between $mlb and $mle\n";
-      # print "content is:$res:\n";
-
-      $h_define{$key} = $res;
-    }
-
-    else {
-      # print "didn't find match for $mlb$mle\n";
-      # print "using default value of :$h_define{$key} instead\n";
-    }
-  }
-  close SOURCE;
-
-  $file = '';
-
-  # strip any extension
-  $destination =~ s#^(.*)\.[a-zA-Z0-9_]*$#$1#;
-
-  # print "template_to_use:$template_to_use\n";
-  # print "h_template value:$h_template{$template_to_use}\n";
-  $h_template{$template_to_use} =~ m#^[a-zA-Z0-9_]*(\.[a-zA-Z0-9_]*)$#;
-  $extension = $1;
-
-  open(DESTINATION, ">$destination$extension") or die "error: could not open destination file:$destination$extension:$!\n";
-  open(TEMPLATE, "<$h_project{templates}$h_template{$template_to_use}") or die "could not open template file $h_project{templates}$h_template{$template_to_use}: $!\n";
-
-  foreach (<TEMPLATE>) { $file .= $_; }
-  foreach $ckey (keys %h_constant) { $file =~ s/\$\($ckey\)/$h_constant{$ckey}/g; }
-
-  my $none;
-  while(1) {
-    $none = 1;
-    foreach $key (keys %h_define) {
-      my $temp = $h_tstyle{define};
-
-      # replace '[r]' with the reference to look for
-      $temp =~ s/\[r\]/$key/g;
-
-      # construct an if tag [$if tag$]
-      $if_tag = $temp;
-      $if_tag =~ s#^(.*)($key)(.*)$#$1if\ $2(=|!)=(\.\*?)$3#;
-
-      # construct an endif tag [$endif$]
-      my $temp2 = $h_tstyle{define};
-      # replace '[r]' with endif
-      $temp2 =~ s/\[r\]/endif/g;
-      $endif_tag = $temp2;
-
-      # escape non-words
-      $temp      =~ s/([^a-zA-Z0-9_\.\*\(\)\|\?]{1})/\\$1/g;
-      $if_tag    =~ s/([^a-zA-Z0-9_\.\*\(\)\|\?]{1})/\\$1/g;
-      $endif_tag =~ s/([^a-zA-Z0-9_\.\*\(\)\|\?]{1})/\\$1/g;
-
-      # print "if:$if_tag\n";
-      # print "endif:$endif_tag\n";
-
-      # process conditional statements
-      my $test_value;
-      my $conditional_content;
-      my $working;
-      my $logic;
-      while(1) {
-        $working = $file;
-        if($working =~ m/$if_tag(.*?)$endif_tag/s) {
-          $logic = $1;
-          $test_value = $2;
-          $conditional_content = $3;
-          # print "test value:$test_value\n";
-          # print "cond cont:$conditional_content\n";
-          if((($h_define{$key} eq $test_value) and ($logic eq '=')) or
-             (($h_define{$key} ne $test_value) and ($logic eq '!'))) {
-            # simply strip out the if and endif tags
-            $working =~ s/$if_tag(.*?)$endif_tag/$3/s;
-            $none = 0;
-          } else {
-            # rip out the conditional crap
-            $working =~ s/$if_tag(.*?)$endif_tag//s;
-            $none = 0;
-            # print "stripped out $if_tag$2$endif_tag\n";
-          }
-          $file = $working;
-        } else {
-          last;
-        }
-      }
-
-      # replace occurances of definitions with their values
-      while(1) {
-        $_ = $file;
-        # print "temp is: $temp\n";
-        if(/($temp)/) {
-          s/($temp)/$h_define{$key}/g;
-          $file = $_;
-          $none = 0;
-          #print "replaced $temp with $h_define{$key}\n";
-        }
-        else {
-          last;
-        }
-      }
-    }
-    if($none) { last; }
-  }
-
-  # construct the generic tag and see if we've skipped over any tags
-  my $gen_tag = $h_tstyle{define};
-  $gen_tag =~ s/\[r\]/\.\*\?/g;
-  $gen_tag =~ s/([^a-zA-Z0-9_\.\*\(\)\|\?]{1})/\\$1/g;
-
-  if($file =~ /($gen_tag)/) {
-    print "found a tag ($1) in the template $h_template{$template_to_use} that doesn't have a definition in the source file ($source).\n";
-  }
-
-
-  print(DESTINATION $file) or die "error: could not print to $file: $!\n";
-  close(DESTINATION) or die "error: could not close $destination$extension: $!\n";
-  #print "printed to $file\n";
-
-  close TEMPLATE or die "error: could not close template: $!\n";
+    return $file_contents;
 }
 
+# Takes a string, replaces all occurrances of defined constants and returns the modified string.
+sub replace_constants {
+    my ($self, $string) = @_;
+
+    foreach my $ckey (keys %h_constant) { $string =~ s/\$\($ckey\)/$h_constant{$ckey}/g; }
+
+    return $string;
+}
+
+# Takes a string, returns <template> part of the first "use <template> template" line.
+sub find_template_statement {
+    my ($self, $string) = @_;
+
+    if($string =~ /^use\s+([a-zA-Z0-9_]+)\s+template/) { return $1; }
+    
+    return $def_template;
+}
+
+# Takes a string, removes all "use <template> template" statements and returns what's left.
+sub filter_template_statements {
+    my ($self, $string) = @_;
+
+    $string =~ s/^(use\s+[a-zA-Z0-9_]+\s+template)//g;
+    
+    return $string;
+}
+
+sub filter_extension {
+    my ($self, $filename) = @_;
+
+    my ($ext) = $filename =~ /(\.[^.]+)$/;
+   
+    return $ext;
+}
+
+sub filter_stem {
+    my ($self, $filename) = @_;
+    
+    print "filter_stem before: $filename\n";
+
+    (my $stem = $filename) =~ s/\.[^.]+$//;
+
+    print "filter_stem after: $filename\n";
+
+    return $stem;
+}
+ 
 # copy(sourcdir, ignore, outputdir)
 #
 # This subroutine copies all directories and files from
 # sourcedir into outputdir as long as they do not match
 # what is contained in ignore.
 sub copy {
-    my $dir = shift;
-    my $ignore = shift;
-    my $output = shift;
+    my ($self, $dir, $ignore, $output) = @_;
 
     opendir(DIR, $dir) or die $!;
 

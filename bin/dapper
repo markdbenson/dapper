@@ -11,7 +11,7 @@ use lib "$FindBin::Bin/../lib";
 
 use Pod::Usage;
 use Getopt::Mixed;
-use Text::Dapper qw< new >;
+use Text::Dapper;
 
 my $PORT = 8000;
 
@@ -32,7 +32,7 @@ my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $HELP, $VERSION ) =
 
 =item dapper -t <dir> # Templates dir name (default: _templates)
 
-=item dapper new      # Create new skeleton project
+=item dapper init     # Create new skeleton project
 
 =item dapper build    # Build site
 
@@ -41,16 +41,22 @@ my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $HELP, $VERSION ) =
 =back
 =cut
 
-sub newish {
-    Text::Dapper::new();
+sub init {
+    my $d = new Text::Dapper("_source", "_output", "_templates", "_project.cfg");
+    $d->init();
+    #Text::Dapper::init();
 }
 
 sub build {
-    Text::Dapper::build();
+    my $d = new Text::Dapper("_source", "_output", "_templates", "_project.cfg");
+    $d->build();
+    #Text::Dapper::build();
 }
 
 sub serve {
-    Text::Dapper::serve($PORT);
+    my $d = new Text::Dapper("_source", "_output", "_templates", "_project.cfg");
+    $d->serve($PORT);
+    #Text::Dapper::serve($PORT);
 }
 
 sub help() {
@@ -85,7 +91,7 @@ $COMMAND = $ARGV[0];
 $COMMAND = "help" if not $COMMAND;
 
 my $switch = {
-  'new'     => sub { newish() },
+  'init'    => sub { init() },
   'build'   => sub { build() },
   'serve'   => sub { serve() },
   'default' => sub { help(); }
@@ -94,4 +100,5 @@ $switch->{$COMMAND} ? $switch->{$COMMAND}->() : $switch->{'default'}->();
 
 #return 1 if caller;
 #exit run(@ARGV);
+1;
 
