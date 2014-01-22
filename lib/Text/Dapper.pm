@@ -7,55 +7,15 @@ use warnings FATAL => 'all';
 use vars '$VERSION';
 
 use IO::Dir;
-use File::Spec::Functions qw/ canonpath /;
 use Template::Liquid;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
 use YAML qw(LoadFile Dump);
 
+use Text::Dapper::Init;
+use Text::Dapper::Utils;
+
 my $DEFAULT_PORT   = 8000;
-my $DEFAULT_LAYOUT = "index";
-
-my $source_dir_name = "_source";
-my $templates_dir_name = "_layout";
-
-my $source_index_name = "$source_dir_name/index.md";
-my $source_index_content = <<'SOURCE_INDEX_CONTENT';
-use index template
-
-Hello world.
-SOURCE_INDEX_CONTENT
-
-my $templates_index_name = "$templates_dir_name/index.html";
-my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-  <title>Title</title>
-  <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
-</head>
-
-<body>
-
-{{ content }}
-
-</body>
-</html>
-
-TEMPLATES_INDEX_CONTENT
-
-my $proj_file_template_name = "_config.yml";
-my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
----
-source : _source/
-output : _output/
-layout : _layout/
-ignore :
-    - "\."
-    - "^_"
-    - "dapper"
-
-PROJ_FILE_TEMPLATE
 
 =head1 NAME
 
@@ -129,37 +89,9 @@ sub new {
 sub init {
     my ($self) = @_;
 
-    $self->create_file($proj_file_template_name, $proj_file_template_content);
-
-    $self->create_dir($source_dir_name);
-    $self->create_file($source_index_name, $source_index_content);
-
-    $self->create_dir($templates_dir_name);
-    $self->create_file($templates_index_name, $templates_index_content);
+    Text::Dapper::Init::init();
 
     print "Project initialized.\n";
-}
-
-sub create_file {
-    my ($self, $filename, $content) = @_;
-    $filename = canonpath $filename;
-    die "Invalid number of arguments to create_file" if @_ != 3;
-    
-    #open(my $fh, '+>:encoding(UTF-8)', $filename)
-    open(my $fh, '+>', $filename)
-        or die "Could not open file '$filename' $!";
-
-    print $fh $content;
-    close $fh;
-}
-
-sub create_dir {
-    my ($self, $dirname) = @_;
-    $dirname = canonpath $dirname;
-    die "Invalid number of arguments to create_dir" if @_ != 2;
-
-    mkdir($dirname)
-        or die "Could not create directory '$dirname' $!";
 }
 
 sub build {
@@ -212,9 +144,9 @@ sub read_templates {
     my @files = sort(grep(!/^(\.|\.\.)$/, readdir(DIR)));
 
     for my $file (@files) {
-        my $stem = $self->filter_stem($file);
+        my $stem = Text::Dapper::Utils::filter_stem($file);
         $file = $self->{_layout} . "/" . $file;
-        $self->{_layout_content}->{$stem} = $self->read_file($file);
+        $self->{_layout_content}->{$stem} = Text::Dapper::Utils::read_file($file);
         #print "$stem layout content:\n";
         #print $self->{_layout_content}->{$stem};
     }
@@ -264,14 +196,14 @@ sub render {
     my $template_to_use;
     my $template_content;
 
-    $source_content = $self->read_file($source_file_name);
+    $source_content = Text::Dapper::Utils::read_file($source_file_name);
 
-    $template_to_use = $self->find_template_statement($source_content);
+    $template_to_use = Text::Dapper::Utils::find_template_statement($source_content);
     #print "template to be used: $template_to_use\n";
     $template_content = $self->{_layout_content}->{$template_to_use};
     #print "template content: $template_content\n";
 
-    $source_content = $self->filter_template_statements($source_content);
+    $source_content = Text::Dapper::Utils::filter_template_statements($source_content);
 
     # Markdownify
     $source_content = markdown($source_content);
@@ -282,7 +214,7 @@ sub render {
     #   - Source: index.md
     #   - Template: layout.html
     #   - Destination: index.html
-    my $stem = $self->filter_stem($destination_file_name);
+    my $stem = Text::Dapper::Utils::filter_stem($destination_file_name);
     my $ext  = ".html";
     $destination_file_name = "$stem$ext";
 
@@ -298,54 +230,6 @@ sub render {
     close(DESTINATION) or die "error: could not close $destination_file_name: $!\n";
 }
 
-# Takes a file name and returns a string of the contents
-sub read_file {
-  my ($self, $file_name) = @_;
-    my $file_contents;
-
-    open(FILE, "<$file_name") or die("could not open file: $!\n");
-    foreach (<FILE>) { $file_contents .= $_; }
-    close(FILE) or die("could not close file: $!\n");
-
-    return $file_contents;
-}
-
-# Takes a string, returns <template> part of the first "use <template> template" line.
-sub find_template_statement {
-    my ($self, $string) = @_;
-
-    if($string =~ /^use\s+([a-zA-Z0-9_]+)\s+template/) { return $1; }
-    
-    return $DEFAULT_LAYOUT;
-}
-
-# Takes a string, removes all "use <template> template" statements and returns what's left.
-sub filter_template_statements {
-    my ($self, $string) = @_;
-
-    $string =~ s/^(use\s+[a-zA-Z0-9_]+\s+template)//g;
-    
-    return $string;
-}
-
-sub filter_extension {
-    my ($self, $filename) = @_;
-    $filename = canonpath $filename;
-
-    my ($ext) = $filename =~ /(\.[^.]+)$/;
-   
-    return $ext;
-}
-
-sub filter_stem {
-    my ($self, $filename) = @_;
-    $filename = canonpath $filename;
-    
-    (my $stem = $filename) =~ s/\.[^.]+$//;
-
-    return $stem;
-}
- 
 # copy(sourcdir, outputdir)
 #
 # This subroutine copies all directories and files from
