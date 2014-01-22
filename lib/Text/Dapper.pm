@@ -11,37 +11,17 @@ use File::Spec::Functions qw/ canonpath /;
 use Template::Liquid;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
+use YAML qw(LoadFile Dump);
 
-# Defaults
-my $DEFAULT_PORT         = 8000;
-my $DEFAULT_OPTION_FILE  = "_dapper.cfg";
-my $DEFAULT_PROJECT_FILE = "_project.cfg";
-
-my %h_constant;      # symbolic constants
-my %h_program;       # program configuration variables
-my %h_sstyle;        # source tag style
-my %h_tstyle;        # template tag style
-my %h_project;       # project settings hash
-my %h_define;        # definition hash
-my %h_template;      # template hash (value=filename)
-my %h_tpl_content;   # template hash (value=file contents)
-my $def_template;    # holds the default template reference
-my %ignore = ();     # List of files and directories to ignore (i.e. do not copy to output directory
-
-#@dirs = ['_source',
-#         '_templates'];
-#
-#%files = ('_dapper.cfg', \$dapper_config_content,
-#          '_project.cfg', \$project_file_template_content,
-#          '_source/index.txt', \$source_index_content,
-#          '_templates/index.html', \$templates_index_content);
+my $DEFAULT_PORT   = 8000;
+my $DEFAULT_LAYOUT = "index";
 
 my $source_dir_name = "_source";
-my $templates_dir_name = "_templates";
+my $templates_dir_name = "_layout";
 
-my $source_index_name = "$source_dir_name/index.txt";
+my $source_index_name = "$source_dir_name/index.md";
 my $source_index_content = <<'SOURCE_INDEX_CONTENT';
-use default template
+use index template
 
 Hello world.
 SOURCE_INDEX_CONTENT
@@ -64,156 +44,16 @@ my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 
 TEMPLATES_INDEX_CONTENT
 
-my $proj_file_template_name = "_project.cfg";
+my $proj_file_template_name = "_config.yml";
 my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
-# Dapper project config file
-#
-# This is a configuration file to use with dapper.pl. Since I haven't
-# written documentation for dapper yet,  you're probably best off just
-# modifying the contents of this file or asking me how dapper works.
-#
-# Each line in this file is a directive. Here are the types of directives
-# that dapper understands.
-#
-# constant:
-#    These are similar to symbolic constants in c and c++. This is best
-#    described using an example.  If you specify a constant like
-#    "constant name billy", then dapper will convert "my name is $(name)"
-#    to "my name is billy".
-#
-# project:
-#    There are only three of these and they must exist in every dapper
-#    configuration file.  the "project source <path>" and "project template
-#    <path>" directives specify where the source files, and templates are
-#    located, respectively.  "project output <path>" is the path for which
-#    to place the output (compiled) files.  The directory structure in the
-#    output directory will mirror the directory structure in the source
-#    directory.
-#
-# template:
-#    This directive which takes the form "template <name> <filename>"
-#    defines the names of template files located in the template directory
-#    described above that can be used in the project.  Each source file
-#    uses the template that appears first in this file which is assumed
-#    to be the default template.  If a source file needs to use a different
-#    template, a directive is placed in the source file like "use <name>
-#    template". At least one template must be defined in this file.
-#
-# define:
-#    These directives make up the heart of dapper and tell it groupings of
-#    text that should be replaced in templates.  Example:  if you define
-#    "define StartBold <b>" and "define EndBold </b>" in this file, then
-#    a template (or source) file that contains the line:
-#    "my [$StartBold$]name[$EndBold$] is billy" will be changed to
-#    "my <b>name</b> is billy".  As you can see, "define" directives contain
-#    three parts: the directive ("define"), a reference name ("StartBold"),
-#    and the value ("<b>").  If the third parameter is left out, then it
-#    is taken to be an exmpty string.  Source files can re-define "define"
-#    directives by containing lines like "[StartBold]<em>[/StartBold]" which
-#    acts as an override to the definition in this file.  This is really the
-#    heart of how dapper works.  Source files define pieces of text, and
-#    templates embed that text into a structure (layout).  See the examples
-#    in this project for more information.
-#
-# ignore:
-#    This directory specifies file or directory names that should not be
-#    transformed or copied.  This is useful for things like SrcSafe status
-#    files.  Example: "ignore vssver.scc".
-
-# This constant is defined so that it's easier to create different layout
-# variations.
-
-constant revision
-
-# this definition allows me to display a string to indicate which version
-# of the configurator that these docs are meant to go along with.
-
-define build 0.9.8
-
-# these lines are the three core lines that dapper must have to operate.
-
-project source    _source/
-project output    _output/$(revision)
-project templates _templates/$(revision)
-
-# these are the templates used in the site. to use a template, it must
-# appear here.
-
-template default index.html   # default
-
-# this special definition is used to let source files declare where they
-# are located in relation to the root output directory.  i added this in so
-# that i could create a documentation set that's all based off of relative
-# associations.
-
-define relative_doc_root 
-
-# define some font attributes.  i still need to add defs for stylesheet
-# stuff.
-
-define font_face verdana, arial, helvetica, sans-serif
-define font_size 1
-
-# this is where all the colors on the page are defined.  the primary color
-# is the main background color.  the secondary color is an additional color
-# (also a background color) that interacts with the primary background
-# color.  the highlight color usually only appears 1-3 times on the page to
-# attract the eye, or give the design stability.
-#
-# also defined here are font colors, link colors, and the color to be used
-# in horizontal rules.
-
-define color_primary   eeeeee
-define color_secondary ffffff
-define color_highlight 666666
-define color_link      000033
-define color_link_inv  ffffff
-define color_font      333333
-define color_font_inv  ffffff # used for the build text
-define color_hr        999999
-
-# some definitions for horizontal rules.  color information defined above.
-
-define hr_size       1
-define hr_width      100%
-define hr_pre_space  10
-define hr_post_space 10
-define hr <table cellspacing="0" cellpadding="0" width="[$hr_width$]"><tr><td><img src="images/spacer.gif" height="[$hr_pre_space$]" border="0" alt=""></td></tr><tr><td bgcolor="[$color_hr$]"><img src="images/spacer.gif" height="[$hr_size$]" border="0" alt=""></td></tr><tr><td><img src="images/spacer.gif" height="[$hr_post_space$]" border="0" alt=""></td></tr></table>
-
-# used in the 'examples' section
-
-define bullet <b>&raquo;</b>&nbsp;
-
-# this special definition declares how many pixels high the main body of the
-# page is.  if the text gets longer, the browser will expand vertically.
-# if the text is shorter, the page will not get smaller than this amount.
-
-define content_min_height 250
-
-# these are the basic definitions that are used throughout the project. a
-# definition must appear here in order for it to be used in a template.
-
-define title      My new site
-define content
-define section    # lets source files control which nav button is highlighted
-define footer_nav # used for introduction tutorial navigation
-
-# this definitions are used mainly in the tag reference section.  each tag
-# should use most of these.
-
-define head
-define example
-define description
-define attributes
-define notes
-
-# special definition used to define an entire stylesheet.
-
-define css
-
-ignore \.
-ignore ^_ 
-ignore dapper
+---
+source : _source/
+output : _output/
+layout : _layout/
+ignore :
+    - "\."
+    - "^_"
+    - "dapper"
 
 PROJ_FILE_TEMPLATE
 
@@ -260,23 +100,23 @@ our @EXPORT = qw($VERSION);
 sub new {
     my $class = shift;
     my $self = {
-        _created     => 1,
-        _source      => shift,
-        _output      => shift,
-        _templates   => shift,
-        _project_cfg => shift,
+        _created=> 1,
+        _source => shift,
+        _output => shift,
+        _layout => shift,
+        _config => shift,
     };
 
-    $self->{_source}      = "_source"      unless defined($self->{_source});
-    $self->{_output}      = "_output"      unless defined($self->{_output});
-    $self->{_templates}   = "_templates"   unless defined($self->{_templates});
-    $self->{_project_cfg} = "_project_cfg" unless defined($self->{_project_cfg});
+    $self->{_source} = "_source" unless defined($self->{_source});
+    $self->{_output} = "_output" unless defined($self->{_output});
+    $self->{_layout} = "_layout" unless defined($self->{_layout});
+    $self->{_config} = "_config" unless defined($self->{_config});
 
     # Print all the values just for clarification.
-    print "Source:      $self->{_source}\n";
-    print "Output:      $self->{_output}\n";
-    print "Templates:   $self->{_templates}\n";
-    print "Project CFG: $self->{_project_cfg}\n";
+    #print "Source: $self->{_source}\n";
+    #print "Output: $self->{_output}\n";
+    #print "Layout: $self->{_layout}\n";
+    #print "Config: $self->{_config}\n";
 
     bless $self, $class;
     return $self;
@@ -326,19 +166,16 @@ sub build {
     my($self) = @_;
 
     # load program and project configuration
-    $self->read_project(); # loads h_constant, h_project, h_template, and h_define
-
-    # expand symbolic constants
-    $self->precompile();
+    $self->read_project();
 
     # replaces the values of h_template with actual content
     $self->read_templates();
 
     # recurse through the project tree and generate output (combine src with templates)
-    $self->walk($h_project{source}, $h_project{output});
+    $self->walk($self->{_source}, $self->{_output});
 
     # copy additional files and directories
-    $self->copy(".", \%ignore, $h_project{output});
+    $self->copy(".", $self->{_output});
 
     print "Project built.\n";
 }
@@ -356,52 +193,14 @@ sub serve {
 # read_project reads the project file and places the values found
 # into the appropriate hash.
 sub read_project {
-  my ($self) = @_;
-  my $section   = '';             # holds section name of line in focus
-  my $reference = '';             # holds reference name of line in focus
-  my $value     = '';             # holds value name of line in focus
-  my $constant_section_count = 0; # number of 'constant' declarations
-  my $project_section_count  = 0; # number of 'project' declarations
-  my $define_section_count   = 0; # number of 'define' declarations
-  my $template_section_count = 0; # number of 'template' declarations
-  my $ignore_section_count   = 0; # number of 'ignore' declarations
+    my ($self) = @_;
+    $self->{_settings} = LoadFile($self->{_config}) or die "error: could not load \"$self->{_config}\": $!\n";
 
-  open(PROJECT, "<$self->{_project_cfg}") or die "error: could not open \"$self->{_project_cfg}\": $!\n";
+    die "error: \"source\" must be defined in project file\n" unless defined $self->{_source};
+    die "error: \"output\" must be defined in project file\n" unless defined $self->{_output};
+    die "error: \"layout\" must be defined in project file\n" unless defined $self->{_layout};
 
-  my $current_line_number;
-  foreach(<PROJECT>) {
-    $current_line_number++;
-
-    s/^\s*(.*)$/$1/;   # strip leading space
-    s/^(.*?)\#.*$/$1/; # strip comments
-    s/^(.*?)\s*$/$1/;  # strip trailing space
-
-    if($_ eq '') { next; } # if nothing left, proceed to next line
-
-    /^\s*([a-zA-Z0-9]+)\s+([a-zA-Z0-9_\.\^\\]+)\s*(.*)$/
-      or warn "warning: regex did not match project configuration line ($_): $current_line_number\n";
-
-    $section = $1;
-    $reference = $2;
-    $value = $3;
-
-    if($section eq 'constant')    { $h_constant{$reference} = $value;      $constant_section_count++;   }
-    elsif($section eq 'project')  { $h_project{$reference}  = $value;      $project_section_count++;    }
-    elsif($section eq 'define')   { $h_define{$reference}   = $value;      $define_section_count++;     }
-    elsif($section eq 'ignore')   { $ignore{$reference}     = "";          $ignore_section_count++;     }
-    elsif($section eq 'template') { $h_template{$reference} = $value;      $template_section_count++;
-                                    if($template_section_count == 1) { $def_template = $reference; } }
-    else { ; } # forgive the offending line
-  }
-
-  die "error: \"project source\" must be defined in project file\n"    unless defined $h_project{source};
-  die "error: \"project output\" must be defined in project file\n"    unless defined $h_project{output};
-  die "error: \"project templates\" must be defined in project file\n" unless defined $h_project{templates};
-
-  die "error: at least one \"define\" must appear in project file\n"   unless $define_section_count;
-  die "error: at least one \"template\" must appear in project file\n" unless $template_section_count;
-
-  close PROJECT;
+    #print Dump($self->{_settings});
 }
 
 # read_templates reads the content of the templates specified in the project configuration file.
@@ -409,41 +208,16 @@ sub read_templates {
     my ($self) = @_;
     my ($key, $ckey);
 
-    foreach $key (keys %h_template) {
-        open(TEMPLATE, "<$h_project{templates}$h_template{$key}")
-            or die "error: could not open template: $h_project{templates}$h_template{$key}\n";
-    
-        foreach(<TEMPLATE>) { $h_tpl_content{$key} .= $_; }
-        close TEMPLATE;
+    opendir(DIR, $self->{_layout}) or die $!;
+    my @files = sort(grep(!/^(\.|\.\.)$/, readdir(DIR)));
+
+    for my $file (@files) {
+        my $stem = $self->filter_stem($file);
+        $file = $self->{_layout} . "/" . $file;
+        $self->{_layout_content}->{$stem} = $self->read_file($file);
+        #print "$stem layout content:\n";
+        #print $self->{_layout_content}->{$stem};
     }
-}
-
-# expand symbolic constants -- this function uses iteration to continue to expand symbolic constants until
-# they are all resolved.
-sub precompile {
-  my ($akey, $ckey, $found);
-
-  while(1) {
-    $found = 0;
-    foreach $ckey (keys %h_constant) {
-      # program configuration
-      foreach $akey (keys %h_program)  { if($h_program{$akey}  =~ s/\$\($ckey\)/$h_constant{$ckey}/g) { $found = 1; } }
-      foreach $akey (keys %h_sstyle)   { if($h_sstyle{$akey}   =~ s/\$\($ckey\)/$h_constant{$ckey}/g) { $found = 1; } }
-      foreach $akey (keys %h_tstyle)   { if($h_tstyle{$akey}   =~ s/\$\($ckey\)/$h_constant{$ckey}/g) { $found = 1; } }
-
-      # project configuration
-      foreach $akey (keys %h_project)  { if($h_project{$akey}  =~ s/\$\($ckey\)/$h_constant{$ckey}/g) { $found = 1; } }
-      foreach $akey (keys %h_template) { if($h_template{$akey} =~ s/\$\($ckey\)/$h_constant{$ckey}/g) { $found = 1; } }
-      foreach $akey (keys %h_define)   { if($h_define{$akey}   =~ s/\$\($ckey\)/$h_constant{$ckey}/g) { $found = 1; } }
-
-      # constants
-      foreach $akey (keys %h_constant) { if($h_constant{$akey} =~ s/\$\($ckey\)/$h_constant{$ckey}/g) { $found = 1; } }
-
-      # template content
-      #foreach $akey (keys %h_tpl_content) { $h_tpl_content{$akey} =~ s/\$\($ckey\)/$h_constant{$ckey}/g; }
-    }
-    if($found == 0) { last; }
-  }
 }
 
 # recursive descent
@@ -493,20 +267,14 @@ sub render {
     $source_content = $self->read_file($source_file_name);
 
     $template_to_use = $self->find_template_statement($source_content);
-    $template_content = $self->read_file("$h_project{templates}$h_template{$template_to_use}");
-    print "template to be used: $template_to_use\n";
-    print "template content: $template_content\n";
+    #print "template to be used: $template_to_use\n";
+    $template_content = $self->{_layout_content}->{$template_to_use};
+    #print "template content: $template_content\n";
 
-    print "\nsource content before template statements stripped\n";
-    print $source_content;
     $source_content = $self->filter_template_statements($source_content);
-    print "\nsource content after template statements stripped\n";
-    print $source_content;
 
     # Markdownify
     $source_content = markdown($source_content);
-    print "source content after being markdownified\n";
-    print $source_content;
 
     # Construct destination file name, which is a combination
     # of the stem of the source file and the extension of the template.
@@ -515,7 +283,7 @@ sub render {
     #   - Template: layout.html
     #   - Destination: index.html
     my $stem = $self->filter_stem($destination_file_name);
-    my $ext  = $self->filter_extension($h_template{$template_to_use});
+    my $ext  = ".html";
     $destination_file_name = "$stem$ext";
 
     # Make sure we have a copy of the template file
@@ -542,22 +310,13 @@ sub read_file {
     return $file_contents;
 }
 
-# Takes a string, replaces all occurrances of defined constants and returns the modified string.
-sub replace_constants {
-    my ($self, $string) = @_;
-
-    foreach my $ckey (keys %h_constant) { $string =~ s/\$\($ckey\)/$h_constant{$ckey}/g; }
-
-    return $string;
-}
-
 # Takes a string, returns <template> part of the first "use <template> template" line.
 sub find_template_statement {
     my ($self, $string) = @_;
 
     if($string =~ /^use\s+([a-zA-Z0-9_]+)\s+template/) { return $1; }
     
-    return $def_template;
+    return $DEFAULT_LAYOUT;
 }
 
 # Takes a string, removes all "use <template> template" statements and returns what's left.
@@ -571,6 +330,7 @@ sub filter_template_statements {
 
 sub filter_extension {
     my ($self, $filename) = @_;
+    $filename = canonpath $filename;
 
     my ($ext) = $filename =~ /(\.[^.]+)$/;
    
@@ -579,29 +339,26 @@ sub filter_extension {
 
 sub filter_stem {
     my ($self, $filename) = @_;
+    $filename = canonpath $filename;
     
-    print "filter_stem before: $filename\n";
-
     (my $stem = $filename) =~ s/\.[^.]+$//;
-
-    print "filter_stem after: $filename\n";
 
     return $stem;
 }
  
-# copy(sourcdir, ignore, outputdir)
+# copy(sourcdir, outputdir)
 #
 # This subroutine copies all directories and files from
 # sourcedir into outputdir as long as they do not match
 # what is contained in ignore.
 sub copy {
-    my ($self, $dir, $ignore, $output) = @_;
+    my ($self, $dir, $output) = @_;
 
     opendir(DIR, $dir) or die $!;
 
     DIR: while (my $file = readdir(DIR)) {
-        foreach my $key (keys(%ignore)) {
-            next DIR if ($file =~ m/$key/);
+        for my $i (@{ $self->{_settings}->{ignore} }) {
+            next DIR if ($file =~ m/$i/);
         }
 
         $output =~ s/\/$//;

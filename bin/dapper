@@ -15,46 +15,48 @@ use Text::Dapper;
 
 my $PORT = 8000;
 
-my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $HELP, $VERSION ) =
-  ( undef,    "_source", "_output", "_templates", undef, undef );
+my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) =
+  ( undef,    "_source", "_output", "_layout", "_config.yml", undef, undef );
 
 =head1 USAGE
 
 =over 5
 
-=item dapper -h       # Help
+=item dapper -h          # Help
 
-=item dapper -v       # Version
+=item dapper -v          # Version
 
-=item dapper -s <dir> # Source dir name (default: _source)
+=item dapper -s <dir>    # Source dir name (default: _source)
 
-=item dapper -o <dir> # Output dir name (default: _output)
+=item dapper -o <dir>    # Output dir name (default: _output)
 
-=item dapper -t <dir> # Templates dir name (default: _templates)
+=item dapper -l <dir>    # Layout dir name (default: _layout)
 
-=item dapper init     # Create new skeleton project
+=item dapper -c <config> # Config file name (default: _project.cfg)
 
-=item dapper build    # Build site
+=item dapper init        # Create new skeleton project
 
-=item dapper serve    # Serve locally
+=item dapper build       # Build site
+
+=item dapper serve       # Serve locally
 
 =back
 =cut
 
 sub init {
-    my $d = new Text::Dapper("_source", "_output", "_templates", "_project.cfg");
+    my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->init();
     #Text::Dapper::init();
 }
 
 sub build {
-    my $d = new Text::Dapper("_source", "_output", "_templates", "_project.cfg");
+    my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->build();
     #Text::Dapper::build();
 }
 
 sub serve {
-    my $d = new Text::Dapper("_source", "_output", "_templates", "_project.cfg");
+    my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->serve($PORT);
     #Text::Dapper::serve($PORT);
 }
@@ -75,14 +77,16 @@ Getopt::Mixed::init(
     s=s source>s
     o=s output>o
     l=s layout>l
+    c=s config>c
 });
 
 while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
-    $SOURCE  = $value if $option eq 's';
-    $OUTPUT  = $value if $option eq 'o';
-    $LAYOUT  = $value if $option eq 'l';
-    help()            if $option eq 'h';
-    version()         if $option eq 'v';
+    $SOURCE = $value if $option eq 's';
+    $OUTPUT = $value if $option eq 'o';
+    $LAYOUT = $value if $option eq 'l';
+    $CONFIG = $value if $option eq 'c';
+    help()           if $option eq 'h';
+    version()        if $option eq 'v';
 }
 
 Getopt::Mixed::cleanup();
