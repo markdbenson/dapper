@@ -11,7 +11,10 @@ my $templates_dir_name = "_layout";
 
 my $source_index_name = "$source_dir_name/index.md";
 my $source_index_content = <<'SOURCE_INDEX_CONTENT';
-use index template
+---
+layout: index
+title: Hello World
+---
 
 Hello world.
 SOURCE_INDEX_CONTENT
@@ -21,7 +24,7 @@ my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-  <title>Title</title>
+  <title>{{ title }}</title>
   <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
 </head>
 
@@ -37,13 +40,14 @@ TEMPLATES_INDEX_CONTENT
 my $proj_file_template_name = "_config.yml";
 my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
 ---
+name : My Site
 source : _source/
 output : _output/
 layout : _layout/
 ignore :
-    - "\."
+    - "^\."
     - "^_"
-    - "dapper"
+    - "^dapper$"
 
 PROJ_FILE_TEMPLATE
 

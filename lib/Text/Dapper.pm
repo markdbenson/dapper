@@ -10,7 +10,7 @@ use IO::Dir;
 use Template::Liquid;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
-use YAML qw(LoadFile Dump);
+use YAML qw(LoadFile Load Dump);
 
 use Text::Dapper::Init;
 use Text::Dapper::Utils;
@@ -198,16 +198,21 @@ sub render {
 
     $source_content = Text::Dapper::Utils::read_file($source_file_name);
 
-    $template_to_use = Text::Dapper::Utils::find_template_statement($source_content);
-    #print "template to be used: $template_to_use\n";
-    $template_content = $self->{_layout_content}->{$template_to_use};
-    #print "template content: $template_content\n";
+    $source_content =~ /(---.*)---(.*)/s;
 
-    $source_content = Text::Dapper::Utils::filter_template_statements($source_content);
+    my ($parameters) = Load($1);
+    my $content = $2;
+
+    $template_content = $self->{_layout_content}->{$parameters->{layout}};
 
     # Markdownify
-    $source_content = markdown($source_content);
+    $content = markdown($content);
 
+    $parameters->{content} = $content;
+    $parameters->{site} = $self->{_settings};
+
+    #for my $key (keys($parameters)) { print "$key = $parameters->{$key}\n"; }
+    
     # Construct destination file name, which is a combination
     # of the stem of the source file and the extension of the template.
     # Example:
@@ -222,7 +227,7 @@ sub render {
     my $parsed_template = Template::Liquid->parse($template_content);
 
     # Render the output file using the template and the source
-    my $destination = $parsed_template->render(content => $source_content);
+    my $destination = $parsed_template->render(%$parameters);
 
     # Save the output file
     open(DESTINATION, ">$destination_file_name") or die "error: could not open destination file:$destination_file_name: $!\n";
