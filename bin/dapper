@@ -1,6 +1,7 @@
 #!/usr/bin/perl 
 
-use utf8;
+#use utf8;
+use open ':std', ':encoding(UTF-8)';
 use 5.010;
 
 use strict;

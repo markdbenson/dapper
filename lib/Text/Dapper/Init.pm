@@ -24,13 +24,13 @@ my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-  <title>{{ title }}</title>
+  <title>{{ page.title }}</title>
   <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
 </head>
 
 <body>
 
-{{ content }}
+{{ page.content }}
 
 </body>
 </html>

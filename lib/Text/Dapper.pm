@@ -1,5 +1,7 @@
 package Text::Dapper;
 
+#use utf8;
+use open ':std', ':encoding(UTF-8)';
 use 5.006;
 use strict;
 use warnings FATAL => 'all';
@@ -10,7 +12,11 @@ use IO::Dir;
 use Template::Liquid;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
-use YAML qw(LoadFile Load Dump);
+use YAML::Tiny qw(LoadFile Load Dump);
+
+use Data::Dumper;
+#$Data::Dumper::Indent = 1;
+#$Data::Dumper::Sortkeys = 1;
 
 use Text::Dapper::Init;
 use Text::Dapper::Utils;
@@ -106,6 +112,9 @@ sub build {
     # recurse through the project tree and generate output (combine src with templates)
     $self->walk($self->{_source}, $self->{_output});
 
+    # render output
+    $self->render();
+
     # copy additional files and directories
     $self->copy(".", $self->{_output});
 
@@ -154,18 +163,15 @@ sub read_templates {
 
 # recursive descent
 sub walk {
-  my ($self, $source, $destination) = @_;
-  my $source_handle = new IO::Dir "$source";;
-  my $destination_handle = new IO::Dir "$destination";;
+  my ($self, $source_dir, $output_dir) = @_;
+  my $source_handle = new IO::Dir "$source_dir";;
+  my $output_handle = new IO::Dir "$output_dir";;
   my $directory_element;
 
-  #print "received:src:$source:\n";
-  #print "received:dst:$destination:\n";
-
   # if the directory does not exist, create it
-  if (!(defined $destination_handle)) {
-    mkdir($destination);
-    $destination_handle = new IO::Dir "$destination";
+  if (!(defined $output_handle)) {
+    mkdir($output_dir);
+    $output_handle = new IO::Dir "$output_dir";
   }
 
   if (defined $source_handle) {
@@ -174,65 +180,105 @@ sub walk {
     while(defined($directory_element = $source_handle->read)) {
 
       # print "directory element:$source/$directory_element\n";
-      if(-d "$source/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-        $self->walk("$source/$directory_element", "$destination/$directory_element");
+      if(-d "$source_dir/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
+        $self->walk("$source_dir/$directory_element", "$output_dir/$directory_element");
       }
-      elsif(-f "$source/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-        #combine_source_and_template("$source/$directory_element", "$destination/$directory_element");
-        $self->render("$source/$directory_element", "$destination/$directory_element");
+      elsif(-f "$source_dir/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
+        #combine_source_and_template("$source/$directory_element", "$output/$directory_element");
+    
+        # Construct output file name, which is a combination
+        # of the stem of the source file and the extension of the template.
+        # Example:
+        #   - Source: index.md
+        #   - Template: layout.html
+        #   - Destination: index.html
+        my $source = "$source_dir/$directory_element";
+        my $output = "$output_dir/$directory_element";
+      
+        $output = Text::Dapper::Utils::filter_stem("$output") . ".html";
+
+        $self->taj_mahal($source, $output);
       }
     }
     undef $source_handle;
   }
   else {
-    die "error: could not get a handle on $source/$directory_element";
+    die "error: could not get a handle on $source_dir/$directory_element";
   }
   #undef %b_ddm;
 }
 
-sub render {
+# Takes a source file and destination file and adds an appropriate meta data entries to the taj mahal multi-tiered site hash.
+sub taj_mahal {
     my ($self, $source_file_name, $destination_file_name) = @_;
-    my $source_content;
-    my $template_to_use;
-    my $template_content;
 
-    $source_content = Text::Dapper::Utils::read_file($source_file_name);
+    my %page = ();
+
+    my $source_content = Text::Dapper::Utils::read_file($source_file_name);
+
+    # Get last modified time
+    #use File::stat;
+    #use Time::localtime;
+    #use POSIX qw(strftime);
+    #$now_string = strftime "%a %b %e %H:%M:%S %Y", localtime;
+    #print "FILE/TIMESTAMP: $source_file_name/$timestamp\n";
 
     $source_content =~ /(---.*)---(.*)/s;
 
-    my ($parameters) = Load($1);
-    my $content = $2;
+    my ($frontmatter) = Load($1);
 
-    $template_content = $self->{_layout_content}->{$parameters->{layout}};
+    for my $key (keys $frontmatter) {
+        $page{$key} = $frontmatter->{$key};
+    }
 
-    # Markdownify
-    $content = markdown($content);
+    $page{content} = $2;
+    $page{filename} = $destination_file_name;
+    $page{url} = "/replace/with/url/pattern";
 
-    $parameters->{content} = $content;
-    $parameters->{site} = $self->{_settings};
+    #print "== PAGE($page{filename})\n";
 
-    #for my $key (keys($parameters)) { print "$key = $parameters->{$key}\n"; }
+    if ($page{categories}) {
+        push @{$self->{_settings}->{categories}->{$page{categories}}}, \%page;
+    }
     
-    # Construct destination file name, which is a combination
-    # of the stem of the source file and the extension of the template.
-    # Example:
-    #   - Source: index.md
-    #   - Template: layout.html
-    #   - Destination: index.html
-    my $stem = Text::Dapper::Utils::filter_stem($destination_file_name);
-    my $ext  = ".html";
-    $destination_file_name = "$stem$ext";
+    push @{$self->{_settings}->{posts}}, \%page;
 
-    # Make sure we have a copy of the template file
-    my $parsed_template = Template::Liquid->parse($template_content);
+    #print Dumper($self->{_settings}); 
+}
 
-    # Render the output file using the template and the source
-    my $destination = $parsed_template->render(%$parameters);
+sub render {
+    my ($self) = @_;
 
-    # Save the output file
-    open(DESTINATION, ">$destination_file_name") or die "error: could not open destination file:$destination_file_name: $!\n";
-    print(DESTINATION $destination) or die "error: could not print to $destination_file_name: $!\n";
-    close(DESTINATION) or die "error: could not close $destination_file_name: $!\n";
+    for my $page (@{$self->{_settings}->{posts}}) {
+
+        my $content = markdown($page->{content});
+        $self->{content} = $content;
+
+        if (not $page->{layout}) { $page->{layout} = "index"; }
+        my $layout = $self->{_layout_content}->{$page->{layout}};
+        
+        # Make sure we have a copy of the template file
+        my $parsed_template = Template::Liquid->parse($layout);
+
+        my %tags = ();
+        $tags{site} = $self->{_settings};
+        $tags{page} = $page;
+        $tags{page}->{content} = $content;
+
+        # Render the output file using the template and the source
+        my $destination = $parsed_template->render(%tags);
+
+        if ($page->{filename}) {
+            open(DESTINATION, ">$page->{filename}") or die "error: could not open destination file:$page->{filename}: $!\n";
+            print(DESTINATION $destination) or die "error: could not print to $page->{filename}: $!\n";
+            close(DESTINATION) or die "error: could not close $page->{filename}: $!\n";
+
+            print "Wrote $page->{filename}\n";
+        }
+        else {
+            print Dumper "No filename specified\n";
+        }
+    }
 }
 
 # copy(sourcdir, outputdir)
