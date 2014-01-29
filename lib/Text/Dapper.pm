@@ -1,6 +1,6 @@
 package Text::Dapper;
 
-#use utf8;
+use utf8;
 use open ':std', ':encoding(UTF-8)';
 use 5.006;
 use strict;
@@ -20,6 +20,7 @@ use Data::Dumper;
 
 use Text::Dapper::Init;
 use Text::Dapper::Utils;
+use Text::Dapper::Defaults;
 
 my $DEFAULT_PORT   = 8000;
 
@@ -66,23 +67,18 @@ our @EXPORT = qw($VERSION);
 sub new {
     my $class = shift;
     my $self = {
-        _created=> 1,
-        _source => shift,
-        _output => shift,
-        _layout => shift,
-        _config => shift,
+        created=> 1,
+        source => shift,
+        output => shift,
+        layout => shift,
+        config => shift,
     };
 
-    $self->{_source} = "_source" unless defined($self->{_source});
-    $self->{_output} = "_output" unless defined($self->{_output});
-    $self->{_layout} = "_layout" unless defined($self->{_layout});
-    $self->{_config} = "_config" unless defined($self->{_config});
-
-    # Print all the values just for clarification.
-    #print "Source: $self->{_source}\n";
-    #print "Output: $self->{_output}\n";
-    #print "Layout: $self->{_layout}\n";
-    #print "Config: $self->{_config}\n";
+    $self->{site} = Text::Dapper::Defaults::get_defaults();
+    $self->{source} = "_source" unless defined($self->{source});
+    $self->{output} = "_output" unless defined($self->{output});
+    $self->{layout} = "_layout" unless defined($self->{layout});
+    $self->{config} = "_config" unless defined($self->{config});
 
     bless $self, $class;
     return $self;
@@ -110,13 +106,16 @@ sub build {
     $self->read_templates();
 
     # recurse through the project tree and generate output (combine src with templates)
-    $self->walk($self->{_source}, $self->{_output});
+    $self->walk($self->{source}, $self->{output});
 
     # render output
     $self->render();
 
+    #print Dumper $self->{site};
+
+    #print Dumper($self->{site}); 
     # copy additional files and directories
-    $self->copy(".", $self->{_output});
+    $self->copy(".", $self->{output});
 
     print "Project built.\n";
 }
@@ -135,13 +134,13 @@ sub serve {
 # into the appropriate hash.
 sub read_project {
     my ($self) = @_;
-    $self->{_settings} = LoadFile($self->{_config}) or die "error: could not load \"$self->{_config}\": $!\n";
+    $self->{site} = LoadFile($self->{config}) or die "error: could not load \"$self->{config}\": $!\n";
 
-    die "error: \"source\" must be defined in project file\n" unless defined $self->{_source};
-    die "error: \"output\" must be defined in project file\n" unless defined $self->{_output};
-    die "error: \"layout\" must be defined in project file\n" unless defined $self->{_layout};
+    die "error: \"source\" must be defined in project file\n" unless defined $self->{source};
+    die "error: \"output\" must be defined in project file\n" unless defined $self->{output};
+    die "error: \"layout\" must be defined in project file\n" unless defined $self->{layout};
 
-    #print Dump($self->{_settings});
+    #print Dump($self->{site});
 }
 
 # read_templates reads the content of the templates specified in the project configuration file.
@@ -149,15 +148,15 @@ sub read_templates {
     my ($self) = @_;
     my ($key, $ckey);
 
-    opendir(DIR, $self->{_layout}) or die $!;
+    opendir(DIR, $self->{layout}) or die $!;
     my @files = sort(grep(!/^(\.|\.\.)$/, readdir(DIR)));
 
     for my $file (@files) {
         my $stem = Text::Dapper::Utils::filter_stem($file);
-        $file = $self->{_layout} . "/" . $file;
-        $self->{_layout_content}->{$stem} = Text::Dapper::Utils::read_file($file);
+        $file = $self->{layout} . "/" . $file;
+        $self->{layout_content}->{$stem} = Text::Dapper::Utils::read_file($file);
         #print "$stem layout content:\n";
-        #print $self->{_layout_content}->{$stem};
+        #print $self->{layout_content}->{$stem};
     }
 }
 
@@ -216,13 +215,6 @@ sub taj_mahal {
 
     my $source_content = Text::Dapper::Utils::read_file($source_file_name);
 
-    # Get last modified time
-    #use File::stat;
-    #use Time::localtime;
-    #use POSIX qw(strftime);
-    #$now_string = strftime "%a %b %e %H:%M:%S %Y", localtime;
-    #print "FILE/TIMESTAMP: $source_file_name/$timestamp\n";
-
     $source_content =~ /(---.*)---(.*)/s;
 
     my ($frontmatter) = Load($1);
@@ -235,35 +227,38 @@ sub taj_mahal {
     $page{filename} = $destination_file_name;
     $page{url} = "/replace/with/url/pattern";
 
+    if (not $page{date}) {
+        my $date = Text::Dapper::Utils::get_modified_time($source_file_name);
+        print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
+        $page{date} = $date;
+    }
+
     #print "== PAGE($page{filename})\n";
 
     if ($page{categories}) {
-        push @{$self->{_settings}->{categories}->{$page{categories}}}, \%page;
+        push @{$self->{site}->{categories}->{$page{categories}}}, \%page;
     }
-    
-    push @{$self->{_settings}->{posts}}, \%page;
 
-    #print Dumper($self->{_settings}); 
+    push @{$self->{site}->{pages}}, \%page;
 }
 
 sub render {
     my ($self) = @_;
 
-    for my $page (@{$self->{_settings}->{posts}}) {
+    for my $page (@{$self->{site}->{pages}}) {
 
-        my $content = markdown($page->{content});
-        $self->{content} = $content;
+        $page->{content} = markdown($page->{content});
 
         if (not $page->{layout}) { $page->{layout} = "index"; }
-        my $layout = $self->{_layout_content}->{$page->{layout}};
+        my $layout = $self->{layout_content}->{$page->{layout}};
         
         # Make sure we have a copy of the template file
         my $parsed_template = Template::Liquid->parse($layout);
 
         my %tags = ();
-        $tags{site} = $self->{_settings};
+        $tags{site} = $self->{site};
         $tags{page} = $page;
-        $tags{page}->{content} = $content;
+        #$tags{page}->{content} = $content;
 
         # Render the output file using the template and the source
         my $destination = $parsed_template->render(%tags);
@@ -274,6 +269,7 @@ sub render {
             close(DESTINATION) or die "error: could not close $page->{filename}: $!\n";
 
             print "Wrote $page->{filename}\n";
+            print Dumper $page;
         }
         else {
             print Dumper "No filename specified\n";
@@ -292,7 +288,7 @@ sub copy {
     opendir(DIR, $dir) or die $!;
 
     DIR: while (my $file = readdir(DIR)) {
-        for my $i (@{ $self->{_settings}->{ignore} }) {
+        for my $i (@{ $self->{site}->{ignore} }) {
             next DIR if ($file =~ m/$i/);
         }
 

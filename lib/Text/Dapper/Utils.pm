@@ -1,9 +1,12 @@
 package Text::Dapper::Utils;
 
+use utf8;
+use open ':std', ':encoding(UTF-8)';
 use 5.006;
 use strict;
 use warnings FATAL => 'all';
 
+use POSIX;
 use File::Spec::Functions qw/ canonpath /;
 
 my $DEFAULT_LAYOUT = "index";
@@ -18,6 +21,12 @@ sub read_file {
     close(FILE) or die("could not close file: $!\n");
 
     return $file_contents;
+}
+
+sub get_modified_time {
+    my ($file) = @_;
+    my $date = POSIX::strftime( "%Y-%m-%d %H:%M:%S", localtime((stat $file)[9]));
+    return $date;
 }
 
 # Takes a string, returns <template> part of the first "use <template> template" line.

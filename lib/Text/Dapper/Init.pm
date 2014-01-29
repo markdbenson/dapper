@@ -1,5 +1,7 @@
 package Text::Dapper::Init;
 
+use utf8;
+use open ':std', ':encoding(UTF-8)';
 use 5.006;
 use strict;
 use warnings FATAL => 'all';
