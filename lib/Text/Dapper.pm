@@ -13,6 +13,8 @@ use Template::Liquid;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
 use YAML::Tiny qw(LoadFile Load Dump);
+use File::Spec::Functions qw/ canonpath /;
+use File::Path qw(make_path);
 
 use Data::Dumper;
 #$Data::Dumper::Indent = 1;
@@ -134,7 +136,12 @@ sub serve {
 # into the appropriate hash.
 sub read_project {
     my ($self) = @_;
-    $self->{site} = LoadFile($self->{config}) or die "error: could not load \"$self->{config}\": $!\n";
+
+    my $config = LoadFile($self->{config}) or die "error: could not load \"$self->{config}\": $!\n";
+
+    # Graft together
+    #@hash1{keys %hash2} = values %hash2;
+    @{$self->{site}}{keys %$config} = values %$config;
 
     die "error: \"source\" must be defined in project file\n" unless defined $self->{source};
     die "error: \"output\" must be defined in project file\n" unless defined $self->{output};
@@ -224,16 +231,36 @@ sub taj_mahal {
     }
 
     $page{content} = $2;
-    $page{filename} = $destination_file_name;
-    $page{url} = "/replace/with/url/pattern";
+
+    $page{slug} = Text::Dapper::Utils::slugify($page{title});
 
     if (not $page{date}) {
         my $date = Text::Dapper::Utils::get_modified_time($source_file_name);
         print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
         $page{date} = $date;
     }
+    
+    if($page{date} =~ /^(\d\d\d\d)-(\d\d)-(\d\d).*$/) {
+        $page{year} = $1;
+        $page{month} = $2;
+        $page{day} = $3;
+    }
 
-    #print "== PAGE($page{filename})\n";
+    $page{url} = $self->{site}->{urlpattern};
+    $page{url} =~ s/\:category/$page{categories}/g unless not defined $page{categories};
+    $page{url} =~ s/\:year/$page{year}/g unless not defined $page{year};
+    $page{url} =~ s/\:month/$page{month}/g unless not defined $page{month};
+    $page{url} =~ s/\:day/$page{day}/g unless not defined $page{day};
+    $page{url} =~ s/\:slug/$page{slug}/g unless not defined $page{slug};
+
+    $page{filename} = $destination_file_name;
+    if(defined $page{categories}) {
+        my $filename = $self->{site}->{output} . $page{url};
+        $page{filename} = canonpath $filename;
+    }
+
+    my ($volume, $dirname, $file) = File::Spec->splitpath( $page{filename} );
+    $page{dirname} = $dirname;
 
     if ($page{categories}) {
         push @{$self->{site}->{categories}->{$page{categories}}}, \%page;
@@ -264,12 +291,13 @@ sub render {
         my $destination = $parsed_template->render(%tags);
 
         if ($page->{filename}) {
+            make_path($page->{dirname}, { verbose => 1 });
             open(DESTINATION, ">$page->{filename}") or die "error: could not open destination file:$page->{filename}: $!\n";
             print(DESTINATION $destination) or die "error: could not print to $page->{filename}: $!\n";
             close(DESTINATION) or die "error: could not close $page->{filename}: $!\n";
 
             print "Wrote $page->{filename}\n";
-            print Dumper $page;
+            #print Dumper $page;
         }
         else {
             print Dumper "No filename specified\n";

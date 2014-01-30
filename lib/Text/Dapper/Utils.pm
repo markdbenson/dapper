@@ -7,6 +7,7 @@ use strict;
 use warnings FATAL => 'all';
 
 use POSIX;
+use Unicode::Normalize;
 use File::Spec::Functions qw/ canonpath /;
 
 my $DEFAULT_LAYOUT = "index";
@@ -27,6 +28,19 @@ sub get_modified_time {
     my ($file) = @_;
     my $date = POSIX::strftime( "%Y-%m-%d %H:%M:%S", localtime((stat $file)[9]));
     return $date;
+}
+
+sub slugify {
+    my ($input) = @_;
+
+    $input = NFKD($input);         # Normalize the Unicode string
+    $input =~ tr/\000-\177//cd;    # Strip non-ASCII characters (>127)
+    $input =~ s/[^\w\s-]//g;       # Remove all characters that are not word characters (includes _), spaces, or hyphens
+    $input =~ s/^\s+|\s+$//g;      # Trim whitespace from both ends
+    $input = lc($input);
+    $input =~ s/[-\s]+/-/g;        # Replace all occurrences of spaces and hyphens with a single hyphen
+
+    return $input;
 }
 
 # Takes a string, returns <template> part of the first "use <template> template" line.
