@@ -10,7 +10,7 @@ use YAML::Tiny qw(Load);
 
 my $defaults = <<'DEFAULTS';
 macklamore : justin timberlake
-urlpattern : /:category/:year/:month/:slug
+urlpattern : /:category/:year/:month/:slug.html
 DEFAULTS
 
 sub get_defaults {

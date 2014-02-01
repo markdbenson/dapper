@@ -128,6 +128,7 @@ sub serve {
     $port = $DEFAULT_PORT unless $port;
 
     my $s = HTTP::Server::Brick->new(port=>$port);
+    $s->add_type("text/html" => qw());
     $s->mount("/"=>{path=>"_output"});
     $s->start
 }
@@ -164,6 +165,30 @@ sub read_templates {
         $self->{layout_content}->{$stem} = Text::Dapper::Utils::read_file($file);
         #print "$stem layout content:\n";
         #print $self->{layout_content}->{$stem};
+    }
+
+    # Expand sub layouts
+    for my $key (keys $self->{layout_content}) {
+        my $value = $self->{layout_content}->{$key};
+        my $frontmatter;
+        my $content;
+
+        $value =~ /(---.*)---(.*)/s;
+
+        if (not defined $1) { next; }
+        if (not defined $2) { next; }
+
+        $frontmatter = Load($1);
+        $content  = $2;
+
+        if (not defined $frontmatter->{layout}) { next; }
+        if (not defined $self->{layout_content}->{$frontmatter->{layout}}) { next; }
+
+        my $master = $self->{layout_content}->{$frontmatter->{layout}};
+        $master =~ s/\{\{ *page\.content *\}\}/$content/g;
+        $self->{layout_content}->{$key} = $master;
+
+        #print "Result:\n" . $self->{layout_content}->{$frontmatter->{layout}} . "\n";
     }
 }
 
@@ -289,6 +314,11 @@ sub render {
 
         # Render the output file using the template and the source
         my $destination = $parsed_template->render(%tags);
+
+        # MDB: Parse and render once more to make sure that any liquid statments
+        # In the source file also gets rendered
+        $parsed_template = Template::Liquid->parse($destination);
+        $destination = $parsed_template->render(%tags);
 
         if ($page->{filename}) {
             make_path($page->{dirname}, { verbose => 1 });
