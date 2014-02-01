@@ -128,8 +128,10 @@ sub serve {
     $port = $DEFAULT_PORT unless $port;
 
     my $s = HTTP::Server::Brick->new(port=>$port);
-    $s->add_type("text/html" => qw());
-    $s->mount("/"=>{path=>"_output"});
+    $s->add_type('text/html' => qw(^[^\.]+$));
+    $s->mount("/"=>{ path=>"_output" });
+    #handler => sub { my ($req, $res) = @_; print $req; $res->header('Content-type', 'text/html'); 1; }, #wildcard => 1,
+
     $s->start
 }
 
@@ -279,8 +281,13 @@ sub taj_mahal {
     $page{url} =~ s/\:slug/$page{slug}/g unless not defined $page{slug};
 
     $page{filename} = $destination_file_name;
+    
+    #print "FILENAME BEFORE: " . $page{filename} . "\n";
+    #print "FILENAME AFTER: " . $page{filename} . "\n";
+
     if(defined $page{categories}) {
         my $filename = $self->{site}->{output} . $page{url};
+        $filename =~ s/\/$/\/index.html/; 
         $page{filename} = canonpath $filename;
     }
 
