@@ -190,7 +190,7 @@ sub read_templates {
         $master =~ s/\{\{ *page\.content *\}\}/$content/g;
         $self->{layout_content}->{$key} = $master;
 
-        #print "Result:\n" . $self->{layout_content}->{$frontmatter->{layout}} . "\n";
+        #print "$key Result:\n" . $self->{layout_content}->{$frontmatter->{layout}} . "\n\n\n\n\n\n";
     }
 }
 
@@ -263,7 +263,7 @@ sub taj_mahal {
 
     if (not $page{date}) {
         my $date = Text::Dapper::Utils::get_modified_time($source_file_name);
-        print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
+        #print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
         $page{date} = $date;
     }
     
@@ -274,8 +274,6 @@ sub taj_mahal {
     }
 
     $page{prettydate} = "$page{month}/$page{day}/$page{year}";
-
-    print "Date: " . $page{date} . "\n";
 
     $page{url} = $self->{site}->{urlpattern};
     $page{url} =~ s/\:category/$page{categories}/g unless not defined $page{categories};
@@ -326,7 +324,7 @@ sub render {
         # Render the output file using the template and the source
         my $destination = $parsed_template->render(%tags);
 
-        # MDB: Parse and render once more to make sure that any liquid statments
+        # Parse and render once more to make sure that any liquid statments
         # In the source file also gets rendered
         $parsed_template = Template::Liquid->parse($destination);
         $destination = $parsed_template->render(%tags);
