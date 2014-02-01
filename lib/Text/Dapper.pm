@@ -273,6 +273,10 @@ sub taj_mahal {
         $page{day} = $3;
     }
 
+    $page{prettydate} = "$page{month}/$page{day}/$page{year}";
+
+    print "Date: " . $page{date} . "\n";
+
     $page{url} = $self->{site}->{urlpattern};
     $page{url} =~ s/\:category/$page{categories}/g unless not defined $page{categories};
     $page{url} =~ s/\:year/$page{year}/g unless not defined $page{year};
