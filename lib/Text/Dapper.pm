@@ -49,6 +49,21 @@ Perhaps a little code snippet.
     my $foo = Text::Dapper->new();
     ...
 
+Stages
+
+=over 4
+
+=item 1. Initialize. When a Dapper object is initialized, it 
+
+=item 2. Configure
+
+=item 3. Parse
+
+=item 4. Render
+
+=item 5. Cleanup
+
+
 =head1 EXPORT
 
 A list of functions that can be exported.  You can delete this section
@@ -257,7 +272,7 @@ sub taj_mahal {
         $page{$key} = $frontmatter->{$key};
     }
 
-    $page{content} = $2;
+    $page{content} = markdown($2);
 
     $page{slug} = Text::Dapper::Utils::slugify($page{title});
 
@@ -301,6 +316,12 @@ sub taj_mahal {
     }
 
     push @{$self->{site}->{pages}}, \%page;
+
+    if ($page{categories}) {
+        if ($page{categories} eq "notabene") {
+            print Dumper \%page;
+        }
+    }
 }
 
 sub render {
@@ -308,7 +329,7 @@ sub render {
 
     for my $page (@{$self->{site}->{pages}}) {
 
-        $page->{content} = markdown($page->{content});
+        #print Dump $page->{content};
 
         if (not $page->{layout}) { $page->{layout} = "index"; }
         my $layout = $self->{layout_content}->{$page->{layout}};

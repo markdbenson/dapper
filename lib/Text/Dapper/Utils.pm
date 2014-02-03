@@ -17,6 +17,8 @@ sub read_file {
   my ($file_name) = @_;
     my $file_contents;
 
+    #print "Reading contents of $file_name\n";
+
     open(FILE, "<$file_name") or die("could not open file: $!\n");
     foreach (<FILE>) { $file_contents .= $_; }
     close(FILE) or die("could not close file: $!\n");
