@@ -316,12 +316,6 @@ sub taj_mahal {
     }
 
     push @{$self->{site}->{pages}}, \%page;
-
-    if ($page{categories}) {
-        if ($page{categories} eq "notabene") {
-            print Dumper \%page;
-        }
-    }
 }
 
 sub render {
