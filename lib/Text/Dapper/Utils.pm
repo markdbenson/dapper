@@ -19,7 +19,7 @@ sub read_file {
 
     #print "Reading contents of $file_name\n";
 
-    open(FILE, "<$file_name") or die("could not open file: $!\n");
+    open(FILE, "<:encoding(UTF-8)", "$file_name") or die("could not open file: $!\n");
     foreach (<FILE>) { $file_contents .= $_; }
     close(FILE) or die("could not close file: $!\n");
 
@@ -34,6 +34,10 @@ sub get_modified_time {
 
 sub slugify {
     my ($input) = @_;
+
+    if (not defined $input) { return; }
+
+    #print "Slugifying $input\n";
 
     $input = NFKD($input);         # Normalize the Unicode string
     $input =~ tr/\000-\177//cd;    # Strip non-ASCII characters (>127)

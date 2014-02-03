@@ -49,20 +49,27 @@ Perhaps a little code snippet.
     my $foo = Text::Dapper->new();
     ...
 
-Stages
+State Machine
 
 =over 4
 
-=item 1. Initialize. When a Dapper object is initialized, it 
+=item S1. Initialize. When a Dapper object is initialized, it reads its default config.
 
-=item 2. Configure
+=item T1. Init-configure transition
 
-=item 3. Parse
+=item S2. Configure. Read project-specific configuration file.
 
-=item 4. Render
+=item T2. configure-parse transition
 
-=item 5. Cleanup
+=item S3. Parse. Calls markdown for content by default.
 
+=item T3. Parse-render transition
+
+=item S4. Render. Calls Liquid by default. Custom plugins can be written.
+
+=item T4. Render-cleanup transition
+
+=item S5. Cleanup
 
 =head1 EXPORT
 
@@ -190,7 +197,7 @@ sub read_templates {
         my $frontmatter;
         my $content;
 
-        $value =~ /(---.*)---(.*)/s;
+        $value =~ /(---.*?)---(.*)/s;
 
         if (not defined $1) { next; }
         if (not defined $2) { next; }
@@ -243,8 +250,6 @@ sub walk {
         my $source = "$source_dir/$directory_element";
         my $output = "$output_dir/$directory_element";
       
-        $output = Text::Dapper::Utils::filter_stem("$output") . ".html";
-
         $self->taj_mahal($source, $output);
       }
     }
@@ -264,15 +269,14 @@ sub taj_mahal {
 
     my $source_content = Text::Dapper::Utils::read_file($source_file_name);
 
-    $source_content =~ /(---.*)---(.*)/s;
+    $source_content =~ /(---.*?)---(.*)/s;
 
     my ($frontmatter) = Load($1);
+    $page{content} = $2;
 
     for my $key (keys $frontmatter) {
         $page{$key} = $frontmatter->{$key};
     }
-
-    $page{content} = markdown($2);
 
     $page{slug} = Text::Dapper::Utils::slugify($page{title});
 
@@ -297,7 +301,11 @@ sub taj_mahal {
     $page{url} =~ s/\:day/$page{day}/g unless not defined $page{day};
     $page{url} =~ s/\:slug/$page{slug}/g unless not defined $page{slug};
 
-    $page{filename} = $destination_file_name;
+    if (not defined $page{extension}) { $page{extension} = ".html"; }
+
+    $page{source_file_extension} = Text::Dapper::Utils::filter_extension($source_file_name);
+
+    $page{filename} = Text::Dapper::Utils::filter_stem("$destination_file_name") . $page{extension};
     
     #print "FILENAME BEFORE: " . $page{filename} . "\n";
     #print "FILENAME AFTER: " . $page{filename} . "\n";
@@ -311,6 +319,16 @@ sub taj_mahal {
     my ($volume, $dirname, $file) = File::Spec->splitpath( $page{filename} );
     $page{dirname} = $dirname;
 
+    if ($page{source_file_extension} eq ".md") { 
+        $page{content} = markdown($page{content});
+    }
+    else {
+        print "Did not run markdown on $page{filename} since the extension was not .md\n";
+    }
+
+    # Remove leading spaces and newline
+    $page{content} =~ s/^[ \n]*//;
+    
     if ($page{categories}) {
         push @{$self->{site}->{categories}->{$page{categories}}}, \%page;
     }
