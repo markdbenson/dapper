@@ -10,6 +10,7 @@ use vars '$VERSION';
 
 use IO::Dir;
 use Template::Liquid;
+
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
 use YAML::Tiny qw(LoadFile Load Dump);
@@ -25,6 +26,7 @@ use DateTime;
 use Text::Dapper::Init;
 use Text::Dapper::Utils;
 use Text::Dapper::Defaults;
+use Text::Dapper::Filters;
 
 my $DEFAULT_PORT   = 8000;
 
@@ -101,6 +103,7 @@ sub new {
     };
 
     $self->{site} = Text::Dapper::Defaults::get_defaults();
+    $self->{site}->{time} = DateTime->now( time_zone => DateTime::TimeZone->new( name => 'local' ) );
     $self->{source} = "_source" unless defined($self->{source});
     $self->{output} = "_output" unless defined($self->{output});
     $self->{layout} = "_layout" unless defined($self->{layout});
@@ -319,6 +322,8 @@ sub taj_mahal {
     $page{url} =~ s/\:month/$page{month}/g unless not defined $page{month};
     $page{url} =~ s/\:day/$page{day}/g unless not defined $page{day};
     $page{url} =~ s/\:slug/$page{slug}/g unless not defined $page{slug};
+
+    $page{id} = $page{url};
 
     if (not defined $page{extension}) { $page{extension} = ".html"; }
 
