@@ -20,6 +20,8 @@ use Data::Dumper;
 #$Data::Dumper::Indent = 1;
 #$Data::Dumper::Sortkeys = 1;
 
+use DateTime;
+
 use Text::Dapper::Init;
 use Text::Dapper::Utils;
 use Text::Dapper::Defaults;
@@ -285,14 +287,31 @@ sub taj_mahal {
         #print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
         $page{date} = $date;
     }
-    
-    if($page{date} =~ /^(\d\d\d\d)-(\d\d)-(\d\d).*$/) {
+   
+    if($page{date} =~ /^(\d\d\d\d)-(\d\d)-(\d\d) (\d\d)\:(\d\d)\:(\d\d)$/) {
         $page{year} = $1;
         $page{month} = $2;
         $page{day} = $3;
+        $page{hour} = $4;
+        $page{minute} = $5;
+        $page{second} = $6;
+        $page{nanosecond} = 0;
     }
 
-    $page{prettydate} = "$page{month}/$page{day}/$page{year}";
+    if(not $page{timezone}) {
+        $page{timezone} = DateTime::TimeZone->new( name => 'local' );
+    }
+
+    $page{date} = DateTime->new(
+        year       => $page{year},
+        month      => $page{month},
+        day        => $page{day},
+        hour       => $page{hour},
+        minute     => $page{minute},
+        second     => $page{second},
+        nanosecond => $page{nanosecond},
+        time_zone  => $page{timezone},
+    );
 
     $page{url} = $self->{site}->{urlpattern};
     $page{url} =~ s/\:category/$page{categories}/g unless not defined $page{categories};
@@ -321,6 +340,10 @@ sub taj_mahal {
 
     if ($page{source_file_extension} eq ".md") { 
         $page{content} = markdown($page{content});
+
+        # Save first paragraph of content as excerpt
+        $page{content} =~ /(<p>.*?<\/p>)/s;
+        $page{excerpt} = $1;
     }
     else {
         print "Did not run markdown on $page{filename} since the extension was not .md\n";
