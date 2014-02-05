@@ -15,6 +15,7 @@ sub import {
         xml_escape
         date_to_xmlschema
         replace_last
+        smart
     ]);
 }
 
@@ -47,6 +48,20 @@ sub replace_last {
     $replacement = defined $replacement ? $replacement : '';
     $input =~ s/^(.*)$string(.*)$/$1$replacement$2/s;
     return $input;
+}
+
+sub smart {
+    my $input = shift;
+
+    $input =~ s/([^-])--([^-])/$1\&ndash;$2/g;
+    $input =~ s/([^-])---([^-])/$1\&mdash;$2/g;
+
+    return $input;
+
+    #use Text::SmartyPants;
+
+    #my $s = Text::SmartyPants->new();
+    #return $s->process($input);
 }
 
 1;
