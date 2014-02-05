@@ -11,16 +11,11 @@ use CGI qw(:standard escapeHTML);
 
 sub import {
     Template::Liquid::register_filter(qw[
-        xml_schema
         xml_escape
         date_to_xmlschema
         replace_last
         smart
     ]);
-}
-
-sub xml_schema {
-    return $_[0] . " xml schemr";
 }
 
 sub xml_escape {
