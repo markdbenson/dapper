@@ -127,26 +127,76 @@ sub init {
 
 sub build {
     my($self) = @_;
+    
+    $self->parse();
+    $self->transform();
+    $self->render();
+
+    print "Project built.\n";
+}
+
+sub parse {
+    my ($self) = @_;
 
     # load program and project configuration
     $self->read_project();
 
     # replaces the values of h_template with actual content
     $self->read_templates();
+}
+
+sub transform {
+    my ($self) = @_;
 
     # recurse through the project tree and generate output (combine src with templates)
     $self->walk($self->{source}, $self->{output});
+}
 
-    # render output
-    $self->render();
+sub render {
+    my ($self) = @_;
+
+    for my $page (@{$self->{site}->{pages}}) {
+
+        #print Dump $page->{content};
+
+        if (not $page->{layout}) { $page->{layout} = "index"; }
+        my $layout = $self->{layout_content}->{$page->{layout}};
+        
+        # Make sure we have a copy of the template file
+        my $parsed_template = Template::Liquid->parse($layout);
+
+        my %tags = ();
+        $tags{site} = $self->{site};
+        $tags{page} = $page;
+        #$tags{page}->{content} = $content;
+
+        # Render the output file using the template and the source
+        my $destination = $parsed_template->render(%tags);
+
+        # Parse and render once more to make sure that any liquid statments
+        # In the source file also gets rendered
+        $parsed_template = Template::Liquid->parse($destination);
+        $destination = $parsed_template->render(%tags);
+
+        if ($page->{filename}) {
+            make_path($page->{dirname}, { verbose => 1 });
+            open(DESTINATION, ">$page->{filename}") or die "error: could not open destination file:$page->{filename}: $!\n";
+            print(DESTINATION $destination) or die "error: could not print to $page->{filename}: $!\n";
+            close(DESTINATION) or die "error: could not close $page->{filename}: $!\n";
+
+            print "Wrote $page->{filename}\n";
+            #print Dumper $page;
+        }
+        else {
+            print Dumper "No filename specified\n";
+        }
+    }
 
     #print Dumper $self->{site};
 
     #print Dumper($self->{site}); 
     # copy additional files and directories
     $self->copy(".", $self->{output});
-
-    print "Project built.\n";
 }
 
 sub serve {
@@ -244,7 +294,9 @@ sub walk {
         $self->walk("$source_dir/$directory_element", "$output_dir/$directory_element");
       }
       elsif(-f "$source_dir/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-        #combine_source_and_template("$source/$directory_element", "$output/$directory_element");
+   
+        # Skip dot files
+        if ($directory_element =~ /^\./) { next; }
     
         # Construct output file name, which is a combination
         # of the stem of the source file and the extension of the template.
@@ -362,47 +414,6 @@ sub taj_mahal {
     }
 
     push @{$self->{site}->{pages}}, \%page;
-}
-
-sub render {
-    my ($self) = @_;
-
-    for my $page (@{$self->{site}->{pages}}) {
-
-        #print Dump $page->{content};
-
-        if (not $page->{layout}) { $page->{layout} = "index"; }
-        my $layout = $self->{layout_content}->{$page->{layout}};
-        
-        # Make sure we have a copy of the template file
-        my $parsed_template = Template::Liquid->parse($layout);
-
-        my %tags = ();
-        $tags{site} = $self->{site};
-        $tags{page} = $page;
-        #$tags{page}->{content} = $content;
-
-        # Render the output file using the template and the source
-        my $destination = $parsed_template->render(%tags);
-
-        # Parse and render once more to make sure that any liquid statments
-        # In the source file also gets rendered
-        $parsed_template = Template::Liquid->parse($destination);
-        $destination = $parsed_template->render(%tags);
-
-        if ($page->{filename}) {
-            make_path($page->{dirname}, { verbose => 1 });
-            open(DESTINATION, ">$page->{filename}") or die "error: could not open destination file:$page->{filename}: $!\n";
-            print(DESTINATION $destination) or die "error: could not print to $page->{filename}: $!\n";
-            close(DESTINATION) or die "error: could not close $page->{filename}: $!\n";
-
-            print "Wrote $page->{filename}\n";
-            #print Dumper $page;
-        }
-        else {
-            print Dumper "No filename specified\n";
-        }
-    }
 }
 
 # copy(sourcdir, outputdir)

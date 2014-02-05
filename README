@@ -3,6 +3,18 @@ Text-Dapper
 Dapper is a static site generator. Dapper is distributed as a Perl module
 and also a utility that makes it easy to create static websites.
 
+TASKS
+
+To do items:
+* perldoc
+* tests
+* logging levels
+* watch and build
+* make markdown processing a filter?
+* atom.xml awkwardness
+* Support multiple categories
+* Support tags
+
 INSTALLATION
 
 To install this module, run the following commands:
