@@ -75,6 +75,8 @@ State Machine
 
 =item S5. Cleanup
 
+=back
+
 =head1 EXPORT
 
 A list of functions that can be exported.  You can delete this section
