@@ -43,6 +43,8 @@ my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) 
 
 =item dapper build       # Build site
 
+=item dapper watch       # Build + watch
+
 =item dapper serve       # Serve locally
 
 =back
