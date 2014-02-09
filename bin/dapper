@@ -53,16 +53,19 @@ my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) 
 sub init {
     my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->init();
+    undef $d;
 }
 
 sub build {
     my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->build();
+    undef $d;
 }
 
 sub serve {
     my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->serve($PORT);
+    undef $d;
 }
 
 sub watch {
@@ -92,8 +95,7 @@ sub version() {
     exit(0);
 }
 
-Getopt::Mixed::init(
-    q{h
+Getopt::Mixed::init(q{h
     v   version>v
     s=s source>s
     o=s output>o
@@ -118,8 +120,8 @@ $COMMAND = "help" if not $COMMAND;
 my $switch = {
   'init'    => sub { init() },
   'build'   => sub { build() },
-  'watch'   => sub { watch() },
   'serve'   => sub { serve() },
+  'watch'   => sub { watch() },
   'default' => sub { help(); }
 };
 $switch->{$COMMAND} ? $switch->{$COMMAND}->() : $switch->{'default'}->();
