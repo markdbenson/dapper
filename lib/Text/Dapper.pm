@@ -238,7 +238,7 @@ sub read_templates {
     my ($key, $ckey);
 
     opendir(DIR, $self->{layout}) or die $!;
-    my @files = sort(grep(!/^(\.|\.\.)$/, readdir(DIR)));
+    my @files = sort(grep(!/^\..*$/, readdir(DIR)));
 
     for my $file (@files) {
         my $stem = Text::Dapper::Utils::filter_stem($file);

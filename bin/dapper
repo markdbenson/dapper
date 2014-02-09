@@ -13,6 +13,10 @@ use lib "$FindBin::Bin/../lib";
 use Pod::Usage;
 use Getopt::Mixed;
 use Text::Dapper;
+use File::Monitor;
+use File::Find;
+
+use Data::Dumper;
 
 my $PORT = 8000;
 
@@ -62,6 +66,23 @@ sub serve {
     #Text::Dapper::serve($PORT);
 }
 
+sub watch {
+    print "WATCH\n";
+
+    my $monitor = File::Monitor->new();
+
+    # Add all source files and layout files to the monitor
+    find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $CONFIG);
+    find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $SOURCE);
+    find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $LAYOUT);
+ 
+    # First scan just finds out about the monitored files. No changes
+    # will be reported.
+    $monitor->scan;
+
+    while ( 1 ) { for my $change ($monitor->scan) { if ($change->is_size) { build(); last; } } sleep 1; }
+}
+
 sub help() {
     pod2usage({-sections => [ qw(USAGE) ] });
     exit(0);
@@ -79,6 +100,7 @@ Getopt::Mixed::init(
     o=s output>o
     l=s layout>l
     c=s config>c
+    w   watch>w
 });
 
 while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
@@ -86,6 +108,7 @@ while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
     $OUTPUT = $value if $option eq 'o';
     $LAYOUT = $value if $option eq 'l';
     $CONFIG = $value if $option eq 'c';
+    watch()          if $option eq 'w';
     help()           if $option eq 'h';
     version()        if $option eq 'v';
 }
