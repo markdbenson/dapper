@@ -51,35 +51,32 @@ my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) 
 sub init {
     my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->init();
-    #Text::Dapper::init();
 }
 
 sub build {
     my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->build();
-    #Text::Dapper::build();
 }
 
 sub serve {
     my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->serve($PORT);
-    #Text::Dapper::serve($PORT);
 }
 
 sub watch {
-    print "WATCH\n";
+    build();
 
     my $monitor = File::Monitor->new();
 
-    # Add all source files and layout files to the monitor
+    # Add all source files and layout files and the config file to the monitor
     find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $CONFIG);
     find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $SOURCE);
     find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $LAYOUT);
  
-    # First scan just finds out about the monitored files. No changes
-    # will be reported.
+    # First scan just finds out about the monitored files. No changes will be reported
     $monitor->scan;
 
+    # Monitor for changes
     while ( 1 ) { for my $change ($monitor->scan) { if ($change->is_size) { build(); last; } } sleep 1; }
 }
 
@@ -100,7 +97,6 @@ Getopt::Mixed::init(
     o=s output>o
     l=s layout>l
     c=s config>c
-    w   watch>w
 });
 
 while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
@@ -108,7 +104,6 @@ while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
     $OUTPUT = $value if $option eq 'o';
     $LAYOUT = $value if $option eq 'l';
     $CONFIG = $value if $option eq 'c';
-    watch()          if $option eq 'w';
     help()           if $option eq 'h';
     version()        if $option eq 'v';
 }
@@ -121,6 +116,7 @@ $COMMAND = "help" if not $COMMAND;
 my $switch = {
   'init'    => sub { init() },
   'build'   => sub { build() },
+  'watch'   => sub { watch() },
   'serve'   => sub { serve() },
   'default' => sub { help(); }
 };
