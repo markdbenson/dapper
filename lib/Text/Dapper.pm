@@ -28,11 +28,11 @@ use Text::Dapper::Utils;
 use Text::Dapper::Defaults;
 use Text::Dapper::Filters;
 
-my $DEFAULT_PORT   = 8000;
+my $DEFAULT_PORT = 8000;
 
 =head1 NAME
 
-Text::Dapper - A static site generator
+Text::Dapper - A minimalist static site generator
 
 =head1 VERSION
 
@@ -44,43 +44,38 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+Dapper allows you to transform simple text files into websites. By installing the Dapper Perl module, a dapper executable will be available to you in your Terminal window. You can use this executablein a number of ways:
 
-Perhaps a little code snippet.
+    # Initialize the current directory with a fresh skeleton of a site
+    $ dapper init
+
+    # Build the site
+    $ dapper build
+
+    # Serve the site locally at http://localhost:8000
+    $ dapper serve
+
+    # Get help on additional ways to use the dapper executable
+    $ dapper -h
+
+Additionally, Dapper may be used as a perl module directly. Examples:
 
     use Text::Dapper;
 
-    my $foo = Text::Dapper->new();
-    ...
+    # Initialize a skeleton Dapper site in the current directory
+    my $d = Text::Dapper->new();
+    $d->init("_source", "_output", "_layout", "_config.yml");
+    undef $d;
 
-State Machine
+    # Build the site
+    my $d = Text::Dapper->new();
+    $d->build("_source", "_output", "_layout", "_config.yml");
+    undef $d;
 
-=over 4
-
-=item S1. Initialize. When a Dapper object is initialized, it reads its default config.
-
-=item T1. Init-configure transition
-
-=item S2. Configure. Read project-specific configuration file.
-
-=item T2. configure-parse transition
-
-=item S3. Parse. Calls markdown for content by default.
-
-=item T3. Parse-render transition
-
-=item S4. Render. Calls Liquid by default. Custom plugins can be written.
-
-=item T4. Render-cleanup transition
-
-=item S5. Cleanup
-
-=back
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
+    # Serve the site locally at http://localhost:8000
+    my $d = Text::Dapper->new();
+    $d->serve("_source", "_output", "_layout", "_config.yml");
+    undef $d;
 
 =cut
 
@@ -88,9 +83,44 @@ use Exporter qw(import);
 
 our @EXPORT = qw($VERSION);
 
-=head1 SUBROUTINES/METHODS
+=head1 METHODS
 
-=head2 function1
+=head2 new
+
+Create a new Dapper object. Example:
+
+    my $d = Text::Dapper->new();
+
+Alternatively, the source dir, output dir, layout dir, and configuration file
+may be specified. Example:
+
+    my $d = Text::Dapper->new("_source", "_output", "_layout", "_config.yml");
+
+Defaults are as follows:
+
+=over 4
+
+=item <source> = "_source"
+
+=item <output> = "_output"
+
+=item <layout> = "_layout"
+
+=item  <config> = "_config.yml"
+
+=back
+
+After creating a Dapper object, the followin hash elements may be accessed:
+
+    use Text::Dapper;
+
+    my $d = Text::Dapper->new();
+
+    print "Source directory: $d->{source}\n";
+    print "Output directory: $d->{output}\n";
+    print "Layout directory: $d->{layout}\n";
+    print "Config file: $d->{config}\n";
+    print "Object instantiation time: $d->{site}->{time}\n";
 
 =cut
 
@@ -115,7 +145,23 @@ sub new {
     return $self;
 }
 
-=head2 function2
+=head2 init
+
+Initializes a new skeleton project in the current directory (of the calling script, and
+uses the defined source dir, output dir, layout dir, and config file. Example usage:
+
+    use Text::Dapper;
+
+    my $d = Text::Dapper->new();
+    $d->init();
+
+After running this method, the following directory structure will be created:
+
+    ├── _config.yml
+    ├── _layout/
+    │  └── index.html
+    └── _source/
+        └── index.md
 
 =cut
 
@@ -126,6 +172,23 @@ sub init {
 
     print "Project initialized.\n";
 }
+
+=head2 build
+
+Build the site in three steps:
+
+=over 4
+
+=item Parse. Read the configuration file and the source files and the layout files and 
+store them in a site hash.
+
+=item Transform. Combine source and layout files.
+
+=item Render. Save output files to the output directory.
+
+=back
+
+=cut
 
 sub build {
     my($self) = @_;

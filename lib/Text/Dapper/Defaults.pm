@@ -9,7 +9,6 @@ use warnings FATAL => 'all';
 use YAML::Tiny qw(Load);
 
 my $defaults = <<'DEFAULTS';
-macklamore : justin timberlake
 urlpattern : /:category/:year/:month/:slug/
 DEFAULTS
 
