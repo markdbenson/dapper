@@ -175,18 +175,20 @@ sub init {
 
 =head2 build
 
-Build the site in three steps:
+Build the site. Example:
 
-=over 4
+    use Text::Dapper;
+    
+    my $d = Text::Dapper->new();
+    $d->build();
 
-=item Parse. Read the configuration file and the source files and the layout files and 
-store them in a site hash.
+When the site is built, it is done in three steps:
 
-=item Transform. Combine source and layout files.
+1. Parse. In this step, the configuration file is read. In addition, all the source files in the source directory as well as the layout files in the layout directory are reach and stored in the site hash.
 
-=item Render. Save output files to the output directory.
+2. Transform. Combine source and layout files.
 
-=back
+3. Render. Save output files to the output directory.
 
 =cut
 
@@ -264,6 +266,21 @@ sub render {
     $self->copy(".", $self->{output});
 }
 
+=head2 serve
+
+Serve the site locally. Pass in the port number. The port number will be used to serve the site contents from the output directory like this: http://localhost:<port>. Here is an example, using the default port 8000:
+
+    use Text::Dapper;
+
+    my $d = Text::Dapper->new();
+    $d->serve("8000");
+
+The following is equivalent:
+
+    $d->serve();
+
+=cut
+
 sub serve {
     my($self, $port) = @_;
 
@@ -271,21 +288,18 @@ sub serve {
 
     my $s = HTTP::Server::Brick->new(port=>$port);
     $s->add_type('text/html' => qw(^[^\.]+$));
-    $s->mount("/"=>{ path=>"_output" });
-    #handler => sub { my ($req, $res) = @_; print $req; $res->header('Content-type', 'text/html'); 1; }, #wildcard => 1,
+    $s->mount("/"=>{ path => $self->{output} });
 
     $s->start
 }
 
-# read_project reads the project file and places the values found
-# into the appropriate hash.
+# reads the project file and places the values found into the site hash.
 sub read_project {
     my ($self) = @_;
 
     my $config = LoadFile($self->{config}) or die "error: could not load \"$self->{config}\": $!\n";
 
     # Graft together
-    #@hash1{keys %hash2} = values %hash2;
     @{$self->{site}}{keys %$config} = values %$config;
 
     die "error: \"source\" must be defined in project file\n" unless defined $self->{source};
@@ -515,15 +529,11 @@ Please report any bugs or feature requests to C<bug-text-dapper at rt.cpan.org>,
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Text-Dapper>.  I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
 
-
-
-
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc Text::Dapper
-
 
 You can also look for information at:
 
@@ -546,10 +556,6 @@ L<http://cpanratings.perl.org/d/Text-Dapper>
 L<http://search.cpan.org/dist/Text-Dapper/>
 
 =back
-
-
-=head1 ACKNOWLEDGEMENTS
-
 
 =head1 LICENSE AND COPYRIGHT
 
