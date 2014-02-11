@@ -32,7 +32,7 @@ my $DEFAULT_PORT = 8000;
 
 =head1 NAME
 
-Text::Dapper - A minimalist static site generator
+Text::Dapper - A static website generator for your texts
 
 =head1 VERSION
 
@@ -44,7 +44,7 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-Dapper allows you to transform simple text files into websites. By installing the Dapper Perl module, a dapper executable will be available to you in your Terminal window. You can use this executablein a number of ways:
+Dapper allows you to transform simple text files into websites. By installing the Dapper Perl module, a dapper executable will be available to you in your Terminal window. You can use this executable in a number of ways:
 
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper init
@@ -55,8 +55,30 @@ Dapper allows you to transform simple text files into websites. By installing th
     # Serve the site locally at http://localhost:8000
     $ dapper serve
 
+    # Watch the source dir, layout dir, and config file for changes
+    # If changes are detected, rebuild the site
+    $ dapper watch
+
     # Get help on additional ways to use the dapper executable
     $ dapper -h
+
+    # Print the version
+    $ dapper -v
+
+    # Build site using "posts" as the source directory
+    # Note this may also be specified in the config file
+    $ dapper -s "posts" build
+
+    # Build site using "templates" as the layout directory
+    # Note this may also be specified in the config file
+    $ dapper -l templates build
+
+    # Build site using "site" as the output directory
+    # Note this may also be specified in the config file
+    $ dapper -o site build
+
+    # Build site using "project.yml" as the config file
+    $ dapper -c project.yml build
 
 Additionally, Dapper may be used as a perl module directly. Examples:
 
