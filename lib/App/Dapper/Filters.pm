@@ -1,4 +1,4 @@
-package Text::Dapper::Filters;
+package App::Dapper::Filters;
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';

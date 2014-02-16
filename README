@@ -1,4 +1,4 @@
-Text-Dapper
+App-Dapper
 
 Dapper is a static site generator. Dapper is distributed as a Perl module
 and also a utility that makes it easy to create static websites.
@@ -28,21 +28,21 @@ SUPPORT AND DOCUMENTATION
 After installing, you can find documentation for this module with the
 perldoc command.
 
-    perldoc Text::Dapper
+    perldoc App::Dapper
 
 You can also look for information at:
 
     RT, CPAN's request tracker (report bugs here)
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=Text-Dapper
+        http://rt.cpan.org/NoAuth/Bugs.html?Dist=App-Dapper
 
     AnnoCPAN, Annotated CPAN documentation
-        http://annocpan.org/dist/Text-Dapper
+        http://annocpan.org/dist/App-Dapper
 
     CPAN Ratings
-        http://cpanratings.perl.org/d/Text-Dapper
+        http://cpanratings.perl.org/d/App-Dapper
 
     Search CPAN
-        http://search.cpan.org/dist/Text-Dapper/
+        http://search.cpan.org/dist/App-Dapper/
 
 LICENSE AND COPYRIGHT
 

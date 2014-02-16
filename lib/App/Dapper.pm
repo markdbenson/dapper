@@ -1,4 +1,4 @@
-package Text::Dapper;
+package App::Dapper;
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
@@ -18,21 +18,21 @@ use File::Spec::Functions qw/ canonpath /;
 use File::Path qw(make_path);
 
 use Data::Dumper;
-#$Data::Dumper::Indent = 1;
-#$Data::Dumper::Sortkeys = 1;
+$Data::Dumper::Indent = 1;
+$Data::Dumper::Sortkeys = 1;
 
 use DateTime;
 
-use Text::Dapper::Init;
-use Text::Dapper::Utils;
-use Text::Dapper::Defaults;
-use Text::Dapper::Filters;
+use App::Dapper::Init;
+use App::Dapper::Utils;
+use App::Dapper::Defaults;
+use App::Dapper::Filters;
 
 my $DEFAULT_PORT = 8000;
 
 =head1 NAME
 
-Text::Dapper - A static website generator for your texts
+App::Dapper - A static website generator for your texts
 
 =head1 VERSION
 
@@ -82,21 +82,21 @@ Dapper allows you to transform simple text files into websites. By installing th
 
 Additionally, Dapper may be used as a perl module directly. Examples:
 
-    use Text::Dapper;
+    use App::Dapper;
 
     # Initialize a skeleton Dapper site in the current directory
-    my $d = Text::Dapper->new();
-    $d->init("_source", "_output", "_layout", "_config.yml");
+    my $d = App::Dapper->new();
+    $d->init();
     undef $d;
 
     # Build the site
-    my $d = Text::Dapper->new();
-    $d->build("_source", "_output", "_layout", "_config.yml");
+    my $d = App::Dapper->new();
+    $d->build();
     undef $d;
 
     # Serve the site locally at http://localhost:8000
-    my $d = Text::Dapper->new();
-    $d->serve("_source", "_output", "_layout", "_config.yml");
+    my $d = App::Dapper->new();
+    $d->serve();
     undef $d;
 
 =cut
@@ -111,12 +111,12 @@ our @EXPORT = qw($VERSION);
 
 Create a new Dapper object. Example:
 
-    my $d = Text::Dapper->new();
+    my $d = App::Dapper->new();
 
 Alternatively, the source dir, output dir, layout dir, and configuration file
 may be specified. Example:
 
-    my $d = Text::Dapper->new("_source", "_output", "_layout", "_config.yml");
+    my $d = App::Dapper->new("_source", "_output", "_layout", "_config.yml");
 
 Defaults are as follows:
 
@@ -134,9 +134,9 @@ Defaults are as follows:
 
 After creating a Dapper object, the followin hash elements may be accessed:
 
-    use Text::Dapper;
+    use App::Dapper;
 
-    my $d = Text::Dapper->new();
+    my $d = App::Dapper->new();
 
     print "Source directory: $d->{source}\n";
     print "Output directory: $d->{output}\n";
@@ -156,12 +156,12 @@ sub new {
         config => shift,
     };
 
-    $self->{site} = Text::Dapper::Defaults::get_defaults();
+    $self->{site} = App::Dapper::Defaults::get_defaults();
     $self->{site}->{time} = DateTime->now( time_zone => DateTime::TimeZone->new( name => 'local' ) );
     $self->{source} = "_source" unless defined($self->{source});
     $self->{output} = "_output" unless defined($self->{output});
     $self->{layout} = "_layout" unless defined($self->{layout});
-    $self->{config} = "_config" unless defined($self->{config});
+    $self->{config} = "_config.yml" unless defined($self->{config});
 
     bless $self, $class;
     return $self;
@@ -172,9 +172,9 @@ sub new {
 Initializes a new skeleton project in the current directory (of the calling script, and
 uses the defined source dir, output dir, layout dir, and config file. Example usage:
 
-    use Text::Dapper;
+    use App::Dapper;
 
-    my $d = Text::Dapper->new();
+    my $d = App::Dapper->new();
     $d->init();
 
 After running this method, the following directory structure will be created:
@@ -190,7 +190,7 @@ After running this method, the following directory structure will be created:
 sub init {
     my ($self) = @_;
 
-    Text::Dapper::Init::init();
+    App::Dapper::Init::init();
 
     print "Project initialized.\n";
 }
@@ -199,9 +199,9 @@ sub init {
 
 Build the site. Example:
 
-    use Text::Dapper;
+    use App::Dapper;
     
-    my $d = Text::Dapper->new();
+    my $d = App::Dapper->new();
     $d->build();
 
 When the site is built, it is done in three steps:
@@ -292,9 +292,9 @@ sub render {
 
 Serve the site locally. Pass in the port number. The port number will be used to serve the site contents from the output directory like this: http://localhost:<port>. Here is an example, using the default port 8000:
 
-    use Text::Dapper;
+    use App::Dapper;
 
-    my $d = Text::Dapper->new();
+    my $d = App::Dapper->new();
     $d->serve("8000");
 
 The following is equivalent:
@@ -340,9 +340,9 @@ sub read_templates {
     my @files = sort(grep(!/^\..*$/, readdir(DIR)));
 
     for my $file (@files) {
-        my $stem = Text::Dapper::Utils::filter_stem($file);
+        my $stem = App::Dapper::Utils::filter_stem($file);
         $file = $self->{layout} . "/" . $file;
-        $self->{layout_content}->{$stem} = Text::Dapper::Utils::read_file($file);
+        $self->{layout_content}->{$stem} = App::Dapper::Utils::read_file($file);
         #print "$stem layout content:\n";
         #print $self->{layout_content}->{$stem};
     }
@@ -425,7 +425,7 @@ sub taj_mahal {
 
     my %page = ();
 
-    my $source_content = Text::Dapper::Utils::read_file($source_file_name);
+    my $source_content = App::Dapper::Utils::read_file($source_file_name);
 
     $source_content =~ /(---.*?)---(.*)/s;
 
@@ -436,10 +436,10 @@ sub taj_mahal {
         $page{$key} = $frontmatter->{$key};
     }
 
-    $page{slug} = Text::Dapper::Utils::slugify($page{title});
+    $page{slug} = App::Dapper::Utils::slugify($page{title});
 
     if (not $page{date}) {
-        my $date = Text::Dapper::Utils::get_modified_time($source_file_name);
+        my $date = App::Dapper::Utils::get_modified_time($source_file_name);
         #print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
         $page{date} = $date;
     }
@@ -480,9 +480,9 @@ sub taj_mahal {
 
     if (not defined $page{extension}) { $page{extension} = ".html"; }
 
-    $page{source_file_extension} = Text::Dapper::Utils::filter_extension($source_file_name);
+    $page{source_file_extension} = App::Dapper::Utils::filter_extension($source_file_name);
 
-    $page{filename} = Text::Dapper::Utils::filter_stem("$destination_file_name") . $page{extension};
+    $page{filename} = App::Dapper::Utils::filter_stem("$destination_file_name") . $page{extension};
     
     #print "FILENAME BEFORE: " . $page{filename} . "\n";
     #print "FILENAME AFTER: " . $page{filename} . "\n";
@@ -548,14 +548,14 @@ Mark Benson, C<< <markbenson at vanilladraft.com> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to C<bug-text-dapper at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Text-Dapper>.  I will be notified, and then you'll
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=App-Dapper>.  I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
 
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc Text::Dapper
+    perldoc App::Dapper
 
 You can also look for information at:
 
@@ -563,19 +563,19 @@ You can also look for information at:
 
 =item * RT: CPAN's request tracker (report bugs here)
 
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Text-Dapper>
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=App-Dapper>
 
 =item * AnnoCPAN: Annotated CPAN documentation
 
-L<http://annocpan.org/dist/Text-Dapper>
+L<http://annocpan.org/dist/App-Dapper>
 
 =item * CPAN Ratings
 
-L<http://cpanratings.perl.org/d/Text-Dapper>
+L<http://cpanratings.perl.org/d/App-Dapper>
 
 =item * Search CPAN
 
-L<http://search.cpan.org/dist/Text-Dapper/>
+L<http://search.cpan.org/dist/App-Dapper/>
 
 =back
 
@@ -605,5 +605,5 @@ SOFTWARE.
 
 =cut
 
-1; # End of Text::Dapper
+1; # End of App::Dapper
 

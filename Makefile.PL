@@ -4,10 +4,10 @@ use warnings FATAL => 'all';
 use ExtUtils::MakeMaker;
 
 WriteMakefile(
-    NAME             => 'Text::Dapper',
+    NAME             => 'App::Dapper',
     AUTHOR           => q{Mark Benson <markbenson@vanilladraft.com>},
-    VERSION_FROM     => 'lib/Text/Dapper.pm',
-    ABSTRACT_FROM    => 'lib/Text/Dapper.pm',
+    VERSION_FROM     => 'lib/App/Dapper.pm',
+    ABSTRACT_FROM    => 'lib/App/Dapper.pm',
     LICENSE          => 'mit',
     PL_FILES         => {},
     EXE_FILES         => ['bin/dapper'],
@@ -27,6 +27,6 @@ WriteMakefile(
         'File::Spec::Functions' => 0,
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean => { FILES => 'Text-Dapper-*' },
+    clean => { FILES => 'App-Dapper-*' },
 );
 

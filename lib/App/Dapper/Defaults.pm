@@ -1,4 +1,4 @@
-package Text::Dapper::Defaults;
+package App::Dapper::Defaults;
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';

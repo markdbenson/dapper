@@ -1,4 +1,4 @@
-package Text::Dapper::Init;
+package App::Dapper::Init;
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
@@ -6,7 +6,7 @@ use 5.006;
 use strict;
 use warnings FATAL => 'all';
 
-use Text::Dapper::Utils;
+use App::Dapper::Utils;
 
 my $source_dir_name = "_source";
 my $templates_dir_name = "_layout";
@@ -54,13 +54,13 @@ ignore :
 PROJ_FILE_TEMPLATE
 
 sub init {
-    Text::Dapper::Utils::create_file($proj_file_template_name, $proj_file_template_content);
+    App::Dapper::Utils::create_file($proj_file_template_name, $proj_file_template_content);
 
-    Text::Dapper::Utils::create_dir($source_dir_name);
-    Text::Dapper::Utils::create_file($source_index_name, $source_index_content);
+    App::Dapper::Utils::create_dir($source_dir_name);
+    App::Dapper::Utils::create_file($source_index_name, $source_index_content);
 
-    Text::Dapper::Utils::create_dir($templates_dir_name);
-    Text::Dapper::Utils::create_file($templates_index_name, $templates_index_content);
+    App::Dapper::Utils::create_dir($templates_dir_name);
+    App::Dapper::Utils::create_file($templates_index_name, $templates_index_content);
 }
 
 1;

@@ -7,8 +7,8 @@ use Test::More;
 plan tests => 1;
 
 BEGIN {
-    use_ok( 'Text::Dapper' ) || print "Bail out!\n";
+    use_ok( 'App::Dapper' ) || print "Bail out!\n";
 }
 
-diag( "Testing Text::Dapper $Text::Dapper::VERSION, Perl $], $^X" );
+diag( "Testing App::Dapper $App::Dapper::VERSION, Perl $], $^X" );
 

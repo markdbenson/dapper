@@ -1,4 +1,4 @@
-package Text::Dapper::Utils;
+package App::Dapper::Utils;
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
@@ -88,6 +88,7 @@ sub filter_stem {
 sub create_file {
     my ($filename, $content) = @_;
     $filename = canonpath $filename;
+    print "Creating $filename\n";
     die "Invalid number of arguments to create_file" if @_ != 2;
     
     #open(my $fh, '+>:encoding(UTF-8)', $filename)

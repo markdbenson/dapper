@@ -12,7 +12,7 @@ use lib "$FindBin::Bin/../lib";
 
 use Pod::Usage;
 use Getopt::Mixed;
-use Text::Dapper;
+use App::Dapper;
 use File::Monitor;
 use File::Find;
 
@@ -51,19 +51,19 @@ my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) 
 =cut
 
 sub init {
-    my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
+    my $d = new App::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->init();
     undef $d;
 }
 
 sub build {
-    my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
+    my $d = new App::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->build();
     undef $d;
 }
 
 sub serve {
-    my $d = new Text::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
+    my $d = new App::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->serve($PORT);
     undef $d;
 }
@@ -91,7 +91,7 @@ sub help() {
 }
 
 sub version() {
-    print "Dapper version $Text::Dapper::VERSION\n";
+    print "Dapper version $App::Dapper::VERSION\n";
     exit(0);
 }
 

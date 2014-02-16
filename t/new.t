@@ -3,14 +3,16 @@ use Test;
 
 BEGIN { plan tests => 5 }
 
-use Text::Dapper;
+use App::Dapper;
 
-print "# I'm testing Text::Dapper->new()\n";
+print "# I'm testing App::Dapper->new()\n";
 
-my $d = Text::Dapper->new();
-ok($d->{source}, "_source");
-ok($d->{layout}, "_layout");
-ok($d->{output}, "_output");
-ok($d->{config}, "_config");
+my $d = App::Dapper->new("t/_source", "t/_output", "t/_layout", "t/_config.yml");
+ok($d->{source}, "t/_source", "Test default source directory");
+ok($d->{layout}, "t/_layout", "Test default layout directory");
+ok($d->{output}, "t/_output", "Test default output director");
+ok($d->{config}, "t/_config.yml", "Test defult config file name");
 ok(1);
+
+#$d->init();
 
