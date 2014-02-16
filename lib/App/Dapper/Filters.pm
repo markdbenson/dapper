@@ -9,6 +9,13 @@ use warnings FATAL => 'all';
 use Data::Dumper;
 use CGI qw(:standard escapeHTML);
 
+=head2 import
+
+Called when this module is 'used' from somewhere else. This subroutine
+registers Liquid filters contained in this file.
+
+=cut
+
 sub import {
     Template::Liquid::register_filter(qw[
         xml_escape
@@ -18,11 +25,25 @@ sub import {
     ]);
 }
 
+=head2 xml_escape
+
+Liquid filter to escape strings into formats that can be included
+in XML files.
+
+=cut
+
 sub xml_escape {
     my $str = shift;
     my $q = new CGI;
     return $q->escapeHTML( $str );
 }
+
+=head2 date_to_xmlschema
+
+Convert a date to an XML-formattted version of the date that also includes
+the timezone.
+
+=cut
 
 sub date_to_xmlschema {
     my $str = shift;
@@ -37,6 +58,12 @@ sub date_to_xmlschema {
     #return $f->format_datetime($str);
 }
 
+=head2 replace_last
+
+Liquid filter to replace the last occurrance of a string with another string.
+
+=cut
+
 sub replace_last {
     my ($input, $string, $replacement) = @_;
 
@@ -44,6 +71,12 @@ sub replace_last {
     $input =~ s/^(.*)$string(.*)$/$1$replacement$2/s;
     return $input;
 }
+
+=head2 smart 
+
+Replace dashes with mdashes and ndashes.
+
+=cut
 
 sub smart {
     my $input = shift;

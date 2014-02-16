@@ -12,6 +12,12 @@ use File::Spec::Functions qw/ canonpath /;
 
 my $DEFAULT_LAYOUT = "index";
 
+=head2 read_file
+
+Read a file and return a scalar with the file's contents.
+
+=cut
+
 # Takes a file name and returns a string of the contents
 sub read_file {
   my ($file_name) = @_;
@@ -26,11 +32,25 @@ sub read_file {
     return $file_contents;
 }
 
+=head2 get_modified_time
+
+Takes a file and returns the last modified time of the file.
+
+=cut
+
 sub get_modified_time {
     my ($file) = @_;
     my $date = POSIX::strftime( "%Y-%m-%d %H:%M:%S", localtime((stat $file)[9]));
     return $date;
 }
+
+=head2 slugify
+
+Takes an input string (e.g. the title of a blog post) and "slugifies" it, meaning that
+it removes non-ASCII characters, removes all non-word characters (e.g. '_', '-', etc.), 
+and removes leading and trailing whitespace.
+
+=cut
 
 sub slugify {
     my ($input) = @_;
@@ -49,7 +69,12 @@ sub slugify {
     return $input;
 }
 
-# Takes a string, returns <template> part of the first "use <template> template" line.
+=head2 find_template_statement
+
+Takes a string, returns <template> part of the first "use <template> template" line.
+
+=cut
+
 sub find_template_statement {
     my ($string) = @_;
 
@@ -58,7 +83,12 @@ sub find_template_statement {
     return $DEFAULT_LAYOUT;
 }
 
-# Takes a string, removes all "use <template> template" statements and returns what's left.
+=head2 filter_template_statements
+
+Takes a string, removes all "use <template> template" statements and returns what's left.
+
+=cut
+
 sub filter_template_statements {
     my ($string) = @_;
 
@@ -67,14 +97,26 @@ sub filter_template_statements {
     return $string;
 }
 
+=head2 filter_extension
+
+Takes a string (filename) and returns the extension.
+
+=cut
+
 sub filter_extension {
     my ($filename) = @_;
     $filename = canonpath $filename;
 
-    my ($ext) = $filename =~ /(\.[^.]+)$/;
+   my ($ext) = $filename =~ /(\.[^.]+)$/;
    
     return $ext;
 }
+
+=head2 filter_stem
+
+Takes a filename and returns the stem of the file name (without the extension).
+
+=cut
 
 sub filter_stem {
     my ($filename) = @_;
@@ -84,6 +126,12 @@ sub filter_stem {
 
     return $stem;
 }
+
+=head2 create_file
+
+Takes a file name and a string of the content and writes it to disk.
+
+=cut
  
 sub create_file {
     my ($filename, $content) = @_;
@@ -98,6 +146,12 @@ sub create_file {
     print $fh $content;
     close $fh;
 }
+
+=head2 create_dir
+
+Takes a directory name and creates it on disk.
+
+=cut
 
 sub create_dir {
     my ($dirname) = @_;

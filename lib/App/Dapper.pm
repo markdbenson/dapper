@@ -224,6 +224,12 @@ sub build {
     print "Project built.\n";
 }
 
+=head2 parse
+
+Parse the source directory, config file, and templates.
+
+=cut
+
 sub parse {
     my ($self) = @_;
 
@@ -234,12 +240,25 @@ sub parse {
     $self->read_templates();
 }
 
+=head2 transform
+
+Walk the source and output directories and transform the text into the output files.
+
+=cut
+
 sub transform {
     my ($self) = @_;
 
     # recurse through the project tree and generate output (combine src with templates)
     $self->walk($self->{source}, $self->{output});
 }
+
+=head2 render
+
+Render the internal hash of source files, config file, and layouts into the actual output files
+on disk.
+
+=cut
 
 sub render {
     my ($self) = @_;
@@ -315,7 +334,12 @@ sub serve {
     $s->start
 }
 
-# reads the project file and places the values found into the site hash.
+=head2 read_project
+
+Read the project file.
+
+=cut
+
 sub read_project {
     my ($self) = @_;
 
@@ -331,7 +355,12 @@ sub read_project {
     #print Dump($self->{site});
 }
 
-# read_templates reads the content of the templates specified in the project configuration file.
+=head2 read_templates
+
+Read the content of the templates specified in the project configuration file.
+
+=cut
+
 sub read_templates {
     my ($self) = @_;
     my ($key, $ckey);
@@ -372,7 +401,12 @@ sub read_templates {
     }
 }
 
-# recursive descent
+=head2 walk
+
+Walk the source directory and output directory and build the site hash.
+
+=cut
+
 sub walk {
   my ($self, $source_dir, $output_dir) = @_;
   my $source_handle = new IO::Dir "$source_dir";;
@@ -419,7 +453,12 @@ sub walk {
   #undef %b_ddm;
 }
 
-# Takes a source file and destination file and adds an appropriate meta data entries to the taj mahal multi-tiered site hash.
+=head2 taj_mahal
+
+Build the internal hash of files, configurations, and layouts.
+
+=cut
+
 sub taj_mahal {
     my ($self, $source_file_name, $destination_file_name) = @_;
 
@@ -517,11 +556,13 @@ sub taj_mahal {
     push @{$self->{site}->{pages}}, \%page;
 }
 
-# copy(sourcdir, outputdir)
-#
-# This subroutine copies all directories and files from
-# sourcedir into outputdir as long as they do not match
-# what is contained in ignore.
+=head2 copy(sourcedir, outputdir)
+
+Copies files and directories from <sourcedir> to <outputdir> as long as they do not
+made what is contained in $self->{site}->{ignore}.
+
+=cut
+
 sub copy {
     my ($self, $dir, $output) = @_;
 

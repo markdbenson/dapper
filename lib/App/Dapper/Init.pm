@@ -53,6 +53,13 @@ ignore :
 
 PROJ_FILE_TEMPLATE
 
+=head2 init
+
+Initialize a Dapper project. This method creates a config file, source and template directories.
+After calling this method, the project may be built.
+
+=cut
+
 sub init {
     App::Dapper::Utils::create_file($proj_file_template_name, $proj_file_template_content);
 
