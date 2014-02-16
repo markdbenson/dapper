@@ -32,7 +32,7 @@ my $DEFAULT_PORT = 8000;
 
 =head1 NAME
 
-App::Dapper - A static website generator for your texts
+App::Dapper - A publishing platform for static websites
 
 =head1 VERSION
 
@@ -44,7 +44,7 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-Dapper allows you to transform simple text files into websites. By installing the Dapper Perl module, a dapper executable will be available to you in your Terminal window. You can use this executable in a number of ways:
+Dapper allows you to transform simple text files into websites. By installing the App::Dapper Perl module, a dapper executable will be available to you in your Terminal window. You can use this executable in a number of ways:
 
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper init
