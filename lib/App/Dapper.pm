@@ -190,7 +190,14 @@ After running this method, the following directory structure will be created:
 sub init {
     my ($self) = @_;
 
-    App::Dapper::Init::init();
+    print "SOURCE is ($self->{source})\n";
+
+    App::Dapper::Init::init(
+        $self->{source},
+        $self->{output},
+        $self->{layout},
+        $self->{config}
+    );
 
     print "Project initialized.\n";
 }

@@ -8,10 +8,7 @@ use warnings FATAL => 'all';
 
 use App::Dapper::Utils;
 
-my $source_dir_name = "_source";
-my $templates_dir_name = "_layout";
-
-my $source_index_name = "$source_dir_name/index.md";
+my $source_index_name = "index.md";
 my $source_index_content = <<'SOURCE_INDEX_CONTENT';
 ---
 layout: index
@@ -21,7 +18,7 @@ title: Hello World
 Hello world.
 SOURCE_INDEX_CONTENT
 
-my $templates_index_name = "$templates_dir_name/index.html";
+my $templates_index_name = "index.html";
 my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
@@ -39,7 +36,6 @@ my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 
 TEMPLATES_INDEX_CONTENT
 
-my $proj_file_template_name = "_config.yml";
 my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
 ---
 name : My Site
@@ -61,13 +57,15 @@ After calling this method, the project may be built.
 =cut
 
 sub init {
-    App::Dapper::Utils::create_file($proj_file_template_name, $proj_file_template_content);
+    my ($source, $output, $layout, $config) = @_;
 
-    App::Dapper::Utils::create_dir($source_dir_name);
-    App::Dapper::Utils::create_file($source_index_name, $source_index_content);
+    App::Dapper::Utils::create_file($config, $proj_file_template_content);
 
-    App::Dapper::Utils::create_dir($templates_dir_name);
-    App::Dapper::Utils::create_file($templates_index_name, $templates_index_content);
+    App::Dapper::Utils::create_dir($source);
+    App::Dapper::Utils::create_file("$source/$source_index_name", $source_index_content);
+
+    App::Dapper::Utils::create_dir($layout);
+    App::Dapper::Utils::create_file("$layout/$templates_index_name", $templates_index_content);
 }
 
 1;
