@@ -1,17 +1,10 @@
-App-Dapper
+App-Dapper README
 
-Dapper is a static site generator. Dapper is distributed as a Perl module
-and also a utility that makes it easy to create static websites.
+Dapper is a publishing platform for static websites.
 
-TASKS
-
-To do items:
-* perldoc
-* logging levels
-* make markdown processing a filter?
-* atom.xml awkwardness
-* Support multiple categories
-* Support tags
+Dapper is distributed as a Perl module called App::Dapper which comes with an
+application called "dapper" which makes it easy to use the App::Dapper perl
+module from the command line to create static websites.
 
 INSTALLATION
 
