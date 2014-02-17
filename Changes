@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.02    2/17/2014
+        Added documentation link from App::Dapper to bin/dapper.
+        Fixed FreeBSD testing error as reported by cpantesters.org.
+
 0.01    2/1/2014
         First version.
 
