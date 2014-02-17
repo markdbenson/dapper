@@ -7,7 +7,6 @@ TASKS
 
 To do items:
 * perldoc
-* tests
 * logging levels
 * make markdown processing a filter?
 * atom.xml awkwardness
