@@ -80,6 +80,8 @@ Dapper allows you to transform simple text files into websites. By installing th
     # Build site using "project.yml" as the config file
     $ dapper -c project.yml build
 
+See the documentation for L<bin/dapper> for more information.
+
 Additionally, Dapper may be used as a perl module directly. Examples:
 
     use App::Dapper;

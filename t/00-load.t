@@ -3,6 +3,7 @@ use 5.006;
 use strict;
 use warnings FATAL => 'all';
 use Test::More;
+use App::Dapper;
 
 plan tests => 1;
 
