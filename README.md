@@ -1,4 +1,4 @@
-# App-Dapper README
+# Name and Description
 
 Dapper is a publishing platform for static websites.
 
