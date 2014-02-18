@@ -1,19 +1,23 @@
-# Name and Description
+# Dapper README
 
 Dapper is a publishing platform for static websites.
 
-Dapper is distributed as a Perl module called App::Dapper which comes with an
+Distributed as a Perl module, App::Dapper comes with an
 application called "dapper" which makes it easy to use the App::Dapper perl
 module from the command line to create static websites.
 
 ## Installation
 
-To install this module, run the following commands:
+Install from CPAN:
 
-	perl Makefile.PL
-	make
-	make test
-	make install
+    $ cpan App::Dapper
+
+Install from source:
+
+	$ perl Makefile.PL
+	$ make
+	$ make test
+	$ make install
 
 ## Support and Documentation
 
@@ -24,17 +28,20 @@ perldoc command.
 
 You can also look for information at:
 
-    RT, CPAN's request tracker (report bugs here)
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=App-Dapper
+    Source on Github
+        https://github.com/markdbenson/dapper
+ 
+    Submit an issue on Github
+        https://github.com/markdbenson/dapper/issues
+
+    Module on CPAN
+        http://search.cpan.org/dist/App-Dapper/
 
     AnnoCPAN, Annotated CPAN documentation
         http://annocpan.org/dist/App-Dapper
 
     CPAN Ratings
         http://cpanratings.perl.org/d/App-Dapper
-
-    Search CPAN
-        http://search.cpan.org/dist/App-Dapper/
 
 ## License and Copyright
 
