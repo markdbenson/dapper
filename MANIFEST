@@ -10,8 +10,6 @@ MANIFEST			This list of files
 README
 t/00-load.t
 t/01-manifest.t
-t/02-pod1.t
-t/03-pod2.t
-t/04-new.t
-t/05-init.t
-t/06-build.t
+t/02-new.t
+t/03-init.t
+t/04-build.t

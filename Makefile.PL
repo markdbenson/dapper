@@ -25,6 +25,7 @@ WriteMakefile(
         'Getopt::Mixed'         => 0,
         'IO::Dir'               => 0,
         'File::Spec::Functions' => 0,
+        'Template::Liquid'      => 0,
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'App-Dapper-*' },

@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.03    2/18/2014
+        Added significant documentation to App::Dapper and bin/dapper.
+        Simplified default _config.yml file.
+
 0.02    2/17/2014
         Added documentation link from App::Dapper to bin/dapper.
         Fixed FreeBSD testing error as reported by cpantesters.org.
