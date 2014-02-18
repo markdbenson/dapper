@@ -1,5 +1,11 @@
 #!/usr/bin/perl 
 
+=head1 NAME
+
+dapper - A publishing platform for static websites.
+
+=cut
+
 #use utf8;
 use open ':std', ':encoding(UTF-8)';
 use 5.010;
@@ -23,31 +29,208 @@ my $PORT = 8000;
 my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) =
   ( undef,    "_source", "_output", "_layout", "_config.yml", undef, undef );
 
-=head1 USAGE
+=head1 SYNOPSIS
 
-=over 5
+B<Dapper> allows you to transform simple text files into static websites. By installing the App::Dapper Perl module, an executable named C<dapper> will be available to you in your terminal window. You can use this executable in a number of ways:
 
-=item dapper -h          # Help
+    # Initialize the current directory with a fresh skeleton of a site
+    $ dapper [-solc] init
 
-=item dapper -v          # Version
+    # Build the site
+    $ dapper [-solc] build
 
-=item dapper -s <dir>    # Source dir name (default: _source)
+    # Serve the site locally at http://localhost:8000
+    $ dapper [-solc] serve
 
-=item dapper -o <dir>    # Output dir name (default: _output)
+    # Rebuild the site if anything (source, layout dirs; config file) changes
+    $ dapper [-solc] watch
 
-=item dapper -l <dir>    # Layout dir name (default: _layout)
+    # Get help on usage and switches
+    $ dapper -h
 
-=item dapper -c <config> # Config file name (default: _project.cfg)
+    # Print the version
+    $ dapper -v
 
-=item dapper init        # Create new skeleton project
+Additionally, B<Dapper> may be used as a perl module directly from a script. Examples:
 
-=item dapper build       # Build site
+    use App::Dapper;
 
-=item dapper watch       # Build + watch
+    # Create a Dapper object
+    my $d = App::Dapper->new();
 
-=item dapper serve       # Serve locally
+    # Initialize a new website in the current directory
+    $d->init();
+
+    # Build the site
+    $d->build();
+
+    # Serve the site locally at http://localhost:8000
+    $d->serve();
+
+=head1 DESCRIPTION
+
+Dapper helps you build static websites. To get you started, you can use the
+C<dapper init> command to initialize a directory. After running this command,
+the following directory structure will be created:
+
+    ├── _config.yml
+    ├── _layout/
+    │  └── index.html
+    └── _source/
+        └── index.md
+
+In that same directory, you may then build the site using the C<dapper build>
+command, which will combine the source files and the layout files and place
+the results in the output directory (default: C<_output>). After you build
+the default site, you'll then have the following directory structure:
+
+    ├── _config.yml
+    ├── _layout/
+    │  └── index.html
+    └── _source/
+        └── index.md
+    └── _output/
+        └── index.html
+
+To see what your website looks like, run the C<dapper serve> command which
+will spin up a development webserver and serve the static files located in
+the output directory (default: C<_output>) at L<http://localhost:8000>.
+
+Now, let's walk through each file:
+
+=over 4
+
+=item B<_config.yml>
+
+The configuration file is a YAML file that specifies key configuration
+elements for your static website. The default configuration file is as
+follows:
+
+    ---
+    name : My Site
+
+If you want to use a separate source, layout, or output directory, you may
+specify it in this file. For instance:
+
+    ---
+    name : My Site
+    source : _source
+    layout : _layout
+    output : _output
+
+All of the configurations in this file are available in layout templates,
+based on the Liquid template system. For instance, C<name> in the
+configuration file may be used in a template as follows:
+
+    {{ site.name }}
+
+=item B<_source/index.md>
+
+A sample markdown file is available in the _source directory. Contents:
+
+    ---
+    layout: index
+    title: Welcome
+    ---
+
+    Hello world.
+
+There are a few things to note about this file:
+
+=over 4
+
+=item 1. There is a YAML configuration block at the start of the file.
+
+=item 2. The I<layout> configuration specifies which layout to use.
+
+=item 3. The C<index> layout indicates that C<_layout/index.html> should be used.
+
+=item 4. The C<title> configuration is the name of the post/page. It is optional.
+
+=item 5. All of the configurations may be used in the corresponding layout file.
+
+    <!-- Example use of "name" in a layout file -->
+    <h1>{{ page.name }}</h1>
 
 =back
+
+=item B<_layout/index.html>
+
+Layout files are processed using the Liquid template system. The initial layout
+file that is given after you run the C<dapper init> command, is this:
+
+    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <html>
+    <head>
+      <title>{{ page.title }}</title>
+      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+    </head>
+
+    <body>
+
+    {{ page.content }}
+
+    </body>
+    </html>
+
+The main content of the text file that is being rendered with this template
+is available using C<{{ page.content }}>.
+
+Definitions specified in the C<_config.yml> file can be referenced under the
+"site" namespace (e.g. {{ site.name }}. Definitions specified in the YAML
+portion of text files can be referenced under the "page" namespace (e.g.
+{{ page.title }}.
+
+=item B<_output/index.html>
+
+The output file that is created is a mix of the input file and the layout that
+is specified by the input file. For the default site, the following output
+file is created:
+
+    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <html>
+    <head>
+      <title>Welcome</title>
+      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+    </head>
+
+    <body>
+
+    <p>Hello world.</p>
+
+    </body>
+    </html>
+
+=back
+
+B<Dapper> provides a number of optional command line switches:
+
+=head2 Options
+
+=over 4
+
+=item B<-s>, B<--source>=I<source directory>
+
+Specify the directory containing source files to process. If this command line option is not present, it defaults to "_source".
+
+=item B<-o>, B<--output>=I<output directory>
+
+Specify the directory to place the output files in. If this command line option is not present, it defaults to "_output".
+
+=item B<-l>, B<--layout>=I<layout directory>
+
+Specify the directory containing source files to process. If this command line option is not present, it defaults to "_layout".
+
+=item B<-h>
+
+Get help on available commands and options.
+
+=item B<-v>
+
+Print the version and exit.
+
+=back
+
 =cut
 
 sub init {
@@ -125,6 +308,70 @@ my $switch = {
   'default' => sub { help(); }
 };
 $switch->{$COMMAND} ? $switch->{$COMMAND}->() : $switch->{'default'}->();
+
+=head1 AUTHOR
+
+Mark Benson, C<< <markbenson at vanilladraft.com> >>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to C<bug-text-dapper at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=App-Dapper>.  I will be notified, and then you'll
+automatically be notified of progress on your bug as I make changes.
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc App::Dapper
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=App-Dapper>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/App-Dapper>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/App-Dapper>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/App-Dapper/>
+
+=back
+
+=head1 LICENSE AND COPYRIGHT
+
+The MIT License (MIT)
+
+Copyright (c) 2002-2014 Mark Benson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=cut
 
 #return 1 if caller;
 #exit run(@ARGV);

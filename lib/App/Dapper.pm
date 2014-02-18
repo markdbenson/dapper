@@ -239,6 +239,14 @@ Specify the directory to place the output files in. If this command line option 
 
 Specify the directory containing source files to process. If this command line option is not present, it defaults to "_layout".
 
+=item B<-h>
+
+Get help on available commands and options.
+
+=item B<-v>
+
+Print the version and exit.
+
 =back
 
 =cut
