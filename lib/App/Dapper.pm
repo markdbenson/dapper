@@ -1,5 +1,11 @@
 package App::Dapper;
 
+=head1 NAME
+
+App::Dapper - A publishing platform for static websites.
+
+=cut
+
 use utf8;
 use open ':std', ':encoding(UTF-8)';
 use 5.006;
@@ -8,6 +14,7 @@ use warnings FATAL => 'all';
 
 use vars '$VERSION';
 
+use Exporter qw(import);
 use IO::Dir;
 use Template::Liquid;
 
@@ -30,10 +37,6 @@ use App::Dapper::Filters;
 
 my $DEFAULT_PORT = 8000;
 
-=head1 NAME
-
-App::Dapper - A publishing platform for static websites
-
 =head1 VERSION
 
 Version 0.02
@@ -42,76 +45,211 @@ Version 0.02
 
 our $VERSION = '0.02';
 
+our @EXPORT = qw($VERSION);
+
 =head1 SYNOPSIS
 
-Dapper allows you to transform simple text files into websites. By installing the App::Dapper Perl module, a dapper executable will be available to you in your Terminal window. You can use this executable in a number of ways:
+B<Dapper> allows you to transform simple text files into static websites. By installing the App::Dapper Perl module, an executable named C<dapper> will be available to you in your terminal window. You can use this executable in a number of ways:
 
     # Initialize the current directory with a fresh skeleton of a site
-    $ dapper init
+    $ dapper [-solc] init
 
     # Build the site
-    $ dapper build
+    $ dapper [-solc] build
 
     # Serve the site locally at http://localhost:8000
-    $ dapper serve
+    $ dapper [-solc] serve
 
-    # Watch the source dir, layout dir, and config file for changes
-    # If changes are detected, rebuild the site
-    $ dapper watch
+    # Rebuild the site if anything (source, layout dirs; config file) changes
+    $ dapper [-solc] watch
 
-    # Get help on additional ways to use the dapper executable
+    # Get help on usage and switches
     $ dapper -h
 
     # Print the version
     $ dapper -v
 
-    # Build site using "posts" as the source directory
-    # Note this may also be specified in the config file
-    $ dapper -s "posts" build
-
-    # Build site using "templates" as the layout directory
-    # Note this may also be specified in the config file
-    $ dapper -l templates build
-
-    # Build site using "site" as the output directory
-    # Note this may also be specified in the config file
-    $ dapper -o site build
-
-    # Build site using "project.yml" as the config file
-    $ dapper -c project.yml build
-
-See the documentation for L<bin/dapper> for more information.
-
-Additionally, Dapper may be used as a perl module directly. Examples:
+Additionally, B<Dapper> may be used as a perl module directly from a script. Examples:
 
     use App::Dapper;
 
-    # Initialize a skeleton Dapper site in the current directory
+    # Create a Dapper object
     my $d = App::Dapper->new();
+
+    # Initialize a new website in the current directory
     $d->init();
-    undef $d;
 
     # Build the site
-    my $d = App::Dapper->new();
     $d->build();
-    undef $d;
 
     # Serve the site locally at http://localhost:8000
-    my $d = App::Dapper->new();
     $d->serve();
-    undef $d;
+
+=head1 DESCRIPTION
+
+Dapper helps you build static websites. To get you started, you can use the
+C<dapper init> command to initialize a directory. After running this command,
+the following directory structure will be created:
+
+    ├── _config.yml
+    ├── _layout/
+    │  └── index.html
+    └── _source/
+        └── index.md
+
+In that same directory, you may then build the site using the C<dapper build>
+command, which will combine the source files and the layout files and place
+the results in the output directory (default: C<_output>). After you build
+the default site, you'll then have the following directory structure:
+
+    ├── _config.yml
+    ├── _layout/
+    │  └── index.html
+    └── _source/
+        └── index.md
+    └── _output/
+        └── index.html
+
+To see what your website looks like, run the C<dapper serve> command which
+will spin up a development webserver and serve the static files located in
+the output directory (default: C<_output>) at L<http://localhost:8000>.
+
+Now, let's walk through each file:
+
+=over 4
+
+=item B<_config.yml>
+
+The configuration file is a YAML file that specifies key configuration
+elements for your static website. The default configuration file is as
+follows:
+
+    ---
+    name : My Site
+
+If you want to use a separate source, layout, or output directory, you may
+specify it in this file. For instance:
+
+    ---
+    name : My Site
+    source : _source
+    layout : _layout
+    output : _output
+
+All of the configurations in this file are available in layout templates,
+based on the Liquid template system. For instance, C<name> in the
+configuration file may be used in a template as follows:
+
+    {{ site.name }}
+
+=item B<_source/index.md>
+
+A sample markdown file is available in the _source directory. Contents:
+
+    ---
+    layout: index
+    title: Welcome
+    ---
+
+    Hello world.
+
+There are a few things to note about this file:
+
+=over 4
+
+=item 1. There is a YAML configuration block at the start of the file.
+
+=item 2. The I<layout> configuration specifies which layout to use.
+
+=item 3. The C<index> layout indicates that C<_layout/index.html> should be used.
+
+=item 4. The C<title> configuration is the name of the post/page. It is optional.
+
+=item 5. All of the configurations may be used in the corresponding layout file.
+
+    <!-- Example use of "name" in a layout file -->
+    <h1>{{ page.name }}</h1>
+
+=back
+
+=item B<_layout/index.html>
+
+Layout files are processed using the Liquid template system. The initial layout
+file that is given after you run the C<dapper init> command, is this:
+
+    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <html>
+    <head>
+      <title>{{ page.title }}</title>
+      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+    </head>
+
+    <body>
+
+    {{ page.content }}
+
+    </body>
+    </html>
+
+The main content of the text file that is being rendered with this template
+is available using C<{{ page.content }}>.
+
+Definitions specified in the C<_config.yml> file can be referenced under the
+"site" namespace (e.g. {{ site.name }}. Definitions specified in the YAML
+portion of text files can be referenced under the "page" namespace (e.g.
+{{ page.title }}.
+
+=item B<_output/index.html>
+
+The output file that is created is a mix of the input file and the layout that
+is specified by the input file. For the default site, the following output
+file is created:
+
+    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <html>
+    <head>
+      <title>Welcome</title>
+      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+    </head>
+
+    <body>
+
+    <p>Hello world.</p>
+
+    </body>
+    </html>
+
+=back
+
+B<Dapper> provides a number of optional command line switches:
+
+=head2 Options
+
+=over 4
+
+=item B<-s>, B<--source>=I<source directory>
+
+Specify the directory containing source files to process. If this command line option is not present, it defaults to "_source".
+
+=item B<-o>, B<--output>=I<output directory>
+
+Specify the directory to place the output files in. If this command line option is not present, it defaults to "_output".
+
+=item B<-l>, B<--layout>=I<layout directory>
+
+Specify the directory containing source files to process. If this command line option is not present, it defaults to "_layout".
+
+=back
 
 =cut
 
-use Exporter qw(import);
-
-our @EXPORT = qw($VERSION);
-
 =head1 METHODS
+
+Dapper may be used directly from a script as well. The following methods are available:
 
 =head2 new
 
-Create a new Dapper object. Example:
+Create a new B<Dapper> object. Example:
 
     my $d = App::Dapper->new();
 
@@ -120,21 +258,7 @@ may be specified. Example:
 
     my $d = App::Dapper->new("_source", "_output", "_layout", "_config.yml");
 
-Defaults are as follows:
-
-=over 4
-
-=item <source> = "_source"
-
-=item <output> = "_output"
-
-=item <layout> = "_layout"
-
-=item  <config> = "_config.yml"
-
-=back
-
-After creating a Dapper object, the followin hash elements may be accessed:
+After creating a B<Dapper> object, the followin hash elements may be accessed:
 
     use App::Dapper;
 
@@ -171,28 +295,17 @@ sub new {
 
 =head2 init
 
-Initializes a new skeleton project in the current directory (of the calling script, and
-uses the defined source dir, output dir, layout dir, and config file. Example usage:
+Initializes a new skeleton project in the current directory (of the calling script, and uses the defined source dir, output dir, layout dir, and config file. Example usage:
 
     use App::Dapper;
 
     my $d = App::Dapper->new();
     $d->init();
 
-After running this method, the following directory structure will be created:
-
-    ├── _config.yml
-    ├── _layout/
-    │  └── index.html
-    └── _source/
-        └── index.md
-
-=cut
+=cut 
 
 sub init {
     my ($self) = @_;
-
-    print "SOURCE is ($self->{source})\n";
 
     App::Dapper::Init::init(
         $self->{source},
@@ -216,7 +329,7 @@ Build the site. Example:
 When the site is built, it is done in three steps:
 
 1. Parse. In this step, the configuration file is read. In addition, all the source files in the source directory as well as the layout files in the layout directory are reach and stored in the site hash.
-
+ 
 2. Transform. Combine source and layout files.
 
 3. Render. Save output files to the output directory.
@@ -233,11 +346,7 @@ sub build {
     print "Project built.\n";
 }
 
-=head2 parse
-
-Parse the source directory, config file, and templates.
-
-=cut
+# sub parse - Parse the source directory, config file, and templates.
 
 sub parse {
     my ($self) = @_;
@@ -249,11 +358,7 @@ sub parse {
     $self->read_templates();
 }
 
-=head2 transform
-
-Walk the source and output directories and transform the text into the output files.
-
-=cut
+# sub transform - Walk the source and output directories and transform the text into the output files.
 
 sub transform {
     my ($self) = @_;
@@ -262,12 +367,7 @@ sub transform {
     $self->walk($self->{source}, $self->{output});
 }
 
-=head2 render
-
-Render the internal hash of source files, config file, and layouts into the actual output files
-on disk.
-
-=cut
+# sub render - Render the internal hash of source files, config file, and layouts into the actual output files on disk.
 
 sub render {
     my ($self) = @_;
@@ -316,20 +416,16 @@ sub render {
     $self->copy(".", $self->{output});
 }
 
-=head2 serve
-
-Serve the site locally. Pass in the port number. The port number will be used to serve the site contents from the output directory like this: http://localhost:<port>. Here is an example, using the default port 8000:
-
-    use App::Dapper;
-
-    my $d = App::Dapper->new();
-    $d->serve("8000");
-
-The following is equivalent:
-
-    $d->serve();
-
-=cut
+# sub serve - Serve the site locally. Pass in the port number. The port number will be used to serve the site contents from the output directory like this: http://localhost:<port>. Here is an example, using the default port 8000:
+# 
+#    use App::Dapper;
+#
+#    my $d = App::Dapper->new();
+#    $d->serve("8000");
+#
+# The following is equivalent:
+#
+#    $d->serve();
 
 sub serve {
     my($self, $port) = @_;
@@ -343,11 +439,7 @@ sub serve {
     $s->start
 }
 
-=head2 read_project
-
-Read the project file.
-
-=cut
+# sub read_project - Read the project file.
 
 sub read_project {
     my ($self) = @_;
@@ -364,11 +456,7 @@ sub read_project {
     #print Dump($self->{site});
 }
 
-=head2 read_templates
-
-Read the content of the templates specified in the project configuration file.
-
-=cut
+# sub read_templates - Read the content of the templates specified in the project configuration file.
 
 sub read_templates {
     my ($self) = @_;
@@ -410,11 +498,7 @@ sub read_templates {
     }
 }
 
-=head2 walk
-
-Walk the source directory and output directory and build the site hash.
-
-=cut
+# sub walk - Walk the source directory and output directory and build the site hash.
 
 sub walk {
   my ($self, $source_dir, $output_dir) = @_;
@@ -451,7 +535,7 @@ sub walk {
         my $source = "$source_dir/$directory_element";
         my $output = "$output_dir/$directory_element";
       
-        $self->taj_mahal($source, $output);
+        $self->build_inventory($source, $output);
       }
     }
     undef $source_handle;
@@ -462,13 +546,9 @@ sub walk {
   #undef %b_ddm;
 }
 
-=head2 taj_mahal
+# sub build_inventory - Build the internal hash of files, configurations, and layouts.
 
-Build the internal hash of files, configurations, and layouts.
-
-=cut
-
-sub taj_mahal {
+sub build_inventory {
     my ($self, $source_file_name, $destination_file_name) = @_;
 
     my %page = ();
@@ -565,12 +645,7 @@ sub taj_mahal {
     push @{$self->{site}->{pages}}, \%page;
 }
 
-=head2 copy(sourcedir, outputdir)
-
-Copies files and directories from <sourcedir> to <outputdir> as long as they do not
-made what is contained in $self->{site}->{ignore}.
-
-=cut
+# sub copy(sourcedir, outputdir) - Copies files and directories from <sourcedir> to <outputdir> as long as they do not made what is contained in $self->{site}->{ignore}.
 
 sub copy {
     my ($self, $dir, $output) = @_;

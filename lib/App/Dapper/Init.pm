@@ -12,10 +12,11 @@ my $source_index_name = "index.md";
 my $source_index_content = <<'SOURCE_INDEX_CONTENT';
 ---
 layout: index
-title: Hello World
+title: Welcome
 ---
 
 Hello world.
+
 SOURCE_INDEX_CONTENT
 
 my $templates_index_name = "index.html";
@@ -39,13 +40,6 @@ TEMPLATES_INDEX_CONTENT
 my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
 ---
 name : My Site
-source : _source/
-output : _output/
-layout : _layout/
-ignore :
-    - "^\."
-    - "^_"
-    - "^dapper$"
 
 PROJ_FILE_TEMPLATE
 

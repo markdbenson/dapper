@@ -10,6 +10,13 @@ use YAML::Tiny qw(Load);
 
 my $defaults = <<'DEFAULTS';
 urlpattern : /:category/:year/:month/:slug/
+source : _source/
+output : _output/
+layout : _layout/
+ignore :
+    - "^\."
+    - "^_"
+    - "^dapper$"
 DEFAULTS
 
 =head2 get_defaults

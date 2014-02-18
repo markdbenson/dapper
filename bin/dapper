@@ -51,7 +51,6 @@ my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) 
 =cut
 
 sub init {
-    print "SOURCE($SOURCE)\n";
     my $d = new App::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->init();
     undef $d;
