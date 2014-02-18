@@ -73,24 +73,24 @@ Dapper helps you build static websites. To get you started, you can use the
 C<dapper init> command to initialize a directory. After running this command,
 the following directory structure will be created:
 
-    ├── _config.yml
-    ├── _layout/
-    │  └── index.html
-    └── _source/
-        └── index.md
+    _config.yml
+    _layout/
+        index.html
+    _source/
+        index.md
 
 In that same directory, you may then build the site using the C<dapper build>
 command, which will combine the source files and the layout files and place
 the results in the output directory (default: C<_output>). After you build
 the default site, you'll then have the following directory structure:
 
-    ├── _config.yml
-    ├── _layout/
-    │  └── index.html
-    └── _source/
-        └── index.md
-    └── _output/
-        └── index.html
+    _config.yml
+    _layout/
+        index.html
+    _source/
+        index.md
+    _output/
+        index.html
 
 To see what your website looks like, run the C<dapper serve> command which
 will spin up a development webserver and serve the static files located in
