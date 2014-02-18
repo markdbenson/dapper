@@ -28,20 +28,15 @@ perldoc command.
 
 You can also look for information at:
 
-    Source on Github
-        https://github.com/markdbenson/dapper
- 
-    Submit an issue on Github
-        https://github.com/markdbenson/dapper/issues
+* [Source on Github](https://github.com/markdbenson/dapper)
 
-    Module on CPAN
-        http://search.cpan.org/dist/App-Dapper/
+* [Submit an issue on Github](https://github.com/markdbenson/dapper/issues)
 
-    AnnoCPAN, Annotated CPAN documentation
-        http://annocpan.org/dist/App-Dapper
+* [Module on CPAN](http://search.cpan.org/dist/App-Dapper/)
 
-    CPAN Ratings
-        http://cpanratings.perl.org/d/App-Dapper
+* [AnnoCPAN, Annotated CPAN documentation](http://annocpan.org/dist/App-Dapper)
+
+* [CPAN Ratings](http://cpanratings.perl.org/d/App-Dapper)
 
 ## License and Copyright
 
