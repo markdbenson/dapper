@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.04    2/18/2014
+        Removed unicode characters from App::Dapper pod.
+        Added references to source and issue tracking on github.
+
 0.03    2/18/2014
         Added significant documentation to App::Dapper and bin/dapper.
         Simplified default _config.yml file.

@@ -7,7 +7,7 @@ lib/App/Dapper/Init.pm
 lib/App/Dapper/Utils.pm
 Makefile.PL
 MANIFEST			This list of files
-README
+README.md
 t/00-load.t
 t/01-manifest.t
 t/02-new.t
