@@ -1,5 +1,8 @@
 Revision history for App-Dapper
 
+0.05    2/19/2014
+        Updated Makefile.PL dependencies to resolve errors for cpantesters.org.
+
 0.04    2/18/2014
         Removed unicode characters from App::Dapper pod.
         Added references to source and issue tracking on github.

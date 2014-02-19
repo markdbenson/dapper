@@ -39,11 +39,11 @@ my $DEFAULT_PORT = 8000;
 
 =head1 VERSION
 
-Version 0.04
+Version 0.05
 
 =cut
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 our @EXPORT = qw($VERSION);
 
