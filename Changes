@@ -1,5 +1,8 @@
 Revision history for App-Dapper
 
+0.08    2/20/2014
+        Eliminated some tests (init, build) that were causing CI failures.
+
 0.07    2/20/2014
         Added Getopt::Mixed to list of build options.
 
