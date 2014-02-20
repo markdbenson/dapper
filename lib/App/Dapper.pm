@@ -18,6 +18,7 @@ use Exporter qw(import);
 use IO::Dir;
 use Template::Liquid;
 
+use Text::Markdown;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
 use YAML::Tiny qw(LoadFile Load Dump);
@@ -39,11 +40,11 @@ my $DEFAULT_PORT = 8000;
 
 =head1 VERSION
 
-Version 0.05
+Version 0.06
 
 =cut
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 our @EXPORT = qw($VERSION);
 
