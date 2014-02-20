@@ -1,5 +1,8 @@
 Revision history for App-Dapper
 
+0.09    2/20/2014
+        Added 5.14.0 minimum perl version requirement.
+
 0.08    2/20/2014
         Eliminated some tests (init, build) that were causing CI failures.
 
