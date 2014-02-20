@@ -13,11 +13,13 @@ WriteMakefile(
     EXE_FILES         => ['bin/dapper'],
     MIN_PERL_VERSION => 5.006,
     CONFIGURE_REQUIRES => {
-        'ExtUtils::MakeMaker' => 0,
+        'ExtUtils::MakeMaker' => 6.88,
+    },
+    CONFIGURE_REQUIRES => {
+        'Getopt::Mixed'         => 1.11,
     },
     BUILD_REQUIRES => {
-        'Test::More'            => 0,
-        'Getopt::Mixed'         => 0,
+        'Test::More'            => 0.98,
     },
     PREREQ_PM => {
         'CGI'                   => 0,
