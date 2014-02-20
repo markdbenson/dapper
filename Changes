@@ -1,5 +1,8 @@
 Revision history for App-Dapper
 
+0.07    2/20/2014
+        Added Getopt::Mixed to list of build options.
+
 0.06    2/20/2014
         Addded DateTime::Format::XSD dependency to resolve test errors.
 

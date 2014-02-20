@@ -16,7 +16,8 @@ WriteMakefile(
         'ExtUtils::MakeMaker' => 0,
     },
     BUILD_REQUIRES => {
-        'Test::More' => 0,
+        'Test::More'            => 0,
+        'Getopt::Mixed'         => 0,
     },
     PREREQ_PM => {
         'CGI'                   => 0,
