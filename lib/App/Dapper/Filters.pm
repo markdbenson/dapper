@@ -2,7 +2,7 @@ package App::Dapper::Filters;
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
-use 5.006;
+use 5.14.0;
 use strict;
 use warnings FATAL => 'all';
 

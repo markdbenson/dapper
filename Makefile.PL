@@ -11,7 +11,7 @@ WriteMakefile(
     LICENSE          => 'mit',
     PL_FILES         => {},
     EXE_FILES         => ['bin/dapper'],
-    MIN_PERL_VERSION => 5.006,
+    MIN_PERL_VERSION => 5.14.0,
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => 6.88,
     },
