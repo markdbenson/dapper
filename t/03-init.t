@@ -1,5 +1,6 @@
 use strict;
 use Test;
+use Getopt::Mixed;
 
 BEGIN { plan tests => 5 }
 
