@@ -1,5 +1,17 @@
 package App::Dapper::Init;
 
+=head1 NAME
+
+App::Dapper::Init - Default project files to use when a "dapper init" command is used.
+
+=head1 DESCRIPTION
+
+When using the dapper tool to initialize an empty directory with a new site, the files
+that are written to disk are contained in this file. For instance, the YAML project
+file, a layout template, and a starter post.
+
+=cut
+
 use utf8;
 use open ':std', ':encoding(UTF-8)';
 use 5.14.0;

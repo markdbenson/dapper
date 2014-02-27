@@ -2,7 +2,7 @@ package App::Dapper;
 
 =head1 NAME
 
-App::Dapper - A publishing platform for static websites.
+App::Dapper - A publishing tool for static websites.
 
 =cut
 

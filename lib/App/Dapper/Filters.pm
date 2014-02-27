@@ -1,5 +1,18 @@
 package App::Dapper::Filters;
 
+=head1 NAME
+
+App::Dapper::Filters - Default Liquid filters available to all projects.
+
+=head1 DESCRIPTION
+
+Filters contained here can be called from Liquid template files using
+the filter/pipe mechanism built in to Liquid. Example:
+
+    {{ site.time | date_to_xmlschema }}
+
+=cut
+
 use utf8;
 use open ':std', ':encoding(UTF-8)';
 use 5.14.0;

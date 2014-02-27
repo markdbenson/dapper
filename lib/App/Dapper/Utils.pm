@@ -1,5 +1,11 @@
 package App::Dapper::Utils;
 
+=head1 NAME
+
+App::Dapper::Utils - Common utility functions used throughout Dapper.
+
+=cut
+
 use utf8;
 use open ':std', ':encoding(UTF-8)';
 use 5.14.0;

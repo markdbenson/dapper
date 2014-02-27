@@ -1,5 +1,17 @@
 package App::Dapper::Defaults;
 
+=head1 NAME
+
+App::Dapper::Defaults - YAML project file defaults.
+
+=head1 DESCRIPTION
+
+The configuration elemements defined here are used for all projects that Dapper
+interacts with. The defaults defined here are baseline defaults that may be 
+overridden in a project-specific YAML file.
+
+=cut
+
 use utf8;
 use open ':std', ':encoding(UTF-8)';
 use 5.14.0;
