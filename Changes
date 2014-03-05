@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.10    3/5/2014
+        Improved README narrative.
+        Watch routine now watches everything except contents of the _output dir.
+
 0.09    2/20/2014
         Added 5.14.0 minimum perl version requirement.
 
