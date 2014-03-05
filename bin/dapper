@@ -252,15 +252,19 @@ sub serve {
 }
 
 sub watch {
-    build();
-
     my $monitor = File::Monitor->new();
 
-    # Add all source files and layout files and the config file to the monitor
-    find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $CONFIG);
-    find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $SOURCE);
-    find({ wanted => sub { $monitor->watch( { name => $_ } ) unless (-d $_ or $_ =~ /^\..*/); } }, $LAYOUT);
- 
+    # Find files to watch that are not in the _output directory
+    find({ wanted => sub {
+        my $filename = $_;
+        my $fullpath = $File::Find::name;
+        return if -d $filename;
+        return if $filename =~ /^[_\.].*/;
+        return if $fullpath =~ /$OUTPUT/;
+        print "WATCH $filename\n";
+        $monitor->watch( { name => $filename } );
+    }}, ".");
+
     # First scan just finds out about the monitored files. No changes will be reported
     $monitor->scan;
 
