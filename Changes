@@ -1,36 +1,36 @@
 Revision history for App-Dapper
 
-0.10    3/5/2014
+0.10    2014-03-05
         Improved README narrative.
         Watch routine now watches everything except contents of the _output dir.
 
-0.09    2/20/2014
+0.09    2014-02-20
         Added 5.14.0 minimum perl version requirement.
 
-0.08    2/20/2014
+0.08    2014-02-20
         Eliminated some tests (init, build) that were causing CI failures.
 
-0.07    2/20/2014
+0.07    2014-02-20
         Added Getopt::Mixed to list of build options.
 
-0.06    2/20/2014
+0.06    2014-02-20
         Addded DateTime::Format::XSD dependency to resolve test errors.
 
-0.05    2/19/2014
+0.05    2014-02-19
         Updated Makefile.PL dependencies to resolve errors for cpantesters.org.
 
-0.04    2/18/2014
+0.04    2014-02-18
         Removed unicode characters from App::Dapper pod.
         Added references to source and issue tracking on github.
 
-0.03    2/18/2014
+0.03    2014-02-18
         Added significant documentation to App::Dapper and bin/dapper.
         Simplified default _config.yml file.
 
-0.02    2/17/2014
+0.02    2014-02-17
         Added documentation link from App::Dapper to bin/dapper.
         Fixed FreeBSD testing error as reported by cpantesters.org.
 
-0.01    2/1/2014
+0.01    2014-02-01
         First version.
 
