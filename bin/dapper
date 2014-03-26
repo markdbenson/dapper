@@ -246,6 +246,8 @@ sub build {
 }
 
 sub serve {
+    my $pid = fork();
+    if ($pid == 0) { watch(); exit(0); }
     my $d = new App::Dapper($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->serve($PORT);
     undef $d;
