@@ -1,5 +1,8 @@
 Revision history for App-Dapper
 
+0.12    2014-04-26
+        Added explicit hash deref to avoid experimental warning in Perl 5.19.
+
 0.11    2014-04-26
         Added auto-reload of files while serving local webserver.
         Changed format of post IDs from their URL to a global incrementing integer.
