@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.11    2014-04-26
+        Added auto-reload of files while serving local webserver.
+        Changed format of post IDs from their URL to a global incrementing integer.
+
 0.10    2014-03-05
         Improved README narrative.
         Watch routine now watches everything except contents of the _output dir.
