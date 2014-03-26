@@ -486,7 +486,7 @@ sub read_templates {
     }
 
     # Expand sub layouts
-    for my $key (keys $self->{layout_content}) {
+    for my $key (keys %{$self->{layout_content}}) {
         my $value = $self->{layout_content}->{$key};
         my $frontmatter;
         my $content;
