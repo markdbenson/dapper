@@ -459,7 +459,7 @@ sub read_project {
     my $config = LoadFile($self->{config}) or die "error: could not load \"$self->{config}\": $!\n";
 
     # Graft together
-    @{$self->{site}}{keys %$config} = values %$config;
+    @{$self->{site}}{keys %{$config}} = values %$config;
 
     die "error: \"source\" must be defined in project file\n" unless defined $self->{source};
     die "error: \"output\" must be defined in project file\n" unless defined $self->{output};
@@ -572,7 +572,7 @@ sub build_inventory {
     my ($frontmatter) = Load($1);
     $page{content} = $2;
 
-    for my $key (keys $frontmatter) {
+    for my $key (keys %{$frontmatter}) {
         $page{$key} = $frontmatter->{$key};
     }
 
