@@ -1,5 +1,8 @@
 Revision history for App-Dapper
 
+0.13    2014-04-27
+        Added explicit hash derefs in attempt to support Perl 5.19.{8-10}.
+
 0.12    2014-04-26
         Added explicit hash deref to avoid experimental warning in Perl 5.19.
 
