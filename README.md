@@ -1,6 +1,6 @@
 # Dapper
 
-Dapper is a publishing tool for static websites.
+Dapper is a publishing tool for static websites -- think of it as hair jelly for your texts.
 
 Distributed as a Perl module, App::Dapper comes with an application called
 "dapper" which you can use from the command line and makes it easy to use
@@ -21,10 +21,6 @@ The rest of this document shows you how to get your site set up and running,
 how to create and manage content, how to tweak the way it looks, and how to 
 deploy to various environments. 
 
-## Introduction
-
-What is Dapper anyways?
-
 ## Installation
 
 Get up and running in seconds:
@@ -41,6 +37,13 @@ The remainder of this document defines how to configure Dapper, write content,
 develop templates, and create righteously static sites.
 
 ## Features
+
+Features of Dapper are summarized as follows:
+
+* Written in perl, available as a command line utility after installing.
+* Content (pages, posts) is written in Markdown.
+* Layouts are developed using the Liquid templating engine.
+* Configuration is done extensively via YAML.
 
 ## Contact
 
@@ -74,8 +77,6 @@ You can also look for information at:
 ## Customize the Layout
 
 ## Add New Content
-
-## Write Plugins
 
 ## Publish The Results
 
