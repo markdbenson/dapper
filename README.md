@@ -241,9 +241,7 @@ You can look for more information here:
 
 * [Historical Releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
-# Appendicies
-
-## Appendix A: Install from Source
+# Appendix A: Install from Source
 
 A list of past releases can be found on
 [backpan](http://backpan.perl.org/authors/id/M/MD/MDB/). After downloading
@@ -259,7 +257,7 @@ installed, do this:
 
     $ dapper -v
 
-## Appendix B: Working with the Perl Module
+# Appendix B: Working with the Perl Module
 
 *Dapper* may be used as a perl module directly from a script. Examples:
 
