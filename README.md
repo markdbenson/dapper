@@ -17,11 +17,6 @@ Dapper combines the two and creates a static website based on your instructions.
 3. **Pragmatic**. Built for pragmatists by a pragmatist. The easy things
 are easy, and the hard things are possible.
 
-The remainder of this document defines how to install Dapper, write posts and
-pages, develop templates, and create awesome static sites.
-
-## Quick Start Guide
-
 Get up and running in seconds:
 
     $ cpanm App::Dapper
@@ -32,25 +27,8 @@ Get up and running in seconds:
     
 After that, browse to [http://localhost:8000](http://localhost:8000) to see your site.
 
-## Installation
-
-Installing Dapper is easy:
-
-    $ cpanm App::Dapper
-
-Alternatively, install from source. A list of past releases can be found on
-[backpan](http://backpan.perl.org/authors/id/M/MD/MDB/). After downloading
-and unpacking the release, do this:
-
-    $ perl Makefile.PL
-    $ make
-    $ make test
-    $ make install
-
-Dapper requires Perl 5.14 or greater. To find which version of dapper you have 
-installed, do this:
-
-    $ dapper -v
+The remainder of this document defines how to configure Dapper, write content,
+develop templates, and create righteously static sites.
 
 ## Support and Documentation
 
@@ -68,6 +46,22 @@ You can also look for information at:
 * [Submit an issue on Github](https://github.com/markdbenson/dapper/issues)
 
 * [Find historical releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
+
+## Appendix A: Install from Source
+
+A list of past releases can be found on
+[backpan](http://backpan.perl.org/authors/id/M/MD/MDB/). After downloading
+and unpacking the release, do this:
+
+    $ perl Makefile.PL
+    $ make
+    $ make test
+    $ make install
+
+Dapper requires Perl 5.14 or greater. To find which version of dapper you have 
+installed, do this:
+
+    $ dapper -v
 
 ## License and Copyright
 
