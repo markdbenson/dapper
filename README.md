@@ -17,9 +17,9 @@ Dapper combines the two and creates a static website based on your instructions.
 3. **Pragmatic**. Built for pragmatists by a pragmatist. The easy things
 are easy, and the hard things are possible.
 
-The rest of this document shows you how to get your site set up and running,
-how to create and manage content, how to tweak the way it looks, and how to 
-deploy to various environments. 
+The rest of this document shows you how to get your righeously static site set
+up and running, how to create and manage content, how to tweak the way it looks,
+and how to deploy to various environments. 
 
 ## Installation
 
@@ -32,9 +32,6 @@ Get up and running in seconds:
     $ dapper serve
     
 After that, browse to [http://localhost:8000](http://localhost:8000) to see your site.
-
-The remainder of this document defines how to configure Dapper, write content,
-develop templates, and create righteously static sites.
 
 ## Synopsis
 
@@ -57,22 +54,6 @@ develop templates, and create righteously static sites.
 
     # Print the version
     $ dapper -v
-
-Additionally, *Dapper* may be used as a perl module directly from a script. Examples:
-
-    use App::Dapper;
-
-    # Create a Dapper object
-    my $d = App::Dapper->new();
-
-    # Initialize a new website in the current directory
-    $d->init();
-
-    # Build the site
-    $d->build();
-
-    # Serve the site locally at http://localhost:8000
-    $d->serve();
 
 ## Features
 
@@ -289,6 +270,22 @@ installed, do this:
     $ dapper -v
 
 ## Appendix B: Working with the Perl Module
+
+*Dapper* may be used as a perl module directly from a script. Examples:
+
+    use App::Dapper;
+
+    # Create a Dapper object
+    my $d = App::Dapper->new();
+
+    # Initialize a new website in the current directory
+    $d->init();
+
+    # Build the site
+    $d->build();
+
+    # Serve the site locally at http://localhost:8000
+    $d->serve();
 
 After installing Dapper, you can find documentation for this module with the
 perldoc command.
