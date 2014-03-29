@@ -58,11 +58,11 @@ You can also look for information at:
 
 ## Creating a Project
 
-## Building the Project
+### Building the Project
 
-## View the Results
+### View the Results
 
-## Customize the Content
+### Customize the Content
 
 ## Customize the Layout
 
