@@ -295,6 +295,10 @@ perldoc command.
 
     perldoc App::Dapper
 
+# Author
+
+Mark Benson [markbenson@vanilladraft.com](mailto:markbenson@vanilladraft.com)
+
 # License and Copyright
 
 The MIT License (MIT)
