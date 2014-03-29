@@ -36,6 +36,28 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 The remainder of this document defines how to configure Dapper, write content,
 develop templates, and create righteously static sites.
 
+## Usage
+
+*Dapper* allows you to transform simple text files into static websites. By installing the App::Dapper Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
+
+    # Initialize the current directory with a fresh skeleton of a site
+    $ dapper [-solc] init
+
+    # Build the site
+    $ dapper [-solc] build
+
+    # Serve the site locally at http://localhost:8000
+    $ dapper [-solc] serve
+
+    # Rebuild the site if anything (source, layout dirs; config file) changes
+    $ dapper [-solc] watch
+
+    # Get help on usage and switches
+    $ dapper -h
+
+    # Print the version
+    $ dapper -v
+
 ## Features
 
 Features of Dapper are summarized as follows:
@@ -49,16 +71,6 @@ Features of Dapper are summarized as follows:
 
 If you have a feature request, or find issues with Dapper or with the documentation,
 please submit an issue and I'll take a look.
-
-You can also look for information at:
-
-* [CPAN](http://search.cpan.org/dist/App-Dapper/)
-
-* [Github](https://github.com/markdbenson/dapper)
-
-* [Issues](https://github.com/markdbenson/dapper/issues)
-
-* [Historical Releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
 # Tutorial
 
@@ -91,6 +103,16 @@ You can also look for information at:
 ## Writing Layouts in Liquid
 
 # References
+
+You can look for more information here:
+
+* [CPAN](http://search.cpan.org/dist/App-Dapper/)
+
+* [Github](https://github.com/markdbenson/dapper)
+
+* [Issues](https://github.com/markdbenson/dapper/issues)
+
+* [Historical Releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
 # Appendicies
 
