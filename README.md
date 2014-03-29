@@ -13,7 +13,7 @@ topics.
 
 Installing Dapper is easy. You can do it in two ways:
 
-1. Install from CPAN:
+Install from CPAN:
 
     $ cpanm App::Dapper
 
@@ -21,14 +21,14 @@ If you don't have cpanm, install it like this:
 
     $ cpan App::cpanminus
 
-2. Alternatively, install from source. A list of past releases can be found on
+Alternatively, install from source. A list of past releases can be found on
 [backpan](http://backpan.perl.org/authors/id/M/MD/MDB/). After downloading
 and unpacking the release, build, test, and install it like this:
 
-	$ perl Makefile.PL
-	$ make
-	$ make test
-	$ make install
+    $ perl Makefile.PL
+    $ make
+    $ make test
+    $ make install
 
 ## Support and Documentation
 
