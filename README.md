@@ -21,9 +21,11 @@ The rest of this document shows you how to get your site set up and running,
 how to create and manage content, how to tweak the way it looks, and how to 
 deploy to various environments. 
 
-## Introduction
+# Introduction
 
-### Installation
+What is Dapper anyways?
+
+## Installation
 
 Get up and running in seconds:
 
@@ -38,9 +40,9 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 The remainder of this document defines how to configure Dapper, write content,
 develop templates, and create righteously static sites.
 
-### Features
+## Features
 
-### Contact
+## Contact
 
 You can also look for information at:
 
@@ -52,39 +54,39 @@ You can also look for information at:
 
 * [Find historical releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
-## Tutorial
+# Tutorial
 
-### Creating a Project
+## Creating a Project
 
-### Building the Project
+## Building the Project
 
-### View the Results
+## View the Results
 
-### Customize the Content
+## Customize the Content
 
-### Customize the Layout
+## Customize the Layout
 
-### Add New Content
+## Add New Content
 
-### Writing Plugins
+## Writing Plugins
 
-### Publishing The Results
+## Publishing The Results
 
-## Reference
+# Reference
 
-### Command Line Tool
+## Command Line Tool
 
-### Configuration
+## Configuration
 
-### Writing Source Files in Markdown
+## Writing Source Files in Markdown
 
-### Writing Layouts in Liquid
+## Writing Layouts in Liquid
 
-## References
+# References
 
-## Appendicies
+# Appendicies
 
-### Appendix A: Install from Source
+## Appendix A: Install from Source
 
 A list of past releases can be found on
 [backpan](http://backpan.perl.org/authors/id/M/MD/MDB/). After downloading
@@ -100,14 +102,14 @@ installed, do this:
 
     $ dapper -v
 
-### Appendix B: Working with the Perl Module
+## Appendix B: Working with the Perl Module
 
 After installing Dapper, you can find documentation for this module with the
 perldoc command.
 
     perldoc App::Dapper
 
-## License and Copyright
+# License and Copyright
 
 The MIT License (MIT)
 
