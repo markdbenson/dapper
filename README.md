@@ -8,16 +8,17 @@ the App::Dapper perl module to create static websites.
 
 Dapper was created to easily build static websites and has three goals:
 
-1. Awkwardly Simple. Gets out of the way so you can write your content and develop your templates. No hassle, simple, and straight-forward.
+1. **Simple**. Gets out of the way so you can write your content and
+develop your templates. No hassle, simple, and straight-forward.
 
-2. Painfully Stylish. Content is written in Markdown, templates are written in Liquid. No re-inventing the wheel.
+2. **Static**. Content is written in Markdown, templates are written in Liquid.
+Dapper combines the two and creates a static website based on your instructions.
 
-3. Righteously Pragmatic. Built for pragmatists by a pragmatist. The easy things
-are easy, and the hard things are possible. First and foremost, Dapper was 
-engineered for supreme utility.
+3. **Pragmatic**. Built for pragmatists by a pragmatist. The easy things
+are easy, and the hard things are possible.
 
-The remainder of this document defines how to install Dapper, how to get started,
-and where to start for exploring advanced topics and techniques.
+The remainder of this document defines how to install Dapper, write posts and
+pages, develop templates, and create awesome static sites.
 
 ## Quick Start Guide
 
