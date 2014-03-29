@@ -17,7 +17,13 @@ Dapper combines the two and creates a static website based on your instructions.
 3. **Pragmatic**. Built for pragmatists by a pragmatist. The easy things
 are easy, and the hard things are possible.
 
-## Quick Start Guide
+The rest of this document shows you how to get your site set up and running,
+how to create and manage content, how to tweak the way it looks, and how to 
+deploy to various environments. 
+
+## Introduction
+
+### Installation
 
 Get up and running in seconds:
 
@@ -32,12 +38,9 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 The remainder of this document defines how to configure Dapper, write content,
 develop templates, and create righteously static sites.
 
-## References
+### Features
 
-After installing, you can find documentation for this module with the
-perldoc command.
-
-    perldoc App::Dapper
+### Contact
 
 You can also look for information at:
 
@@ -49,7 +52,39 @@ You can also look for information at:
 
 * [Find historical releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
-## Appendix A: Install from Source
+## Tutorial
+
+### Creating a Project
+
+### Building the Project
+
+### View the Results
+
+### Customize the Content
+
+### Customize the Layout
+
+### Add New Content
+
+### Writing Plugins
+
+### Publishing The Results
+
+## Reference
+
+### Command Line Tool
+
+### Configuration
+
+### Writing Source Files in Markdown
+
+### Writing Layouts in Liquid
+
+## References
+
+## Appendicies
+
+### Appendix A: Install from Source
 
 A list of past releases can be found on
 [backpan](http://backpan.perl.org/authors/id/M/MD/MDB/). After downloading
@@ -64,6 +99,13 @@ Dapper requires Perl 5.14 or greater. To find which version of dapper you have
 installed, do this:
 
     $ dapper -v
+
+### Appendix B: Working with the Perl Module
+
+After installing Dapper, you can find documentation for this module with the
+perldoc command.
+
+    perldoc App::Dapper
 
 ## License and Copyright
 
