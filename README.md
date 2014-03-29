@@ -90,6 +90,8 @@ please submit an issue and I'll take a look.
 
 # Tutorial
 
+## Initialize a Project
+
 Dapper helps you build static websites. To get you started, you can use the
 `dapper init` command to initialize a directory. After running this command,
 the following directory structure will be created:
@@ -99,6 +101,8 @@ the following directory structure will be created:
         index.html
     _source/
         index.md
+
+## Build the Project
 
 In that same directory, you may then build the site using the `dapper build`
 command, which will combine the source files and the layout files and place
@@ -113,13 +117,17 @@ the default site, you'll then have the following directory structure:
     _output/
         index.html
 
+## View the Results
+
 To see what your website looks like, run the `dapper serve` command which
 will spin up a development webserver and serve the static files located in
 the output directory (default: `_output`) at L<http://localhost:8000>.
 
+## Inspect the Tree
+
 Now, let's walk through each file:
 
-* **_config.yml**
+### **_config.yml**
 
 The configuration file is a YAML file that specifies key configuration
 elements for your static website. The default configuration file is as
@@ -143,7 +151,7 @@ configuration file may be used in a template as follows:
 
     {{ site.name }}
 
-* **_source/index.md**
+### **_source/index.md**
 
 A sample markdown file is available in the _source directory. Contents:
 
@@ -167,9 +175,9 @@ There are a few things to note about this file:
 5. All of the configurations may be used in the corresponding layout file.
 
     <!-- Example use of "name" in a layout file -->
-    <h1>{{ page.name }}</h1>
+    {{ page.name }}
 
-* **_layout/index.html**
+### **_layout/index.html**
 
 Layout files are processed using the Liquid template system. The initial layout
 file that is given after you run the `dapper init` command, is this:
@@ -196,7 +204,7 @@ Definitions specified in the `_config.yml` file can be referenced under the
 portion of text files can be referenced under the "page" namespace (e.g.
 {{ page.title }}.
 
-* **_output/index.html**
+### **_output/index.html**
 
 The output file that is created is a mix of the input file and the layout that
 is specified by the input file. For the default site, the following output
@@ -218,45 +226,27 @@ file is created:
 
 **Dapper** provides a number of optional command line switches:
 
-=head2 Options
+## Options
 
-* **-s**, **--source**=*source directory*
+### **-s**, **--source**=*source directory*
 
 Specify the directory containing source files to process. If this command line option is not present, it defaults to "_source".
 
-* **-o**, **--output**=*output directory*
+### **-o**, **--output**=*output directory*
 
 Specify the directory to place the output files in. If this command line option is not present, it defaults to "_output".
 
-* **-l**, **--layout**=*layout directory*
+### **-l**, **--layout**=*layout directory*
 
 Specify the directory containing source files to process. If this command line option is not present, it defaults to "_layout".
 
-* **-h**
+### **-h**
 
 Get help on available commands and options.
 
-* **-v**
+### **-v**
 
 Print the version and exit.
-
-## Create a Project
-
-## Build the Project
-
-## View the Results
-
-### Changing the Port
-
-### Auto-reload Changes
-
-## Customize the Content
-
-## Customize the Layout
-
-## Add New Content
-
-## Publish The Results
 
 # Reference
 
