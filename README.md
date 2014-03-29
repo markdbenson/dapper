@@ -17,6 +17,8 @@ Dapper combines the two and creates a static website based on your instructions.
 3. **Pragmatic**. Built for pragmatists by a pragmatist. The easy things
 are easy, and the hard things are possible.
 
+## Quick Start Guide
+
 Get up and running in seconds:
 
     $ cpanm App::Dapper
@@ -30,7 +32,7 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 The remainder of this document defines how to configure Dapper, write content,
 develop templates, and create righteously static sites.
 
-## Support and Documentation
+## References
 
 After installing, you can find documentation for this module with the
 perldoc command.
