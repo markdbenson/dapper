@@ -229,16 +229,6 @@ Get help on available commands and options.
 
 Print the version and exit.
 
-# Reference
-
-## Command Line Tool
-
-## Configuration
-
-## Writing Source Files in Markdown
-
-## Writing Layouts in Liquid
-
 # References
 
 You can look for more information here:
