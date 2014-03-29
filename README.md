@@ -21,7 +21,7 @@ The rest of this document shows you how to get your site set up and running,
 how to create and manage content, how to tweak the way it looks, and how to 
 deploy to various environments. 
 
-# Introduction
+## Introduction
 
 What is Dapper anyways?
 
@@ -44,33 +44,40 @@ develop templates, and create righteously static sites.
 
 ## Contact
 
+If you have a feature request, or find issues with Dapper or with the documentation,
+please submit an issue and I'll take a look.
+
 You can also look for information at:
 
-* [Find the module on CPAN](http://search.cpan.org/dist/App-Dapper/)
+* [CPAN](http://search.cpan.org/dist/App-Dapper/)
 
-* [Find source code on Github](https://github.com/markdbenson/dapper)
+* [Github](https://github.com/markdbenson/dapper)
 
-* [Submit an issue on Github](https://github.com/markdbenson/dapper/issues)
+* [Issues](https://github.com/markdbenson/dapper/issues)
 
-* [Find historical releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
+* [Historical Releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
 # Tutorial
 
-## Creating a Project
+## Create a Project
 
-### Building the Project
+## Build the Project
 
-### View the Results
+## View the Results
 
-### Customize the Content
+### Changing the Port
+
+### Auto-reload Changes
+
+## Customize the Content
 
 ## Customize the Layout
 
 ## Add New Content
 
-## Writing Plugins
+## Write Plugins
 
-## Publishing The Results
+## Publish The Results
 
 # Reference
 
