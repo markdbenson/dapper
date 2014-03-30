@@ -1,29 +1,28 @@
 # Dapper
 
-Dapper is a publishing tool for static websites -- think of it as hair jelly for your texts.
+A publishing tool for static websites.
 
-Distributed as a Perl module, App::Dapper comes with an application called
-"dapper" which you can use from the command line and makes it easy to use
-the App::Dapper perl module to create static websites.
+Distributed as a Perl module, `App::Dapper` comes with an application called
+`dapper` which you can use from the command line and makes it easy to use
+the `App::Dapper` perl module to create static websites.
 
-Dapper was created to easily build static websites and has three goals:
+**Dapper** has three goals:
 
-1. **Simple**. Gets out of the way so you can write your content and
-develop your templates. No hassle, simple, and straight-forward.
+1. **Simple**. Learning **Dapper** is easy -- it gets out of the way so you can write content, develop layouts, and deploy to production the way you want.
 
-2. **Static**. Content is written in Markdown, templates are written in Liquid.
-Dapper combines the two and creates a static website based on your instructions.
+2. **Flexible**. Content is written in Markdown, templates are written in Liquid.
+**Dapper** combines the two and creates a static website based on your instructions.
 
-3. **Pragmatic**. Built for pragmatists by a pragmatist. The easy things
-are easy, and the hard things are possible.
+3. **Pragmatic**. The easy things are easy and the hard things are possible.
+**Dapper** was created to solve problems in a straight-forward and intuitive way.
 
 The rest of this document shows you how to get your righeously static site set
 up and running, how to create and manage content, how to tweak the way it looks,
-and how to deploy to various environments. 
+and how to deploy to various environments.
 
 ## Installation
 
-Get up and running in seconds:
+**Dapper** is written in Perl. You don't need to know Perl to use it, however. Get up and running in seconds:
 
     $ cpanm App::Dapper
     $ mkdir new-site
@@ -35,7 +34,7 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 
 ## Synopsis
 
-*Dapper* allows you to transform simple text files into static websites. By installing the App::Dapper Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
+**Dapper** allows you to transform simple text files into static websites. By installing the `App::Dapper` Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
 
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper [-solc] init
@@ -57,7 +56,7 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 
 ## Features
 
-Features of Dapper are summarized as follows:
+Features of **Dapper** are summarized as follows:
 
 * Written in perl, available as a command line utility after installing.
 * Content (pages, posts) is written in Markdown.
@@ -66,14 +65,14 @@ Features of Dapper are summarized as follows:
 
 ## Contact
 
-If you have a feature request, or find issues with Dapper or with the documentation,
+If you have a feature request, or find issues with **Dapper** or with the documentation,
 please submit an issue and I'll take a look.
 
 # Tutorial
 
 ## Initialize a Project
 
-Dapper helps you build static websites. To get you started, you can use the
+**Dapper** helps you build static websites. To get you started, you can use the
 `dapper init` command to initialize a directory. After running this command,
 the following directory structure will be created:
 
@@ -241,6 +240,8 @@ You can look for more information here:
 
 * [Historical Releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
+* [Continuous Integration Status](https://travis-ci.org/markdbenson/dapper)
+
 # Appendix A: Install from Source
 
 A list of past releases can be found on
@@ -252,14 +253,14 @@ and unpacking the release, do this:
     $ make test
     $ make install
 
-Dapper requires Perl 5.14 or greater. To find which version of dapper you have 
+**Dapper** requires Perl 5.14 or greater. To find which version of dapper you have 
 installed, do this:
 
     $ dapper -v
 
 # Appendix B: Working with the Perl Module
 
-*Dapper* may be used as a perl module directly from a script. Examples:
+**Dapper** may be used as a perl module directly from a script. Examples:
 
     use App::Dapper;
 
@@ -275,7 +276,7 @@ installed, do this:
     # Serve the site locally at http://localhost:8000
     $d->serve();
 
-After installing Dapper, you can find documentation for this module with the
+After installing **Dapper**, you can find documentation for this module with the
 perldoc command.
 
     perldoc App::Dapper
