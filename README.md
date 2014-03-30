@@ -6,15 +6,15 @@ Distributed as a Perl module, `App::Dapper` comes with an application called
 `dapper` which you can use from the command line and makes it easy to use
 the `App::Dapper` perl module to create static websites.
 
-**Dapper** has three goals:
+Dapper has three goals:
 
-1. **Simple**. Learning **Dapper** is easy -- it gets out of the way so you can write content, develop layouts, and deploy to production the way you want.
+1. **Simple**. Learning Dapper is easy -- it gets out of the way so you can write content, develop layouts, and deploy to production the way you want.
 
 2. **Flexible**. Content is written in Markdown, templates are written in Liquid.
-**Dapper** combines the two and creates a static website based on your instructions.
+Dapper combines the two and creates a static website based on your instructions.
 
 3. **Pragmatic**. The easy things are easy and the hard things are possible.
-**Dapper** was created to solve problems in a straight-forward and intuitive way.
+Dapper was created to solve problems in a straight-forward and intuitive way.
 
 The rest of this document shows you how to get your righeously static site set
 up and running, how to create and manage content, how to tweak the way it looks,
@@ -22,7 +22,7 @@ and how to deploy to various environments.
 
 ## Installation
 
-**Dapper** is written in Perl. You don't need to know Perl to use it, however. Get up and running in seconds:
+Dapper is written in Perl. You don't need to know Perl to use it, however. Get up and running in seconds:
 
     $ cpanm App::Dapper
     $ mkdir new-site
@@ -34,7 +34,7 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 
 ## Synopsis
 
-**Dapper** allows you to transform simple text files into static websites. By installing the `App::Dapper` Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
+Dapper allows you to transform simple text files into static websites. By installing the `App::Dapper` Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
 
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper [-solc] init
@@ -56,7 +56,7 @@ After that, browse to [http://localhost:8000](http://localhost:8000) to see your
 
 ## Features
 
-Features of **Dapper** are summarized as follows:
+Features of Dapper are summarized as follows:
 
 * Written in perl, available as a command line utility after installing.
 * Content (pages, posts) is written in Markdown.
@@ -67,7 +67,7 @@ Features of **Dapper** are summarized as follows:
 
 ## Initialize a Project
 
-**Dapper** helps you build static websites. To get you started, you can use the
+Dapper helps you build static websites. To get you started, you can use the
 `dapper init` command to initialize a directory. After running this command,
 the following directory structure will be created:
 
@@ -207,7 +207,7 @@ the output directory (default: `_output`) at L<http://localhost:8000>.
 
 ## Options
 
-**Dapper** provides a number of optional command line switches:
+Dapper provides a number of optional command line switches:
 
 ### **-s**, **--source**=*source directory*
 
@@ -254,14 +254,14 @@ and unpacking the release, do this:
     $ make test
     $ make install
 
-**Dapper** requires Perl 5.14 or greater. To find which version of dapper you have 
+Dapper requires Perl 5.14 or greater. To find which version of dapper you have 
 installed, do this:
 
     $ dapper -v
 
 # Appendix B: Working with the Perl Module
 
-**Dapper** may be used as a perl module directly from a script. Examples:
+Dapper may be used as a perl module directly from a script. Examples:
 
     use App::Dapper;
 
@@ -277,7 +277,7 @@ installed, do this:
     # Serve the site locally at http://localhost:8000
     $d->serve();
 
-After installing **Dapper**, you can find documentation for this module with the
+After installing Dapper, you can find documentation for this module with the
 perldoc command.
 
     perldoc App::Dapper
