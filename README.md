@@ -82,29 +82,6 @@ the following directory structure will be created:
     _source/
         index.md
 
-## Build the Project
-
-In that same directory, you may then build the site using the `dapper build`
-command, which will combine the source files and the layout files and place
-the results in the output directory (default: `_output`). After you build
-the default site, you'll then have the following directory structure:
-
-    _config.yml
-    _layout/
-        index.html
-    _source/
-        index.md
-    _output/
-        index.html
-
-## View the Results
-
-To see what your website looks like, run the `dapper serve` command which
-will spin up a development webserver and serve the static files located in
-the output directory (default: `_output`) at L<http://localhost:8000>.
-
-## Inspect the Tree
-
 Now, let's walk through each file:
 
 ### **_config.yml**
@@ -184,6 +161,23 @@ Definitions specified in the `_config.yml` file can be referenced under the
 portion of text files can be referenced under the "page" namespace (e.g.
 {{ page.title }}.
 
+## Build the Project
+
+In that same directory, you may then build the site using the `dapper build`
+command, which will combine the source files and the layout files and place
+the results in the output directory (default: `_output`). After you build
+the default site, you'll then have the following directory structure:
+
+    _config.yml
+    _layout/
+        index.html
+    _source/
+        index.md
+    _output/
+        index.html
+
+Now, you'll see a new directory that has been created (`_output`) that contains a single file (`index.html`) containing a mashup of the source file and the layout template.
+
 ### **_output/index.html**
 
 The output file that is created is a mix of the input file and the layout that
@@ -204,9 +198,15 @@ file is created:
     </body>
     </html>
 
-**Dapper** provides a number of optional command line switches:
+## View the Results
+
+To see what your website looks like, run the `dapper serve` command which
+will spin up a development webserver and serve the static files located in
+the output directory (default: `_output`) at L<http://localhost:8000>.
 
 ## Options
+
+**Dapper** provides a number of optional command line switches:
 
 ### **-s**, **--source**=*source directory*
 
