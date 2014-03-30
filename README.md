@@ -16,6 +16,13 @@ Dapper combines the two and creates a static website based on your instructions.
 3. **Pragmatic**. The easy things are easy and the hard things are possible.
 Dapper was created to solve problems in a straight-forward and intuitive way.
 
+Features of Dapper are summarized as follows:
+
+* Written in perl, available as a command line utility after installing.
+* Content (pages, posts) is written in Markdown.
+* Layouts are developed using the Liquid templating engine.
+* Configuration is done extensively via YAML.
+
 The rest of this document shows you how to get your righeously static site set
 up and running, how to create and manage content, how to tweak the way it looks,
 and how to deploy to various environments.
@@ -93,15 +100,6 @@ available, see the followig:
 
     # Print the version
     $ dapper -v
-
-## Features
-
-Features of Dapper are summarized as follows:
-
-* Written in perl, available as a command line utility after installing.
-* Content (pages, posts) is written in Markdown.
-* Layouts are developed using the Liquid templating engine.
-* Configuration is done extensively via YAML.
 
 # Tutorial
 
