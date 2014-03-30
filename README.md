@@ -63,11 +63,6 @@ Features of **Dapper** are summarized as follows:
 * Layouts are developed using the Liquid templating engine.
 * Configuration is done extensively via YAML.
 
-## Contact
-
-If you have a feature request, or find issues with **Dapper** or with the documentation,
-please submit an issue and I'll take a look.
-
 # Tutorial
 
 ## Initialize a Project
@@ -84,7 +79,7 @@ the following directory structure will be created:
 
 Now, let's walk through each file:
 
-### **_config.yml**
+**_config.yml**
 
 The configuration file is a YAML file that specifies key configuration
 elements for your static website. The default configuration file is as
@@ -108,7 +103,7 @@ configuration file may be used in a template as follows:
 
     {{ site.name }}
 
-### **_source/index.md**
+**_source/index.md**
 
 A sample markdown file is available in the _source directory. Contents:
 
@@ -134,7 +129,7 @@ There are a few things to note about this file:
     <!-- Example use of "name" in a layout file -->
     {{ page.name }}
 
-### **_layout/index.html**
+**_layout/index.html**
 
 Layout files are processed using the Liquid template system. The initial layout
 file that is given after you run the `dapper init` command, is this:
@@ -178,7 +173,7 @@ the default site, you'll then have the following directory structure:
 
 Now, you'll see a new directory that has been created (`_output`) that contains a single file (`index.html`) containing a mashup of the source file and the layout template.
 
-### **_output/index.html**
+**_output/index.html**
 
 The output file that is created is a mix of the input file and the layout that
 is specified by the input file. For the default site, the following output
@@ -203,6 +198,12 @@ file is created:
 To see what your website looks like, run the `dapper serve` command which
 will spin up a development webserver and serve the static files located in
 the output directory (default: `_output`) at L<http://localhost:8000>.
+
+## Customize the Content
+
+## Customize the Layout
+
+## Add more Content
 
 ## Options
 
