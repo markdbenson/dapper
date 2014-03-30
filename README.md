@@ -22,31 +22,71 @@ and how to deploy to various environments.
 
 ## Installation
 
-Dapper is written in Perl. You don't need to know Perl to use it, however. Get up and running in seconds:
+Get Dapper in seconds:
 
     $ cpanm App::Dapper
-    $ mkdir new-site
-    $ cd new-site
+
+Then, create a new site, build it, and view it locally like so:
+
+    $ mkdir new-site && cd new-site
     $ dapper init
     $ dapper serve
     
-After that, browse to [http://localhost:8000](http://localhost:8000) to see your site.
+After that, browse to [http://localhost:8000](http://localhost:8000) to see your site. To modify the content, look at `_source/index.md`. To modify the layout, edit `_layout/index.html`.
 
-## Synopsis
+## Usage 
 
-Dapper allows you to transform simple text files into static websites. By installing the `App::Dapper` Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
+When you install the `App::Dapper` Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
+
+### Init
+
+Using the `dapper` executable, initialize a new site. Note that the site will be 
+initialized in the current directory. Therefore, it's usually best to create a blank
+directory that can be used for this purpose:
 
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper [-solc] init
 
+### Build
+
+After the site has been initialized, build it. The process of building a site in
+Dapper is easy. Dapper takes care of reading the source files, combining them with
+the layout template(s), and saving the result in the `_output` directory.
+
     # Build the site
     $ dapper [-solc] build
+
+### Serve
+
+Once the site has been built, the resulting website can be viewed using a built-in
+web server to Dapper. This built-in web server should be used for development only.
 
     # Serve the site locally at http://localhost:8000
     $ dapper [-solc] serve
 
+Note that when you are running `dapper serve`, Dapper will both run the web server
+and also watch all of the `_source` and `_layout` files and re-build the site when
+any of those files change.
+
+The way the `dapper serve` command was built, it makes it easy to have one terminal
+window open that is serving and auto-rebuilding the site. Other terminal windows can be opened to modify, create, or delete other files in the project.
+
+### Watch
+
+Dapper has a commmand available called `watch` that allows the user to watch and
+re-build the output files if any of the input files (`_source/*`, `_layout/*`)
+change. Because this command is invoked any time the `dapper serve` command is
+invoked, it is not necessary in most cases. However, it's documented here for 
+completeness.
+
     # Rebuild the site if anything (source, layout dirs; config file) changes
     $ dapper [-solc] watch
+
+### Help
+
+To get more information about command-line options available, the current version
+of Dapper that you have installed on your system, or further documentation
+available, see the followig:
 
     # Get help on usage and switches
     $ dapper -h
