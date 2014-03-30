@@ -199,36 +199,6 @@ To see what your website looks like, run the `dapper serve` command which
 will spin up a development webserver and serve the static files located in
 the output directory (default: `_output`) at L<http://localhost:8000>.
 
-## Customize the Content
-
-## Customize the Layout
-
-## Add more Content
-
-## Options
-
-Dapper provides a number of optional command line switches:
-
-### **-s**, **--source**=*source directory*
-
-Specify the directory containing source files to process. If this command line option is not present, it defaults to "_source".
-
-### **-o**, **--output**=*output directory*
-
-Specify the directory to place the output files in. If this command line option is not present, it defaults to "_output".
-
-### **-l**, **--layout**=*layout directory*
-
-Specify the directory containing source files to process. If this command line option is not present, it defaults to "_layout".
-
-### **-h**
-
-Get help on available commands and options.
-
-### **-v**
-
-Print the version and exit.
-
 # References
 
 You can look for more information here:
@@ -259,7 +229,7 @@ installed, do this:
 
     $ dapper -v
 
-# Appendix B: Working with the Perl Module
+# Appendix B: Working with the Perl Module Directly
 
 Dapper may be used as a perl module directly from a script. Examples:
 
