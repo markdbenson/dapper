@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.14    2014-04-02
+        Added deploy instructions to README and a getting started guide.
+        Changed MIN_PERL_VERSION from v-string to string to eliminate NetBSD errors.
+
 0.13    2014-04-27
         Added explicit hash derefs in attempt to support Perl 5.19.{8-10}.
 
