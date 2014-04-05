@@ -18,7 +18,6 @@ use Exporter qw(import);
 use IO::Dir;
 use Template::Liquid;
 
-use Text::Markdown;
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
 use YAML::Tiny qw(LoadFile Load Dump);
