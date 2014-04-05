@@ -14,7 +14,7 @@ overridden in a project-specific YAML file.
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
-use 5.14.0;
+use 5.12.0;
 use strict;
 use warnings FATAL => 'all';
 

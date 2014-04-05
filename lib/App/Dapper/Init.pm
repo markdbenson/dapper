@@ -14,7 +14,7 @@ file, a layout template, and a starter post.
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
-use 5.14.0;
+use 5.12.0;
 use strict;
 use warnings FATAL => 'all';
 
