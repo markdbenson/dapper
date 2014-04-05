@@ -24,26 +24,30 @@ use File::Find;
 
 use Data::Dumper;
 
-my $PORT = 8000;
-
-my( $COMMAND, $SOURCE,   $OUTPUT,   $LAYOUT,   $CONFIG,       $HELP, $VERSION ) =
-  ( undef,    "_source", "_output", "_layout", "_config.yml", undef, undef );
+my $COMMAND = undef;
+my $SOURCE  = "_source";
+my $OUTPUT  = "_output";
+my $LAYOUT  = "_layout";
+my $CONFIG  = "_config.yml";
+my $PORT    = 8000;
+my $HELP    = undef;
+my $VERSION = undef;
 
 =head1 SYNOPSIS
 
 B<Dapper> allows you to transform simple text files into static websites. By installing the App::Dapper Perl module, an executable named C<dapper> will be available to you in your terminal window. You can use this executable in a number of ways:
 
     # Initialize the current directory with a fresh skeleton of a site
-    $ dapper [-solc] init
+    $ dapper init
 
     # Build the site
-    $ dapper [-solc] build
+    $ dapper build
 
     # Serve the site locally at http://localhost:8000
-    $ dapper [-solc] serve
+    $ dapper serve
 
     # Rebuild the site if anything (source, layout dirs; config file) changes
-    $ dapper [-solc] watch
+    $ dapper watch
 
     # Get help on usage and switches
     $ dapper -h
@@ -221,6 +225,14 @@ Specify the directory to place the output files in. If this command line option 
 
 Specify the directory containing source files to process. If this command line option is not present, it defaults to "_layout".
 
+=item B<-c>, B<--config>=I<config file>
+
+Specify the config file name to use. If this command line option is not present, it defaults to "_config.yml".
+
+=item B<-p>, B<--port>=I<port>
+
+Specify the port to use for the serve command. This option is only used for the serve command. If this command line option is not present, it defaults to "8000".
+
 =item B<-h>
 
 Get help on available commands and options.
@@ -254,6 +266,7 @@ sub serve {
 }
 
 sub watch {
+    build();
     my $monitor = File::Monitor->new();
 
     # Find files to watch that are not in the _output directory
@@ -290,6 +303,7 @@ Getopt::Mixed::init(q{h
     o=s output>o
     l=s layout>l
     c=s config>c
+    p=s port>p
 });
 
 while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
@@ -297,6 +311,7 @@ while( my( $option, $value, $pretty ) = Getopt::Mixed::nextOption() ) {
     $OUTPUT = $value if $option eq 'o';
     $LAYOUT = $value if $option eq 'l';
     $CONFIG = $value if $option eq 'c';
+    $PORT   = $value if $option eq 'p';
     help()           if $option eq 'h';
     version()        if $option eq 'v';
 }
