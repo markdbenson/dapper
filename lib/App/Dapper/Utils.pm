@@ -8,7 +8,7 @@ App::Dapper::Utils - Common utility functions used throughout Dapper.
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
-use 5.12.0;
+use 5.8.0;
 use strict;
 use warnings FATAL => 'all';
 
