@@ -50,6 +50,7 @@ my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 TEMPLATES_INDEX_CONTENT
 
 my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
+# Dapper configuration file
 ---
 name : My Site
 
