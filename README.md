@@ -70,8 +70,9 @@ static website that each have shared content but different layouts and colors.
 Since that time, it has been used to create websites for speakers, artists,
 authors, illusionists, web designers, piano tuners, photographers, entertainment
 agencies, and API documentation for industrial sensing equipment. In addition,
-it is the tool that powers [Vanilla Draft](http://vanilladraft.com/). In 2014, Dapper was submitted as a Perl module (App::Dapper) to [CPAN](http://cpan.org/) under the
-MIT license for anyone to use for any purpose. 
+it is the tool that powers [Vanilla Draft](http://vanilladraft.com/). In 2014,
+Dapper was submitted as a Perl module (App::Dapper) to [CPAN](http://cpan.org/)
+under the MIT license for anyone to use for any purpose. 
 
 ## Quick-Start Guide
 
@@ -93,7 +94,9 @@ Then, create a new site, build it, and view it locally like so:
     $ dapper build
     $ dapper serve
     
-After that, browse to [http://localhost:8000](http://localhost:8000) to see your site. To modify the content, look at `_source/index.md`. To modify the layout, edit `_layout/index.html`.
+After that, browse to [http://localhost:8000](http://localhost:8000) to see your site. 
+To modify the content, look at `_source/index.md`. To modify the layout, edit
+`_layout/index.html`.
 
 ### Upgrade
 
@@ -147,7 +150,9 @@ installed, do this:
 
 ### Basic Usage
 
-When you install the `App::Dapper` Perl module, an executable named `dapper` will be available to you in your terminal window. You can use this executable in a number of ways:
+When you install the `App::Dapper` Perl module, an executable named `dapper` will
+be available to you in your terminal window. You can use this executable in a
+number of ways:
 
 * **Init.** Using the `dapper` executable, initialize a new site. Note that the site will be 
   initialized in the current directory. Therefore, it's usually best to create a blank
@@ -301,7 +306,9 @@ the default site, you'll then have the following directory structure:
     _output/
         index.html
 
-Now, you'll see a new directory that has been created (`_output`) that contains a single file (`index.html`) containing a mashup of the source file and the layout template.
+Now, you'll see a new directory that has been created (`_output`) that contains
+a single file (`index.html`) containing a mashup of the source file and the
+layout template.
 
 **_output/index.html**
 
