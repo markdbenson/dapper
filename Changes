@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.15    2014-04-07
+        Added command-line option to specify web server port number.
+        Dapper now works with Perl installations as old as v5.8.
+
 0.14    2014-04-02
         Added deploy instructions to README and a getting started guide.
         Changed MIN_PERL_VERSION from v-string to string to eliminate NetBSD errors.
