@@ -566,10 +566,9 @@ Link to `<http://vanilladraft.com>.`    | Link to http://vanilladraft.com.
 Code is placed in `backticks` (see [above](#text)), or as a "fenced code block" by surrounding an entire block of text with three backticks in a row.
 
 ```perl
-```
 #!/usr/bin/perl -w
 print "Hello, world!\n";
-``` ```
+```
 
 ### Lists
 
