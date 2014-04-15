@@ -1,5 +1,9 @@
 Revision history for App-Dapper
 
+0.16    2014-04-15
+        Added README content for config files, source files, and layouts.
+        Added 'json' filter for dumping Liquid variables to JSON for debug.
+
 0.15    2014-04-07
         Added command-line option to specify web server port number.
         Dapper now works with Perl installations as old as v5.8.
