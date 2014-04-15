@@ -35,6 +35,7 @@ sub import {
         date_to_xmlschema
         replace_last
         smart
+        json
     ]);
 }
 
@@ -60,15 +61,11 @@ the timezone.
 
 sub date_to_xmlschema {
     my $str = shift;
-    #return $str->strftime('%Y-%m-%dT%H:%M:%S%z');
 
     use DateTime;
     use DateTime::Format::XSD;
 
     return DateTime::Format::XSD->format_datetime($str);
-
-    #my $f = DateTime::Format::RFC3339->new();
-    #return $f->format_datetime($str);
 }
 
 =head2 replace_last
@@ -98,11 +95,27 @@ sub smart {
     $input =~ s/([^-])---([^-])/$1\&mdash;$2/g;
 
     return $input;
+}
 
-    #use Text::SmartyPants;
+=head2 json
 
-    #my $s = Text::SmartyPants->new();
-    #return $s->process($input);
+Turn string into json-formatted string.
+
+=cut 
+
+use JSON;
+sub json {
+    my $input = shift;
+
+    my $flags = {
+        allow_blessed => 1,
+        allow_barekey => 1,
+        allow_nonref => 1,
+        utf8 => 1,
+        pretty => 1
+    };
+
+    return to_json($input, $flags);
 }
 
 1;
