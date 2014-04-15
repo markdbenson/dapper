@@ -273,10 +273,18 @@ sub watch {
     find({ wanted => sub {
         my $filename = $_;
         my $fullpath = $File::Find::name;
+
+        # Ignore directories
         return if -d $filename;
+
+        # Ignore files that start with a period (.) or underscore (_)
         return if $filename =~ /^[_\.].*/;
+
+        # Ignore the output directory and everything in it
         return if $fullpath =~ /$OUTPUT/;
-        print "WATCH $filename\n";
+
+        #print "WATCH $filename\n";
+
         $monitor->watch( { name => $filename } );
     }}, ".");
 
