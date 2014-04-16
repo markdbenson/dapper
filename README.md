@@ -311,9 +311,9 @@ The main content of the text file that is being rendered with this template
 is available using `{{ page.content }}`.
 
 Definitions specified in the `_config.yml` file can be referenced under the
-"site" namespace (e.g. {{ site.name }}. Definitions specified in the YAML
+"site" namespace (e.g. `{{ site.name }}`. Definitions specified in the YAML
 portion of text files can be referenced under the "page" namespace (e.g.
-{{ page.title }}.
+`{{ page.title }}`.
 
 In that same directory, you may then build the site using the `dapper 
 build` command, which will combine the source files and the layout files 
