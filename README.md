@@ -431,7 +431,7 @@ Writing with Markdown allows you to separate the content and structure of
 your document from the formatting which allows you to focus on the actual
 writing.
 
-All source files must contain [YAM](http://yaml.org/) at the beginning. 
+All source files must contain [YAML](http://yaml.org/) at the beginning. 
 The YAML at the beginning of the source files is denoted by leading
 and trailing lines that each contain a sequence of three dashes. Example:
 
@@ -447,6 +447,43 @@ Here is the text of the post.
 The variables specified as YAML are available under the `page` namespace
 in Liquid templates. The body of the page (`Here is the text of the post.
 `) in the above example, is available as `content` in Liquid templates.
+
+Variable definitions in source files that carry special meaning are as
+follows:
+
+* `extension: .html` is the default used if not specified. To override, 
+  specify a new value for `extension` for that particular page. `extension`
+  may also be specified in the `_config.yml` file to apply it globally.
+
+* `urlpattern: /:category/:year/:month/:slug/` defines the URL path for
+  the file. This may also be specified in `_config.yml` as well. If not
+  specified, the following is used: `/:category/:year/:month/:slug/`. A
+  full list of pattern options are as follows:
+
+    - `:category` - The category of the page as defined by the page's 
+      YAML.
+    - `:year` - The year the page was published as defined either by the
+      `date` field in the page's YAML part, or from the file modification
+      timestamp.
+    - `:month` - The month the page was published as defined either by 
+      the
+      `date` field in the page's YAML part, or from the file modification
+      timestamp.
+    - `:day` - The day the page was published as defined either by the 
+      `date` field in the page's YAML part, or from the file modification
+      timestamp.
+    - `:hour` - The hour the page was published as defined either by the
+      `date` field in the page's YAML part, or from the file modification
+      timestamp.
+    - `:minute` - The minute the page was published as defined either by
+      the `date` field in the page's YAML part, or from the file 
+      modification timestamp.
+    - `:second` - The second the page was published as defined either by
+      the `date` field in the page's YAML part, or from the file 
+      modification timestamp.
+    - `:slug` - The title of the page with all non-ASCII characters 
+      removed, all non-word characters removed, all spaces converted to
+      hyphens (`-`), and converted to lowercase.
 
 Here is an example that shows a few different types of YAML definitions
 at the beginning of a source file and how to use those definitions in
