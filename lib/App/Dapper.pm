@@ -608,26 +608,26 @@ sub build_inventory {
         time_zone  => $page{timezone},
     );
 
-    $page{url} = $self->{site}->{urlpattern};
+    $page{url} = defined $page{urlpattern} ? $page{urlpattern} : $self->{site}->{urlpattern};
     $page{url} =~ s/\:category/$page{categories}/g unless not defined $page{categories};
     $page{url} =~ s/\:year/$page{year}/g unless not defined $page{year};
     $page{url} =~ s/\:month/$page{month}/g unless not defined $page{month};
     $page{url} =~ s/\:day/$page{day}/g unless not defined $page{day};
+    $page{url} =~ s/\:hour/$page{hour}/g unless not defined $page{hour};
+    $page{url} =~ s/\:minute/$page{minute}/g unless not defined $page{minute};
+    $page{url} =~ s/\:second/$page{second}/g unless not defined $page{second};
     $page{url} =~ s/\:slug/$page{slug}/g unless not defined $page{slug};
 
     $page{id} = $page{url};
 
     $page{id} = ++$ID; #$page{url};
 
-    if (not defined $page{extension}) { $page{extension} = ".html"; }
+    if (not defined $page{extension}) { $page{extension} = $self->{site}->{extension}; }
 
     $page{source_file_extension} = App::Dapper::Utils::filter_extension($source_file_name);
 
     $page{filename} = App::Dapper::Utils::filter_stem("$destination_file_name") . $page{extension};
     
-    #print "FILENAME BEFORE: " . $page{filename} . "\n";
-    #print "FILENAME AFTER: " . $page{filename} . "\n";
-
     if(defined $page{categories}) {
         my $filename = $self->{site}->{output} . $page{url};
         $filename =~ s/\/$/\/index.html/; 
