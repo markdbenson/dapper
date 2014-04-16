@@ -54,7 +54,8 @@ sub get_modified_time {
 
 Takes an input string (e.g. the title of a blog post) and "slugifies" it, meaning that
 it removes non-ASCII characters, removes all non-word characters (e.g. '_', '-', etc.), 
-and removes leading and trailing whitespace.
+removes leading and trailing whitespace, replaces spaces with hyphens, and converts to
+lowercase.
 
 =cut
 
