@@ -29,6 +29,7 @@ ignore :
     - "^\."
     - "^_"
     - "^dapper$"
+extension : .html
 DEFAULTS
 
 =head2 get_defaults
