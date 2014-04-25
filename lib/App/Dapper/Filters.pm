@@ -29,15 +29,17 @@ registers Liquid filters contained in this file.
 
 =cut
 
-sub import {
-    Template::Liquid::register_filter(qw[
-        xml_escape
-        date_to_xmlschema
-        replace_last
-        smart
-        json
-    ]);
-}
+#sub import {
+#    $filters = Template::Filters->new({
+#        FILTERS => {
+#            'xml_escape' => \&xml_escape,
+#            'date_to_xmlschema' => \&date_to_xmlschema,
+#            'replace_last' => \&replace_last,
+#            'smart' => \&smart,
+#            'json' => \&json,
+#        },
+#    });
+#}
 
 =head2 xml_escape
 

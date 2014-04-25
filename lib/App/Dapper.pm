@@ -16,7 +16,9 @@ use vars '$VERSION';
 
 use Exporter qw(import);
 use IO::Dir;
-use Template::Liquid;
+
+use Template;
+use Template::Constants qw( :debug );
 
 use Text::MultiMarkdown 'markdown';
 use HTTP::Server::Brick;
@@ -383,28 +385,44 @@ sub transform {
 sub render {
     my ($self) = @_;
 
+    my $tt = Template->new({
+        INCLUDE_PATH => $self->{layout},
+        ANYCASE => 1,
+        #STRICT => 1,
+        FILTERS => {
+            'xml_escape' => \&App::Dapper::Filters::xml_escape,
+            'date_to_xmlschema' => \&App::Dapper::Filters::date_to_xmlschema,
+            'replace_last' => \&App::Dapper::Filters::replace_last,
+            'smart' => \&App::Dapper::Filters::smart,
+            'json' => \&App::Dapper::Filters::json,
+        },
+        #DEBUG => DEBUG_ALL,
+    }) || die "$Template::ERROR\n";        
+
     for my $page (@{$self->{site}->{pages}}) {
 
         #print Dump $page->{content};
 
         if (not $page->{layout}) { $page->{layout} = "index"; }
+
         my $layout = $self->{layout_content}->{$page->{layout}};
-        
-        # Make sure we have a copy of the template file
-        my $parsed_template = Template::Liquid->parse($layout);
 
         my %tags = ();
         $tags{site} = $self->{site};
         $tags{page} = $page;
         #$tags{page}->{content} = $content;
 
-        # Render the output file using the template and the source
-        my $destination = $parsed_template->render(%tags);
+        my $destination1;
+
+        $tt->process(\$layout, \%tags, \$destination1)
+            || die $tt->error(), "\n";
 
         # Parse and render once more to make sure that any liquid statments
         # In the source file also gets rendered
-        $parsed_template = Template::Liquid->parse($destination);
-        $destination = $parsed_template->render(%tags);
+        my $destination;
+
+        $tt->process(\$destination1, \%tags, \$destination)
+            || die $tt->error(), "\n";
 
         if ($page->{filename}) {
             make_path($page->{dirname}, { verbose => 1 });
@@ -502,7 +520,7 @@ sub read_templates {
         if (not defined $self->{layout_content}->{$frontmatter->{layout}}) { next; }
 
         my $master = $self->{layout_content}->{$frontmatter->{layout}};
-        $master =~ s/\{\{ *page\.content *\}\}/$content/g;
+        $master =~ s/\[\% *page\.content *\%\]/$content/g;
         $self->{layout_content}->{$key} = $master;
 
         #print "$key Result:\n" . $self->{layout_content}->{$frontmatter->{layout}} . "\n\n\n\n\n\n";
