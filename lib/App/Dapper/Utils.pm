@@ -145,6 +145,7 @@ sub create_file {
     $filename = canonpath $filename;
     print "Creating $filename\n";
     die "Invalid number of arguments to create_file" if @_ != 2;
+    die "$filename exists. Skipping." if -f $filename;
     
     #open(my $fh, '+>:encoding(UTF-8)', $filename)
     open(my $fh, '+>', $filename)
