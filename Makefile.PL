@@ -47,6 +47,11 @@ WriteMakefile(
         'Unicode::Normalize'    => 0,
         'YAML::Tiny'            => 0,
     },
+    'META_MERGE' => {
+        'resources' => {
+            'repository' => 'https://github.com/markdbenson/dapper',
+        },
+    },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'App-Dapper-*' },
 );
