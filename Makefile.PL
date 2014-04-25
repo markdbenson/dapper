@@ -39,7 +39,7 @@ WriteMakefile(
         'JSON'                  => 0,
         'POSIX'                 => 0,
         'Pod::Usage'            => 0,
-        'Template::Liquid'      => 0,
+        'Template'              => 0,
         'Test::More'            => 0,
         'Test'                  => 0,
         'Text::Markdown'        => 0,
