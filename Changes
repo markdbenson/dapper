@@ -1,5 +1,10 @@
 Revision history for App-Dapper
 
+0.18    2014-05-02
+        Adopted the TT3 mini-language as provided by Template::Alloy
+        Added urlpattern and extension variables to site and page definitions
+        Added consistent handling of urlpattern, and output file extensions
+
 0.17    2014-04-15
         Clarified JSON Perl module dependency in Makefile.PL
 
