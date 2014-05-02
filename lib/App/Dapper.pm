@@ -17,7 +17,8 @@ use vars '$VERSION';
 use Exporter qw(import);
 use IO::Dir;
 
-use Template;
+#use Template;
+use Template::Alloy;
 use Template::Constants qw( :debug );
 
 use Text::MultiMarkdown 'markdown';
@@ -385,9 +386,10 @@ sub transform {
 sub render {
     my ($self) = @_;
 
-    my $tt = Template->new({
+    my $tt = Template::Alloy->new({
         INCLUDE_PATH => $self->{layout},
         ANYCASE => 1,
+        ENCODING => 'utf8',
         #STRICT => 1,
         FILTERS => {
             'xml_escape' => \&App::Dapper::Filters::xml_escape,
