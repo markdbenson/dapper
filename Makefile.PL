@@ -40,6 +40,7 @@ WriteMakefile(
         'POSIX'                 => 0,
         'Pod::Usage'            => 0,
         'Template::Alloy'       => 0,
+        'Template::Constants'   => 0,
         'Test::More'            => 0,
         'Test'                  => 0,
         'Text::Markdown'        => 0,
