@@ -398,6 +398,7 @@ sub render {
             'smart' => \&App::Dapper::Filters::smart,
             'json' => \&App::Dapper::Filters::json,
         },
+        EVAL_PERL => $ENV{EVAL_PERL} || 0,
         #DEBUG => DEBUG_ALL,
     }) || die "$Template::ERROR\n";        
 
