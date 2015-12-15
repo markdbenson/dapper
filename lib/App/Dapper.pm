@@ -14,6 +14,9 @@ use warnings FATAL => 'all';
 
 use vars '$VERSION';
 
+use File::Slurp;
+use Template::Stash;
+
 use Exporter qw(import);
 use IO::Dir;
 
@@ -47,7 +50,7 @@ Version 0.18
 
 =cut
 
-our $VERSION = '0.18';
+our $VERSION = '0.19';
 
 our @EXPORT = qw($VERSION);
 
@@ -386,11 +389,30 @@ sub transform {
 sub render {
     my ($self) = @_;
 
+    my $stash = Template::Stash->new();
+    
+	my $dir = $self->{site}->{'Dapper_libs'};
+	#print Dump $dir;
+	opendir(DIR, $dir) or die $!;
+    while (my $file = readdir(DIR)) {
+      # Use a regular expression to ignore files beginning with a period
+      next if ($file =~ m/^\./);
+	  #print "$file\n";
+      my $command = read_file($dir . '/' . $file);
+      eval $command;
+    }
+    closedir(DIR);
+
     my $tt = Template::Alloy->new({
         INCLUDE_PATH => $self->{layout},
         ANYCASE => 1,
         ENCODING => 'utf8',
         #STRICT => 1,
+        EVAL_PERL => 1,
+        LOAD_PERL => 1,
+        STASH => $stash,
+        #PLUGIN_BASE => [   'My::Plugin', 'Your::Plugin' ], 
+#        PLUGIN_BASE => (@my_PERL_PLUGIN_BASE),
         FILTERS => {
             'xml_escape' => \&App::Dapper::Filters::xml_escape,
             'date_to_xmlschema' => \&App::Dapper::Filters::date_to_xmlschema,
