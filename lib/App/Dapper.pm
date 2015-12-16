@@ -390,16 +390,27 @@ sub render {
     my ($self) = @_;
 
     my $stash = Template::Stash->new();
+    $stash->set('site', $self->{site});
     
 	my $dir = $self->{site}->{'Dapper_libs'};
-	#print Dump $dir;
+#	print Dump $dir;
 	opendir(DIR, $dir) or die $!;
     while (my $file = readdir(DIR)) {
       # Use a regular expression to ignore files beginning with a period
       next if ($file =~ m/^\./);
-	  #print "$file\n";
+#	  print "$dir" . "/" . "$file" . "\n";
       my $command = read_file($dir . '/' . $file);
-      eval $command;
+#	  print "$command" . "\n";
+      my $resEval = eval $command;
+      unless($resEval) {
+    	print $@;
+	  }
+=pod
+      if ($@) {
+        carp "Inner function failed: $@";
+    #do_something_with($@);
+      }
+=cut      
     }
     closedir(DIR);
 
