@@ -398,6 +398,7 @@ sub render {
             'smart' => \&App::Dapper::Filters::smart,
             'json' => \&App::Dapper::Filters::json,
         },
+        #ERROR => 'alloy_errors.html', 
         #DEBUG => DEBUG_ALL,
     }) || die "$Template::ERROR\n";        
 
@@ -405,7 +406,10 @@ sub render {
 
         #print Dump $page->{content};
 
-        if (not $page->{layout}) { $page->{layout} = "index"; }
+        if (not $page->{layout}) {
+            $page->{layout} = "index";
+            #print "WARNING: $page->{filename} does not have a page layout assigned: $page->{layout}.\n";
+        }
 
         my $layout = $self->{layout_content}->{$page->{layout}};
 
@@ -417,14 +421,19 @@ sub render {
         my $destination1;
 
         $tt->process(\$layout, \%tags, \$destination1)
-            || die $tt->error(), "\n";
+            || die "Error processing $tags{page}->{filename} with $page->{layout}:" . $tt->error() . "\n";
+
+        #if ($page->{layout} ne "index" and $layout =~ m/circuits/) {
+        #    print "DANGER WILL ROBINSON ";
+        #    print "PROCESSED: $tags{page}->{filename} with $page->{layout}\n\n$layout\n\n\n";
+        #}
 
         # Parse and render once more to make sure that any liquid statments
         # In the source file also gets rendered
         my $destination;
 
         $tt->process(\$destination1, \%tags, \$destination)
-            || die $tt->error(), "\n";
+            || die "Error processing (2nd pass) $tags{page}->{filename} with $page->{layout}:" . $tt->error() . "\n";
 
         if ($page->{filename}) {
             make_path($page->{dirname}, { verbose => 1 });
@@ -433,7 +442,6 @@ sub render {
             close(DESTINATION) or die "error: could not close $page->{filename}: $!\n";
 
             print "Wrote $page->{filename}\n";
-            #print Dumper $page;
         }
         else {
             print Dumper "No filename specified\n";
@@ -500,8 +508,6 @@ sub read_templates {
         my $stem = App::Dapper::Utils::filter_stem($file);
         $file = $self->{layout} . "/" . $file;
         $self->{layout_content}->{$stem} = App::Dapper::Utils::read_file($file);
-        #print "$stem layout content:\n";
-        #print $self->{layout_content}->{$stem};
     }
 
     # Expand sub layouts
@@ -599,7 +605,7 @@ sub build_inventory {
 
     if (not $page{date}) {
         my $date = App::Dapper::Utils::get_modified_time($source_file_name);
-        #print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
+        # print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
         $page{date} = $date;
     }
    
@@ -638,8 +644,6 @@ sub build_inventory {
     $page{url} =~ s/\:second/$page{second}/g unless not defined $page{second};
     $page{url} =~ s/\:slug/$page{slug}/g unless not defined $page{slug};
 
-    $page{id} = $page{url};
-
     $page{id} = ++$ID; #$page{url};
 
     if (not defined $page{extension}) { $page{extension} = $self->{site}->{extension}; }
@@ -673,6 +677,9 @@ sub build_inventory {
     
     if ($page{categories}) {
         push @{$self->{site}->{categories}->{$page{categories}}}, \%page;
+
+        # Keep the array sorted
+        @{$self->{site}->{categories}->{$page{categories}}} = sort { $a->{date} <=> $b->{date} } @{$self->{site}->{categories}->{$page{categories}}};
     }
 
     push @{$self->{site}->{pages}}, \%page;
