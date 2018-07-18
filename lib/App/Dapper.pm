@@ -471,7 +471,7 @@ sub serve {
 
     $port = $DEFAULT_PORT unless $port;
 
-    my $s = HTTP::Server::Brick->new(port=>$port);
+    my $s = HTTP::Server::Brick->new(port=>$port,fork=>1);
     $s->add_type('text/html' => qw(^[^\.]+$));
     $s->mount("/"=>{ path => $self->{output} });
 
