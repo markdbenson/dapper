@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile(
     NAME             => 'App::Dapper',
-    AUTHOR           => q{Mark Benson <markbenson@vanilladraft.com>},
+    AUTHOR           => q{Mark Benson <mark@jayber.org>},
     VERSION_FROM     => 'lib/App/Dapper.pm',
     ABSTRACT_FROM    => 'lib/App/Dapper.pm',
     LICENSE          => 'mit',
