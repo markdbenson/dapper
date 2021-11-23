@@ -1595,7 +1595,7 @@ You can look for more information here:
 
 * [Continuous Integration Status](https://travis-ci.org/markdbenson/dapper)
 
-# Appendix B: Extending
+# Appendix A: Extending
 
 Dapper may be used as a perl module directly from a script. Examples:
 
@@ -1711,6 +1711,11 @@ ignore :
     - "^design$"
 ```
 
+# Appendix D: Meta
+
+Dapper development environment:
+* perlbrew on osx to isolate and test against different versions of Perl
+
 # Author
 
 Dapper was written by Mark Benson
@@ -1720,7 +1725,7 @@ Dapper was written by Mark Benson
 
 The MIT License (MIT)
 
-Copyright (c) 2002-2014 Mark Benson
+Copyright (c) 2002-2021 Mark Benson
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
