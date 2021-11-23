@@ -114,7 +114,7 @@ You can compare this with the latest version from CPAN like this:
     Installed: 0.12
     CPAN:      0.13  Not up to date
     Mark Benson (MDB)
-    markbenson@vanilladraft.com
+    mark@markbenson.io
 
 In this example, you can see there is a newer version available. Upgrade
 like this:
@@ -375,14 +375,13 @@ pairs or arrays, arranged hierarchically:
 
     # Dapper config file
     ---
-    name: Vanilla Draft
-    url: http://vanilladraft.com/
+    name: Mark Benson Portfolio
+    url: http://markbenson.io/
     source : _source/
     output : _output/
     layout : _layout/
     links :
         Preface : /preface/
-        Feed : http://feeds.feedburner.com/vanilladraft
         Amazon : http://amazon.com/author/markbenson
         Github : http://github.com/markdbenson
         LinkedIn : http://linkedin.com/in/markbenson
@@ -589,14 +588,14 @@ This text is also `__bold__.`           | This text is also **bold**.
 This text is `*italicized*.`            | This text is *italicized*.
 This text is also `_italicized_.`       | This text is also _italicized_.
 `` `This is some code.` ``              | `This is some code.`
-Link to `[Vanilla Draft](http://vanilladraft.com).` | Link to [Vanilla Draft](http://vanilladraft.com).
-Link to `[Vanilla Draft][ln1].`         | Link to [Vanilla Draft][ln1].
-Link to `<http://vanilladraft.com>.`    | Link to http://vanilladraft.com.
+Link to `[Mark Benson Portfolio](http://markbenson.io).` | Link to [Mark Benson Portfolio](http://markbenson.io/).
+Link to `[Mark Benson Portfolio][ln1].`         | Link to [Mark Benson][ln1].
+Link to `<http://markbenson.io>.`       | Link to http://markbenson.io.
 `> This is the first level of quoting.` | The first level of quoting.
 `>> This is a nested blockquote.`       | A nested blockquote.
 
-`[ln1]: http://vanilladraft.com "Vanilla Draft"`
-[ln1]: http://vanilladraft.com "Vanilla Draft"
+`[ln1]: http://markbenson.io "Mark Benson Portfolio"`
+[ln1]: http://markbenson.io "Mark Benson Portfolio"
 
 Code is placed in `backticks` (see [above](#text)), or as a "fenced code block" 
 by surrounding an entire block of text with three backticks in a row.
@@ -753,7 +752,7 @@ layouts as `[% page.* %]`.
 Example `_config.yml`:
 
 ```
-name: Vanilla Draft
+name: Mark Benson Portfolio
 ```
 
 Example `_source/index.md`:
@@ -785,7 +784,7 @@ This would produce the following:
 ```
 <html>
 <head>
-    <title>The title of my post - Vanilla Draft</title>
+    <title>The title of my post - Mark Benson Portfolio</title>
 </head>
 <body>
     <h1>The title of my post</h1>
@@ -826,14 +825,14 @@ Result:
 And associative arrays (hashes):
 
 ```
-[% link = {name => 'Vanilla Draft', 'url' => 'http://vanilladraft.com/'} %]
+[% link = {name => 'Mark Benson Portfolio', 'url' => 'http://markbenson.io/'} %]
 <a href="[% link.url %]">[% link.name %]</a>
 ```
 
 Result:
 
 ```
-<a href="http://vanilladraft.com/">Vanilla Draft</a>
+<a href="http://markbenson.io/">Mark Benson Portfolio</a>
 ```
 
 *Literals*
@@ -887,7 +886,7 @@ as an input, along with zero or more optional parameters, and returns a
 string as a result. Filters can be chained together. Examples:
 
 ```
-[% site.name = " Vanilla Draft    " %]
+[% site.name = " Mark Benson Portfolio    " %]
 [% site.name | upper | trim %]
 [% page.title = "My very long page title that should be truncated" %]
 [% page.title | truncate(26) %]
@@ -1535,13 +1534,13 @@ To do this, follow these steps:
 
 To make it easy to publish to Amazon S3, one option is to create a Makefile
 that encodes the publishing instructions. Here is a Makefile that I use for
-[Vanilla Draft](http://vanilladraft.com/):
+[Mark Benson Portfolio](http://markbenson.io/):
 
     BASEDIR=$(CURDIR)
     INPUTDIR=$(BASEDIR)/_source
     OUTPUTDIR=$(BASEDIR)/_output
 
-    S3_BUCKET=vanilladraft.com
+    S3_BUCKET=markbenson.io
 
     build:
     	dapper build
@@ -1715,7 +1714,7 @@ ignore :
 # Author
 
 Dapper was written by Mark Benson
-[markbenson@vanilladraft.com](mailto:markbenson@vanilladraft.com).
+[mark@markbenson.io](mailto:mark@markbenson.io).
 
 # License and Copyright
 
