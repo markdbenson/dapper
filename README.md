@@ -58,7 +58,7 @@ content. Since then, Dapper has been used to create websites for speakers,
 artists, authors, illusionists, web designers, piano tuners,
 photographers, entertainment agencies, and API documentation for
 industrial sensing equipment. In addition, it is the tool that powers
-[Vanilla Draft](http://vanilladraft.com/).
+[markbenson.io](http://markbenson.io/).
 
 In 2014, Dapper was submitted as a Perl module (App::Dapper) to
 [CPAN](http://cpan.org/) under the MIT license for anyone to use for any
