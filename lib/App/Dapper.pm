@@ -22,7 +22,11 @@ use Template::Alloy;
 use Template::Constants qw( :debug );
 
 use Text::MultiMarkdown 'markdown';
-use HTTP::Server::Brick;
+
+#use HTTP::Server::Simple;
+#use HTTP::Server::Brick;
+use Net::HTTPServer;
+
 use YAML::Tiny qw(LoadFile Load Dump);
 use File::Spec::Functions qw/ canonpath /;
 use File::Path qw(make_path);
@@ -33,6 +37,7 @@ $Data::Dumper::Sortkeys = 1;
 
 use DateTime;
 
+use App::Dapper::Serve;
 use App::Dapper::Init;
 use App::Dapper::Utils;
 use App::Dapper::Defaults;
@@ -471,11 +476,22 @@ sub serve {
 
     $port = $DEFAULT_PORT unless $port;
 
-    my $s = HTTP::Server::Brick->new(port=>$port,fork=>1);
-    $s->add_type('text/html' => qw(^[^\.]+$));
-    $s->mount("/"=>{ path => $self->{output} });
+    # HTTP::Server::Static example
+    #my $s = App::Dapper::Serve->new($port);
+    #print "About to send webroot: " . $self->{output} . "\n";
+    #$s->kyloren($self->{output});
+    #$s->run();
 
-    $s->start
+    # HTTP::Server::Brick example
+    #my $s = HTTP::Server::Brick->new(port=>$port, fork=>1);
+    #$s->add_type('text/html' => qw(^[^\.]+$));
+    #$s->mount("/"=>{ path => $self->{output} });
+    #$s->start
+
+    #Net::HTTPServer example
+    my $s = new Net::HTTPServer(port=>$port, docroot=>$self->{output}, type=>"forking");
+    $s->Start();
+    $s->Process();
 }
 
 # sub read_project - Read the project file.
