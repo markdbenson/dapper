@@ -489,7 +489,7 @@ sub serve {
     #$s->start
 
     #Net::HTTPServer example
-    my $s = new Net::HTTPServer(port=>$port, docroot=>$self->{output}, type=>"forking");
+    my $s = new Net::HTTPServer(port=>$port, docroot=>$self->{output}, type=>"forking", log=>"STDOUT");
     $s->Start();
     $s->Process();
 }
