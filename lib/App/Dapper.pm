@@ -492,7 +492,8 @@ sub serve {
     my $s = new Net::HTTPServer(
                     port=>$port,
                     docroot=>$self->{output},
-                    type=>"forking");
+                    type=>"forking",
+                    log=>"STDOUT");
     $s->Start();
     $s->Process();
 }
