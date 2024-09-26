@@ -31,6 +31,22 @@ Hello world.
 
 SOURCE_INDEX_CONTENT
 
+my $libs_name = "functions.pl";
+my $libs_content = <<'LIBS_CONTENT';
+print "IMPORTING LIBS functions.pl" . "\n";
+
+$stash->set('save', sub { my($key, $value) = @_;
+	$stash->set($key, $value);
+});
+
+$stash->set('load', sub { my($key) = @_;
+	return $stash->get($key);
+});
+
+#Add new custom functions here
+
+LIBS_CONTENT
+
 my $templates_index_name = "index.html";
 my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
@@ -54,6 +70,27 @@ my $proj_file_template_content = <<'PROJ_FILE_TEMPLATE';
 ---
 name : My Site
 
+Dapper_libs : '_libs'
+
+url: http://vanilladraft.com/
+source : _source/
+output : _output/
+layout : _layout/
+links :
+    Preface : /preface/
+    Feed : http://feeds.feedburner.com/vanilladraft
+    Amazon : http://amazon.com/author/markbenson
+    Github : http://github.com/markdbenson
+    LinkedIn : http://linkedin.com/in/markbenson
+    Twitter : https://twitter.com/markbenson
+ignore :
+    - "^\."
+    - "^_"
+    - "^design$"
+    - "^README.md$"
+    - "^Makefile$"
+    - "^_libs"
+
 PROJ_FILE_TEMPLATE
 
 =head2 init
@@ -73,6 +110,9 @@ sub init {
 
     App::Dapper::Utils::create_dir($layout);
     App::Dapper::Utils::create_file("$layout/$templates_index_name", $templates_index_content);
+    
+    App::Dapper::Utils::create_dir('_libs');
+    App::Dapper::Utils::create_file("_libs/$libs_name", $libs_content);
 }
 
 1;
