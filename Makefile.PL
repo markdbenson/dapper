@@ -34,7 +34,6 @@ WriteMakefile(
         'File::Spec::Functions'        => 0,
         'FindBin'                      => 0,
         'Getopt::Mixed'                => 0,
-        'Net::HTTPServer'              => 0,
         'IO::Dir'                      => 0,
         'JSON'                         => 0,
         'POSIX'                        => 0,
@@ -47,6 +46,7 @@ WriteMakefile(
         'Text::MultiMarkdown'          => 0,
         'Unicode::Normalize'           => 0,
         'YAML::Tiny'                   => 0,
+        'HTTP::Server::Brick'          => 0,
     },
     'META_MERGE' => {
         'resources' => {
