@@ -5,8 +5,8 @@ lib/App/Dapper.pm
 lib/App/Dapper/Defaults.pm
 lib/App/Dapper/Filters.pm
 lib/App/Dapper/Init.pm
-lib/App/Dapper/Utils.pm
 lib/App/Dapper/Serve.pm
+lib/App/Dapper/Utils.pm
 Makefile.PL
 MANIFEST			This list of files
 README.md
@@ -15,4 +15,3 @@ t/01-manifest.t
 t/02-new.t
 t/03-init.t
 t/04-build.t
-perl-App-Dapper.spec
