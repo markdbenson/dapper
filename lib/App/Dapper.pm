@@ -23,8 +23,6 @@ use Template::Constants qw( :debug );
 
 use Text::MultiMarkdown 'markdown';
 
-#use HTTP::Server::Simple;
-#use HTTP::Server::Brick;
 use Net::HTTPServer;
 
 use YAML::Tiny qw(LoadFile Load Dump);
@@ -476,19 +474,6 @@ sub serve {
 
     $port = $DEFAULT_PORT unless $port;
 
-    # HTTP::Server::Static example
-    #my $s = App::Dapper::Serve->new($port);
-    #print "About to send webroot: " . $self->{output} . "\n";
-    #$s->kyloren($self->{output});
-    #$s->run();
-
-    # HTTP::Server::Brick example
-    #my $s = HTTP::Server::Brick->new(port=>$port, fork=>1);
-    #$s->add_type('text/html' => qw(^[^\.]+$));
-    #$s->mount("/"=>{ path => $self->{output} });
-    #$s->start
-
-    #Net::HTTPServer example
     my $s = new Net::HTTPServer(
                     port=>$port,
                     docroot=>$self->{output},
