@@ -17,4 +17,3 @@ pm_to_blib
 Text-Dapper-*
 Text-Dapper-*.tar.gz
 *.gz
-/build.sh

@@ -1,9 +1,5 @@
 Revision history for App-Dapper
 
-0.19    2015-12-15
-        Added perl code subroutines for templates
-        Added session data for templates
-
 0.18    2014-05-02
         Adopted the TT3 mini-language as provided by Template::Alloy
         Added urlpattern and extension variables to site and page definitions
