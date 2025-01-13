@@ -403,6 +403,7 @@ sub render {
             'json' => \&App::Dapper::Filters::json,
         },
         #ERROR => 'alloy_errors.html', 
+        EVAL_PERL => $ENV{EVAL_PERL} || 0,
         #DEBUG => DEBUG_ALL,
     }) || die "$Template::ERROR\n";        
 
