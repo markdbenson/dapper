@@ -895,7 +895,7 @@ string as a result. Filters can be chained together. Examples:
 Results:
 
 ```
-VANILLA DRAFT
+MARK BENSON PORTFOLIO
 My very long page title...
 ```
 
