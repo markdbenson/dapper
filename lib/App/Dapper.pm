@@ -34,6 +34,7 @@ $Data::Dumper::Indent = 1;
 $Data::Dumper::Sortkeys = 1;
 
 use DateTime;
+use DateTime::Format::XSD;
 
 use App::Dapper::Serve;
 use App::Dapper::Init;
@@ -608,36 +609,31 @@ sub build_inventory {
 
     $page{slug} = App::Dapper::Utils::slugify($page{title});
 
+    my $date;
     if (not $page{date}) {
-        my $date = App::Dapper::Utils::get_modified_time($source_file_name);
+        $date = DateTime::Format::XSD->parse_datetime(App::Dapper::Utils::get_modified_time($source_file_name));
         # print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
         $page{date} = $date;
+    } else {
+        $date = DateTime::Format::XSD->parse_datetime($page{date});
     }
-   
-    if($page{date} =~ /^(\d\d\d\d)-(\d\d)-(\d\d) (\d\d)\:(\d\d)\:(\d\d)$/) {
-        $page{year} = $1;
-        $page{month} = $2;
-        $page{day} = $3;
-        $page{hour} = $4;
-        $page{minute} = $5;
-        $page{second} = $6;
-        $page{nanosecond} = 0;
-    }
+
+    $page{date}   = $date;
+    $page{year}   = $date->year();
+    $page{month}  = $date->month();
+    $page{day}    = $date->day();
+    $page{hour}   = $date->hour();
+    $page{minute} = $date->minute();
+    $page{second} = $date->second();
+      
+    # Insert zero to beginning if year, month, day,
+    # hour, minute or second is less than 10
+    $page{$_} < 10 and $page{$_} = '0' . $page{$_}
+      for ('year', 'month', 'day', 'hour', 'minute', 'second');
 
     if(not $page{timezone}) {
         $page{timezone} = DateTime::TimeZone->new( name => 'local' );
     }
-
-    $page{date} = DateTime->new(
-        year       => $page{year},
-        month      => $page{month},
-        day        => $page{day},
-        hour       => $page{hour},
-        minute     => $page{minute},
-        second     => $page{second},
-        nanosecond => $page{nanosecond},
-        time_zone  => $page{timezone},
-    );
 
     $page{url} = defined $page{urlpattern} ? $page{urlpattern} : $self->{site}->{urlpattern};
     $page{url} =~ s/\:category/$page{categories}/g unless not defined $page{categories};

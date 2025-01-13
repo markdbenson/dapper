@@ -46,7 +46,7 @@ Takes a file and returns the last modified time of the file.
 
 sub get_modified_time {
     my ($file) = @_;
-    my $date = POSIX::strftime( "%Y-%m-%d %H:%M:%S", localtime((stat $file)[9]));
+    my $date = POSIX::strftime( "%Y-%m-%dT%H:%M:%S", localtime((stat $file)[9]));
     return $date;
 }
 
