@@ -1,5 +1,10 @@
 Revision history for App-Dapper
 
+0.19    2025-01-12
+        Changed to Net::HTTPServer for local webserver use
+        Enabled EVAL_PERL for using perl in templates if EVAL_PERL is set
+        Documented more available variables in README
+
 0.18    2014-05-02
         Adopted the TT3 mini-language as provided by Template::Alloy
         Added urlpattern and extension variables to site and page definitions
