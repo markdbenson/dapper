@@ -26,9 +26,9 @@ source : _source/
 output : _output/
 layout : _layout/
 ignore :
-    - "^\."
-    - "^_"
-    - "^dapper$"
+    - ^\.
+    - ^_
+    - ^dapper$
 extension : .html
 DEFAULTS
 
