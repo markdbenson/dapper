@@ -25,7 +25,7 @@ use Text::MultiMarkdown 'markdown';
 
 use Net::HTTPServer;
 
-use YAML::Tiny qw(LoadFile Load Dump);
+use YAML::PP qw/ Load Dump LoadFile DumpFile /;
 use File::Spec::Functions qw/ canonpath /;
 use File::Path qw(make_path);
 
@@ -476,13 +476,18 @@ sub serve {
 
     $port = $DEFAULT_PORT unless $port;
 
+    print "Starting webserver at http://localhost:$port\n";
+
     my $s = new Net::HTTPServer(
                     port=>$port,
                     docroot=>$self->{output},
                     type=>"forking",
-                    log=>"STDOUT");
+                    log=>"STDOUT",
+                    #debug=>"ALL"
+                    );
     $s->Start();
     $s->Process();
+    
 }
 
 # sub read_project - Read the project file.
@@ -528,7 +533,7 @@ sub read_templates {
         if (not defined $1) { next; }
         if (not defined $2) { next; }
 
-        $frontmatter = Load($1);
+        $frontmatter = Load($1) or die "error: could not load \"$1\": $!\n";
         $content  = $2;
 
         if (not defined $frontmatter->{layout}) { next; }
@@ -596,12 +601,16 @@ sub build_inventory {
     my ($self, $source_file_name, $destination_file_name) = @_;
 
     my %page = ();
+    my $frontmatter;
+
+    print "Processing $source_file_name\n";
 
     my $source_content = App::Dapper::Utils::read_file($source_file_name);
 
     $source_content =~ /(---.*?)---(.*)/s;
 
-    my ($frontmatter) = Load($1);
+    $frontmatter = Load($1) or die "error parsing \"$source_file_name\": $!\n";
+
     $page{content} = $2;
 
     for my $key (keys %{$frontmatter}) {
