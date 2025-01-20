@@ -387,11 +387,11 @@ pairs or arrays, arranged hierarchically:
         LinkedIn : http://linkedin.com/in/markbenson
         Twitter : https://twitter.com/markbenson
     ignore :
-        - "^\."
-        - "^_"
-        - "^design$"
-        - "^README.md$"
-        - "^Makefile$"
+        - ^\.
+        - ^_
+        - ^design$
+        - ^README.md$
+        - ^Makefile$
 
 Any variable specified in `_config.yml` can be used in a template. In the
 example above, name can be used like this:
@@ -417,7 +417,7 @@ All of the items in the `ignore` array can be shown like this:
     </ul>
 
 See the official [YAML](http://yaml.org/) specification, or the
-[YAML::Tiny](http://search.cpan.org/~ether/YAML-Tiny/) Perl module
+[YAML::PP](https://metacpan.org/pod/YAML::PP) Perl module
 documentation (Dapper's YAML parsing engine) for more information.
 
 # Source
@@ -1198,6 +1198,39 @@ Anonymous `block` definitions can be used for capturing chunks of text:
     [% a = block %]Some text[% end %]
     [% a %]
 
+## Perl code
+
+You can execute perl code inside templates as of v0.19. In order to enable it,
+make sure that `EVAL_PERL` is defined in your environmeht. For instance:
+
+    $ export EVAL_PERL=true
+
+Then, you can use `perl` or `rawperl` to include perl code in your templates.
+For instance:
+
+    [% a = "Apple" %]
+    [%~ PERL %]
+        my $a = "[% a %]";
+        print "The variable \$a is \"$a\"";
+        $stash->set('b', "Banana");
+    [% END %]
+    [% b %]
+
+This would print the following:
+
+    The variable $a is "Apple"
+    Banana
+
+During execution, anything printed to STDOUT will be inserted into the
+template. Also, the $stash and $context variables are set and are references
+to objects that mimic the interface provided by Template::Context and
+Template::Stash. These are provided for compatibility only. $self contains
+the current Template::Alloy object.
+
+The `rawperl` block can be used as well. It operates the same as the `perl`
+block does except that you will need to append to the $output variable rather
+than just calling `print`.
+
 ## Includes
 
 An `include` directive parses the contents of a file or `block` and inserts them
@@ -1695,9 +1728,9 @@ site.ignore list. By default, the following ignore list is used:
 
 ```
 ignore :
-    - "^\."
-    - "^_"
-    - "^dapper$"
+    - ^\.
+    - ^_
+    - ^dapper$
 ```
 
 More files and regular expression patterns may be specified in the project
@@ -1708,7 +1741,7 @@ to your `_config.yml` file:
 
 ```
 ignore :
-    - "^design$"
+    - ^design$
 ```
 
 # Appendix D: Meta
