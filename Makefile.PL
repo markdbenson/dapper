@@ -46,7 +46,7 @@ WriteMakefile(
         'Text::Markdown'               => 0,
         'Text::MultiMarkdown'          => 0,
         'Unicode::Normalize'           => 0,
-        'YAML::Tiny'                   => 0,
+        'YAML::PP'                     => 0,
     },
     'META_MERGE' => {
         'resources' => {
