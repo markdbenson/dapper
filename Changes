@@ -1,9 +1,20 @@
 Revision history for App-Dapper
 
 0.19    2025-01-12
-        Changed to Net::HTTPServer for local webserver use
-        Enabled EVAL_PERL for using perl in templates if EVAL_PERL is set
-        Documented more available variables in README
+        Changed to Net::HTTPServer for local webserver use. This is a much
+        better forking webserver to use than HTML::Brick and better supported.
+
+        Enabled EVAL_PERL for embedding perl code in templates. Set EVAL_PERL
+        to "true" to use (e.g. export EVAL_PERL=true). Then use [% perl %] blocks
+        in templates to use embedded perl in your templates. See README for more.
+
+        Changed timestamp format to use the ISO 8601 style date/time format.
+        In previous versions of Dapper, the date format for posts that was accepted
+        was (\d\d\d\d)-(\d\d)-(\d\d) (\d\d)\:(\d\d)\:(\d\d).
+
+        Updated YAML processor from YAML::Tiny to YAML::PP. Now, Dapper supports
+        YAML 1.2. See the documentation for the YAML spec and/or the YAML::PP
+        documentation for more information on exactly what features are supported.
 
 0.18    2014-05-02
         Adopted the TT3 mini-language as provided by Template::Alloy
