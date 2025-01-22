@@ -18,7 +18,7 @@ use 5.8.0;
 use strict;
 use warnings FATAL => 'all';
 
-use YAML::Tiny qw(Load);
+use YAML::PP qw(Load);
 
 my $defaults = <<'DEFAULTS';
 urlpattern : /:category/:year/:month/:slug/
