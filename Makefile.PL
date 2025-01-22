@@ -15,13 +15,14 @@ WriteMakefile(
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => 6.88,
     },
-    CONFIGURE_REQUIRES => {
-        'Getopt::Mixed'         => 1.11,
-    },
     BUILD_REQUIRES => {
-        'Test::More'            => 0.98,
+        'Test::More'                   => 0.98,
+    },
+    TEST_REQUIRES => {
+        'YAML::PP'                     => 0,
     },
     PREREQ_PM => {
+        'CGI'                          => 0,
         'Data::Dumper'                 => 0,
         'Data::Dumper::HTML'           => 0,
         'DateTime'                     => 1.52, 
