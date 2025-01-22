@@ -1,5 +1,8 @@
 Revision history for App-Dapper
 
+0.21    2025-01-22
+        Added CGI to list of module dependencies.
+
 0.20    2025-01-21
         Removed dependency on YAML::Tiny from test framework
 
