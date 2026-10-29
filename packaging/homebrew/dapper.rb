@@ -8,8 +8,8 @@
 class Dapper < Formula
   desc "Static site generator: Markdown in, plain HTML out"
   homepage "https://github.com/markdbenson/dapper"
-  url "https://github.com/markdbenson/dapper/releases/download/v1.0.0/dapper"
-  version "1.0.0"
+  url "https://github.com/markdbenson/dapper/releases/download/v1.00/dapper"
+  version "1.00"
   sha256 "REPLACE_WITH_SHA256"
   license "MIT"
 

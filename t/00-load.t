@@ -5,9 +5,15 @@ use Test::More;
 
 my @modules = qw(
     App::Dapper
+    App::Dapper::Check
+    App::Dapper::Collections
     App::Dapper::Defaults
     App::Dapper::Filters
     App::Dapper::Init
+    App::Dapper::Markdown
+    App::Dapper::MCP
+    App::Dapper::Publish
+    App::Dapper::Schema
     App::Dapper::Utils
 );
 

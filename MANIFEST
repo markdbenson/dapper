@@ -5,9 +5,15 @@ Makefile.PL
 README.md
 bin/dapper
 lib/App/Dapper.pm
+lib/App/Dapper/Check.pm
+lib/App/Dapper/Collections.pm
 lib/App/Dapper/Defaults.pm
 lib/App/Dapper/Filters.pm
 lib/App/Dapper/Init.pm
+lib/App/Dapper/MCP.pm
+lib/App/Dapper/Markdown.pm
+lib/App/Dapper/Publish.pm
+lib/App/Dapper/Schema.pm
 lib/App/Dapper/Utils.pm
 t/00-load.t
 t/01-pod.t
@@ -21,4 +27,11 @@ t/08-copy.t
 t/09-filters.t
 t/10-cli.t
 t/11-watch.t
+t/12-schema.t
+t/13-data.t
+t/14-publish.t
+t/15-collections.t
+t/16-check.t
+t/17-output.t
+t/18-mcp.t
 t/lib/DapperTest.pm

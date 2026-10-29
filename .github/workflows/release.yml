@@ -1,6 +1,6 @@
 name: release
 
-# Runs when a version tag (v1.0.0, ...) is pushed. Builds the single-file
+# Runs when a version tag (v1.00, ...) is pushed. Builds the single-file
 # dapper and attaches it to a GitHub release, and publishes the Docker image
 # to the GitHub Container Registry (ghcr.io/markdbenson/dapper). The CPAN
 # upload stays manual (see the README).

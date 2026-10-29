@@ -1,6 +1,6 @@
 #!/bin/sh
 # Print the Homebrew formula for a released version, with the checksum of its
-# single-file build. Usage: packaging/homebrew/update-formula.sh 1.0.0
+# single-file build. Usage: packaging/homebrew/update-formula.sh 1.00
 set -e
 version="$1"
 [ -n "$version" ] || { echo "usage: $0 <version>" >&2; exit 2; }

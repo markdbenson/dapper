@@ -69,10 +69,13 @@ purpose.
 
 **Features**
 
-* Written in perl, available as a command line utility after installing.
-* Content is written in Markdown.
-* Layouts are developed using TT3 from the Template::Alloy templating engine.
-* Configuration files and attributes are encoded with YAML.
+* Content in Markdown (with highlightable fenced code blocks) or HTML, with YAML front matter.
+* Layouts in the TT3 mini-language from Template::Alloy. Content is safe by default: it is never run as template code unless a page asks.
+* Front matter schemas, data files, categories, tags, pagination, and generated category and tag pages.
+* A built-in sitemap, Atom feed, SEO and structured data tags, and Markdown copies of pages with an `llms.txt` index for AI tools.
+* `dapper check` finds broken links and front matter mistakes; `dapper serve` rebuilds and reloads the browser as you edit.
+* An MCP server, so AI assistants can write, check and build the site, with your schemas as guardrails.
+* Install from CPAN, as a single file, with Homebrew, or with Docker.
 
 The rest of this document shows you how to get your site up and running,
 how to manage the content and the way it looks, and how to deploy the
@@ -87,6 +90,9 @@ result to your favorite web host.
 * [Tutorial: Build a Blog](#tutorial-build-a-blog)
 * [Configuration](#configuration)
 * [Source](#source)
+    * [Template code in content](#template-code-in-content)
+    * [Front matter schemas](#front-matter-schemas)
+    * [Data files](#data-files)
     * [Source file types](#source-file-types)
     * [Assets](#assets)
     * [Drafts and clean builds](#drafts-and-clean-builds)
@@ -98,6 +104,8 @@ result to your favorite web host.
     * [Footnotes](#footnotes)
 * [Layout](#layout)
     * [Variables](#variables)
+    * [Pagination](#pagination)
+    * [Category and tag pages](#category-and-tag-pages)
     * [Comments](#comments)
     * [Filters](#filters)
     * [Conditionals](#conditionals)
@@ -109,10 +117,18 @@ result to your favorite web host.
     * [Plugins](#plugins)
     * [Chomping](#chomping)
     * [Dumping](#dumping)
+* [Publishing for Search Engines and AI](#publishing-for-search-engines-and-ai)
+    * [Sitemap](#sitemap)
+    * [Feed](#feed)
+    * [SEO tags](#seo-tags)
+    * [Markdown copies and llms.txt](#markdown-copies-and-llmstxt)
+    * [Search](#search)
+* [AI Assistants (MCP)](#ai-assistants-mcp)
 * [Deployment](#deployment)
     * [Amazon S3](#amazon-s3)
     * [GitHub Pages](#github-pages)
 * [What Dapper Doesn't Do](#what-dapper-doesnt-do)
+* [Upgrading to 1.0](#upgrading-to-10)
 * [Upgrading from 0.21](#upgrading-from-021)
 * [Troubleshooting](#troubleshooting)
 * [Further Reading](#further-reading)
@@ -146,12 +162,33 @@ Install Dapper in seconds:
 
     $ cpanm App::Dapper
 
+Other ways to install, if you'd rather not use `cpanm`:
+
+* **A single file.** Download `dapper` from the
+  [latest release](https://github.com/markdbenson/dapper/releases/latest).
+  It runs with any Perl 5.10 or newer and needs nothing else installed:
+
+      $ curl -fsSLo dapper https://github.com/markdbenson/dapper/releases/latest/download/dapper
+      $ chmod +x dapper
+      $ sudo mv dapper /usr/local/bin/
+
+* **Homebrew:** `brew install markdbenson/tap/dapper`
+
+* **Docker**, with no Perl at all. Run it in your project directory:
+
+      $ docker run --rm -v "$PWD":/site ghcr.io/markdbenson/dapper build
+      $ docker run --rm -v "$PWD":/site -p 8000:8000 ghcr.io/markdbenson/dapper serve
+
 Then, create a new site, build it, and view it locally like so:
 
     $ mkdir new-site && cd new-site
     $ dapper init
     $ dapper build
     $ dapper serve
+
+For a complete starter blog (layouts, a paginated home page, category and
+tag pages, a feed, a schema for posts and more), use
+`dapper init --template blog` instead of `dapper init`.
 
 After that, browse to [http://localhost:8000](http://localhost:8000) to
 see your site.  To modify the content, look at `_source/index.md`. To
@@ -223,6 +260,9 @@ description of the resulting directory structure is available in the
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper init
 
+    # ...or with a complete starter blog
+    $ dapper init --template blog
+
 ### Build
 
 After the site has been initialized, build it using the `dapper build`
@@ -271,6 +311,35 @@ the *-p* option:
     # Serve the site locally at http://localhost:9000
     $ dapper -p 9000 serve
 
+While `dapper serve` is running, pages in your browser reload by themselves
+after each rebuild. The server listens on every network interface, so other
+devices on your network can reach it too, which is handy for testing on a
+phone.
+
+### Check
+
+The `dapper check` command builds the site into a temporary directory and
+reports every problem it finds, without touching the output directory:
+front matter that can't be read or doesn't match its
+[schema](#front-matter-schemas), missing layouts, mistakes in templates, two
+pages that would be written to the same file, links and images that lead
+nowhere, and pages without a title.
+
+    $ dapper check
+    error: _source/blog/new.md: links to /contact.html, which is not in the site
+    Checked 12 pages: 1 error, 0 warnings.
+
+It exits with status 1 when there are errors, so it can stop a deploy
+script or a CI job. Add `--json` for a report that scripts and AI
+assistants can read:
+
+    $ dapper check --json
+
+### MCP
+
+The `dapper mcp` command runs a server that AI assistants can use to work on
+the site. See [AI Assistants (MCP)](#ai-assistants-mcp).
+
 ### Options
 
 Every command accepts these options. Directories given on the command line
@@ -285,6 +354,9 @@ Option                     | Description
 `-c`, `--config` *file*    | Project file (default: `_config.yml`)
 `-p`, `--port` *number*    | Port for `dapper serve` (default: `8000`)
 `-q`, `--quiet`            | Only print errors
+`-C`, `--directory` *dir* | Run in this directory instead of the current one
+`-t`, `--template` *name* | For `init`: the starter project, `default` or `blog`
+`--json`                   | For `check`: print the report as JSON
 `-h`, `--help`             | Print usage
 `-v`, `--version`          | Print the version
 
@@ -435,9 +507,14 @@ output file is created:
 
 # Tutorial: Build a Blog
 
-This walkthrough builds a small blog with a home page that lists the latest
-posts, one page per post, a stylesheet and an Atom feed. Every file is
-shown in full, so you can copy them as they are.
+This walkthrough builds a small blog: a home page that lists the latest
+posts, one page per post, a stylesheet, and the feed, sitemap and SEO tags
+that Dapper generates for you. Every file is shown in full, so you can copy
+them as they are.
+
+(`dapper init --template blog` creates a project much like this one, with
+category and tag pages, a schema for posts and a menu as well. This
+tutorial builds it by hand so you can see how the pieces fit.)
 
 When it's done, the project looks like this:
 
@@ -445,29 +522,32 @@ When it's done, the project looks like this:
     _layout/
         index.html      The page wrapper used by every page
         post.html       A post, wrapped in index.html
-        raw.html        No wrapper at all (for the feed)
     _source/
         index.html      The home page: a list of posts
-        feed.xml        The Atom feed
         blog/
             hello-world.md
             second-post.md
     css/
         site.css        Copied to the output as it is
 
-**1. The project file.** `url` is used to build absolute links in the
-feed; leave off the trailing slash. `timezone` is the time zone your post
-dates are written in.
+**1. The project file.** `url` is the address the site will be published at
+(leave off the trailing slash); the sitemap, the feed and the SEO tags use
+it to make absolute links. `timezone` is the time zone your post dates are
+written in. `feed` turns on an Atom feed of the blog.
 
     # Dapper configuration file
     ---
     name: My Blog
+    description: Notes on building things.
     url: https://example.com
     author: Jane Doe
     timezone: America/Chicago
+    feed:
+      category: blog
 
 **2. The main layout**, `_layout/index.html`. Pages without a `layout`
-setting use this one.
+setting use this one. `[% page.seo %]` adds the page's description,
+canonical link, feed link, Open Graph tags and structured data.
 
 ```html
 <!DOCTYPE html>
@@ -475,8 +555,8 @@ setting use this one.
 <head>
   <meta charset="utf-8">
   <title>[% page.title | html %] - [% site.name | html %]</title>
+[% page.seo %]
   <link rel="stylesheet" href="/css/site.css">
-  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
 </head>
 <body>
   <header><a href="/">[% site.name | html %]</a></header>
@@ -502,15 +582,11 @@ layout: index
 </article>
 ```
 
-**4. An empty layout**, `_layout/raw.html`, for pages (like the feed) that
-must not be wrapped in HTML:
-
-    [% page.content %]
-
-**5. Posts**, in `_source/blog/`. The `categories: blog` setting puts each
-post in `site.categories.blog`, and also means the post is written to the
-path described by `urlpattern` (`/:category/:year/:month/:slug/` by
-default), so this one becomes `/blog/2026/10/hello-world/`.
+**4. Posts**, in `_source/blog/`. The `categories: blog` setting puts each
+post in `site.categories.blog` (and so in the feed), and also means the
+post is written to the path described by `urlpattern`
+(`/:category/:year/:month/:slug/` by default), so this one becomes
+`/blog/2026/10/hello-world/`.
 
 ```
 ---
@@ -528,17 +604,22 @@ The rest of the post goes here.
 Add a second post, `_source/blog/second-post.md`, the same way with a
 later date.
 
-**6. The home page**, `_source/index.html`. It is an `.html` file rather
-than `.md` so that Markdown doesn't touch the HTML and template directives
-in it (see [Source](#source)). `site.categories.blog` is sorted oldest
-first, so `.reverse` lists the newest post first.
+**5. The home page**, `_source/index.html`. It is an `.html` file rather
+than `.md` so that Markdown doesn't touch its HTML, and it sets
+`template: true` because its content uses template code (see [Template
+code in content](#template-code-in-content)). `paginate` hands it the posts
+in `paginator.items`, newest first, ten to a page.
 
 ```html
 ---
 title: Home
+template: true
+paginate:
+  category: blog
+  per_page: 10
 ---
 <h1>Recent posts</h1>
-[% FOR post IN site.categories.blog.reverse %]
+[% FOR post IN paginator.items %]
 <article>
   <h2><a href="[% post.url %]">[% post.title | html %]</a></h2>
   <p class="date">[% post.date.strftime('%d %B %Y') %]</p>
@@ -546,64 +627,47 @@ title: Home
   <p><a href="[% post.url %]">Read more</a></p>
 </article>
 [% END %]
+[% IF paginator.next_url %]<a href="[% paginator.next_url %]">Older posts</a>[% END %]
 ```
 
-To show only the five newest posts, stop the loop early by starting its
-body with `[% LAST IF loop.count > 5 %]`:
-
-    [% FOR post IN site.categories.blog.reverse %][% LAST IF loop.count > 5 %]
-
-**7. The feed**, `_source/feed.xml`. `extension: .xml` keeps the output
-file name `feed.xml` (the default extension is `.html`), and the `raw`
-layout keeps it from being wrapped in HTML. `xml_escape` makes titles and
-content safe inside XML, and `xmlschema` writes dates the way Atom expects.
-
-```xml
----
-layout: raw
-extension: .xml
----
-<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>[% site.name | xml_escape %]</title>
-  <link href="[% site.url %]/"/>
-  <link rel="self" href="[% site.url %]/feed.xml"/>
-  <id>[% site.url %]/</id>
-  <updated>[% site.time.xmlschema %]</updated>
-  <author><name>[% site.author | xml_escape %]</name></author>
-[% FOR post IN site.categories.blog.reverse %]
-  <entry>
-    <title>[% post.title | xml_escape %]</title>
-    <link href="[% site.url %][% post.url %]"/>
-    <id>[% site.url %][% post.url %]</id>
-    <updated>[% post.date.xmlschema %]</updated>
-    <content type="html">[% post.content | xml_escape %]</content>
-  </entry>
-[% END %]
-</feed>
-```
-
-**8. A stylesheet**, `css/site.css`. Directories at the top of the project
+**6. A stylesheet**, `css/site.css`. Directories at the top of the project
 are copied to the output as they are (see [Assets](#assets)), so this is
 served at `/css/site.css`.
 
     body { font-family: sans-serif; max-width: 40em; margin: auto; }
 
-**9. Build and look.**
+**7. Build and look.**
 
     $ dapper serve
 
-Browse to http://localhost:8000. The output directory now contains:
+Browse to http://localhost:8000. Edit any file while `dapper serve` is
+running and the site is rebuilt, and the page in your browser reloads by
+itself. The output directory now contains:
 
     _output/
         index.html
-        feed.xml
-        css/site.css
         blog/2026/10/hello-world/index.html
-        blog/2026/10/a-second-post/index.html
+        blog/2026/10/hello-world/index.md    A Markdown copy, for AI tools
+        blog/2026/10/second-post/index.html
+        blog/2026/10/second-post/index.md
+        css/site.css
+        feed.xml                             The Atom feed
+        sitemap.xml                          For search engines
+        llms.txt                             An index for AI tools
+        llms-full.txt
 
-Edit any file while `dapper serve` is running and the site is rebuilt;
-reload the browser to see the change.
+**8. Check it.**
+
+    $ dapper check
+    Checked 3 pages: 0 errors, 0 warnings.
+
+`dapper check` finds broken links, missing layouts and front matter
+mistakes, without touching the output directory.
+
+From here, you might add [category and tag pages](#category-and-tag-pages),
+a [schema](#front-matter-schemas) so every post has what it needs,
+[search](#search), or let an [AI assistant](#ai-assistants-mcp) write and
+publish posts for you.
 
 # Configuration
 
@@ -653,6 +717,20 @@ Setting       | Default                             | Meaning
 `extension`   | `.html`                             | Extension of output files
 `ignore`      | `^\.`, `^_`, `^dapper$`             | Regular expressions for top-level files that are not copied to the output
 `timezone`    | your computer's time zone         | Time zone of dates written without one, e.g. `America/Chicago`. A page may set its own `timezone`.
+`url`         | (none)                              | The address the site is published at, e.g. `https://example.com`. Needed for the sitemap and feed, and for absolute links in `llms.txt` and `page.seo`.
+`description` | (none)                              | A sentence about the site, used by `llms.txt`, the feed and `page.seo`
+`author`      | (none)                              | Used by the feed and `page.seo`
+`image`       | (none)                              | The default image for `page.seo` (Open Graph)
+`data_dir`    | `_data`                             | Directory of [data files](#data-files)
+`templates_in_content` | `false`                    | Run template code in all content and in `_config.yml` values, as Dapper did before 1.0; see [Template code in content](#template-code-in-content)
+`markdown_twins` | `true`                           | Write a Markdown copy next to each page made from Markdown
+`llms_txt`    | `true`                              | Write `/llms.txt` and `/llms-full.txt`
+`sitemap`     | `true`                              | Write `/sitemap.xml` (when `url` is set)
+`feed`        | (off)                               | `true`, or settings: `category`, `path` (default `/feed.xml`), `limit` (default 20), `title`
+`category_pages`, `tag_pages` | (off)               | Generate a page per category or tag; see [Category and tag pages](#category-and-tag-pages)
+`search`      | `false`                             | Build a search index with Pagefind; see [Search](#search)
+`search_command` | `pagefind`                       | The command to run for search, e.g. `npx -y pagefind`
+`clean`       | `true`                              | Remove files that an earlier build wrote and this one did not
 
 Directories given on the command line (`-s`, `-o`, `-l`) take precedence
 over these settings.
@@ -788,6 +866,24 @@ follows:
 * `layout: post` selects `_layout/post.html`. Without a `layout`,
   `_layout/index.html` is used.
 
+* `template: true` runs the page's content as template code; see
+  [Template code in content](#template-code-in-content).
+
+* `tags: [perl, writing]` puts the page in `site.tags.perl` and
+  `site.tags.writing`.
+
+* `description`, `image` and `author` are used by `page.seo`, the feed
+  and `llms.txt`. Without a `description`, the excerpt is used.
+
+* `updated: 2014-06-01` is when the page last changed, for the sitemap,
+  the feed and `page.seo`.
+
+* `paginate` lists posts across several pages; see
+  [Pagination](#pagination).
+
+* `markdown_twin: false`, `llms: false` and `sitemap: false` leave the
+  page out of the Markdown copies, `llms.txt` and the sitemap.
+
 Here is an example that shows a few different types of YAML definitions
 at the beginning of a source file and how to use those definitions in
 templates.
@@ -824,17 +920,11 @@ fruits:
 </ul>
 ```
 
-Note that Dapper renders templates twice for each page. The first pass
-renders the layout, which places the page content (`[% page.content %]`)
-into it. The second pass renders the result again, so template directives
-written in the source file itself, and in `_config.yml` values, are
-processed too.
-
-This double-rendering behavior allows you to use template directives in
-source files as well as in layouts, which gives you some extra flexibility.
-It also means that any `[% ... %]` text in a source file is run as a
-template, so only build content you trust, especially with `EVAL_PERL`
-enabled (see [Perl code](#perl-code)). More information is available in [Appendix C:
+Front matter values are always available to layouts as `page.*`. To use
+template directives in a page's own content, as in the example above, the
+page needs `template: true` (see [Template code in
+content](#template-code-in-content)). Only do that for content you trust,
+especially with `EVAL_PERL` enabled (see [Perl code](#perl-code)). More information is available in [Appendix C:
 Internals](#appendix-c-internals).
 
 Dapper depends on
@@ -852,6 +942,99 @@ features of the MultiMarkdown engine that Dapper uses. See the
 [MultiMarkdown documentation](http://fletcher.github.io/MultiMarkdown-4/)
 on CPAN for details.
 
+## Template code in content
+
+Layouts are always processed as templates. A page's own content is not:
+`[% ... %]` in a page is shown as it is, so you can write about template
+code, or publish text from anywhere, without it running.
+
+A page whose content should be processed as a template (a list of posts,
+say) opts in with `template: true`:
+
+    ---
+    title: Home
+    template: true
+    ---
+    [% FOR post IN site.categories.blog.reverse %]
+    <a href="[% post.url %]">[% post.title | html %]</a>
+    [% END %]
+
+`templates_in_content: true` in `_config.yml` makes every page's content,
+and every value in `_config.yml`, a template, as they were before Dapper
+1.0. Use it for sites written for older versions; see [Upgrading to
+1.0](#upgrading-to-10).
+
+## Front matter schemas
+
+A `_schema.yml` file in a source directory describes the front matter that
+the pages in that directory (and in the directories below it, unless they
+have a schema of their own) must have. For example,
+`_source/blog/_schema.yml`:
+
+    required: [title, date, categories]
+    fields:
+      title:
+        type: string
+        max_length: 100
+      date:
+        type: date
+      categories:
+        type: list
+        values: [blog, notes]
+      tags:
+        type: list
+      draft:
+        type: boolean
+      rating:
+        type: integer
+        min: 1
+        max: 5
+
+`required` lists the fields every page must set. Each entry in `fields`
+can have:
+
+Rule                       | Meaning
+---------------------------|---------------------------------------------------
+`type`                     | `string`, `number`, `integer`, `boolean`, `date`, `list`, `map` or `any`
+`values`                   | The allowed values (for a `list`, the allowed items)
+`pattern`                  | A regular expression a string must match
+`min_length`, `max_length` | Limits on the length of a string
+`min`, `max`               | Limits on a number
+
+Fields not listed in `fields` are allowed, unless the schema says
+`additional: false`.
+
+A build stops if any page doesn't match, listing every problem on every
+page at once:
+
+    error: 2 problems with front matter (see the _schema.yml files):
+      _source/blog/new.md: "date" is required
+      _source/blog/new.md: "categories" has "news", which is not one of: blog, notes
+
+`dapper check` reports the same problems, and the [MCP
+server](#ai-assistants-mcp) refuses to write a page that doesn't match.
+
+## Data files
+
+YAML (`.yml`, `.yaml`) and JSON (`.json`) files in the `_data` directory are
+available in templates as `site.data`, named after the file:
+`_data/authors.yml` is `site.data.authors`, and `_data/menus/main.yml` is
+`site.data.menus.main`. For example, with `_data/menu.yml`:
+
+    - label: Home
+      url: /
+    - label: About
+      url: /about.html
+
+a layout can build the menu:
+
+    [% FOR item IN site.data.menu %]
+    <a href="[% item.url %]">[% item.label | html %]</a>
+    [% END %]
+
+The data directory is never copied to the output. Set `data_dir` in
+`_config.yml` to use another directory.
+
 ## Source file types
 
 What happens to a file in the source directory depends on whether it starts
@@ -868,10 +1051,12 @@ with front matter and on its extension:
 * **Files without front matter** are copied to the same place in the output
   directory, untouched.
 
-Markdown runs before the template directives are processed, so template
-directives in a `.md` file are fine inline, but a block of HTML and
-directives (a loop that builds a list of links, say) is best kept in an
-`.html` source file, where Markdown can't rewrap it in `<p>` tags.
+A page that uses template directives in its content needs `template: true`
+(see [Template code in content](#template-code-in-content)). Markdown runs
+before the directives are processed, so directives in a `.md` file are fine
+inline, but a block of HTML and directives (a loop that builds a list of
+links, say) is best kept in an `.html` source file, where Markdown can't
+rewrap it in `<p>` tags.
 
 Every file and directory in the source directory is processed except those
 whose names start with a period. Directories starting with an underscore
@@ -903,11 +1088,12 @@ instance in a top-level `_drafts` directory, which the default `ignore`
 patterns keep out of the output) and move it into `_source` when it's
 ready.
 
-Dapper never deletes anything from the output directory. If you rename or
-remove a source file, its old output stays behind until you delete it. For
-a clean build:
-
-    $ rm -rf _output && dapper build
+When you rename or remove a source file, the next build removes the file it
+used to produce. Dapper keeps a list of the files it writes (in
+`.dapper/manifest.json` in the project directory) and only ever removes
+files on that list, so anything you put in the output directory yourself,
+such as a `.git` directory or a `CNAME` file, is left alone. Add `.dapper/`
+to your `.gitignore`. Set `clean: false` in `_config.yml` to turn this off.
 
 ## Headings
 
@@ -956,6 +1142,11 @@ Link to `<https://example.com>.`        | Link to https://example.com.
 
 Code is placed in `backticks` (see [above](#text)), or as a "fenced code block" 
 by surrounding an entire block of text with three backticks in a row.
+Put the language after the opening backticks, and the block is marked with
+a `language-*` class (here, `<pre><code class="language-perl">`), which
+client-side highlighters such as [highlight.js](https://highlightjs.org/)
+and [Prism](https://prismjs.com/) use to color it. The blog template
+(`dapper init --template blog`) sets up highlight.js.
 
 ```perl
 #!/usr/bin/perl -w
@@ -1112,6 +1303,9 @@ Variable           | Description
 -------------------|-----------------------------------------------------------
 `site.pages`       | A list of every page, in source path order. Each item has all of the `page.*` variables below.
 `site.categories`  | A hash of category name to a list of its pages, oldest first, e.g. `[% FOR post IN site.categories.blog.reverse %]`.
+`site.tags`        | A hash of tag to a list of its pages, oldest first.
+`site.data`        | The contents of the [data files](#data-files).
+`site.category_pages`, `site.tag_pages` | The URL of each generated [category or tag page](#category-and-tag-pages), e.g. `[% site.tag_pages.item('perl') %]`.
 `site.time`        | The time the build started (a date; see [Dates](#dates)).
 `site.source`      | The source directory being used.
 `site.output`      | The output directory being used.
@@ -1139,6 +1333,10 @@ Variable                      | Description
 `page.dirname`                | The directory of `page.filename`.
 `page.source`                 | The source file the page came from.
 `page.source_file_extension`  | The source file's extension, e.g. `.md`.
+`page.seo`                    | Tags for the page's `<head>`: description, canonical link, feed and Markdown links, Open Graph and Twitter tags, and JSON-LD structured data. See [SEO tags](#seo-tags).
+`page.markdown_url`           | The URL of the page's [Markdown copy](#markdown-copies-and-llmstxt), if it has one.
+`page.posts`                  | On a generated category or tag page: its pages, newest first.
+`paginator`                   | On a paginated page: see [Pagination](#pagination).
 
 ### Dates
 
@@ -1279,6 +1477,73 @@ Examples:
 
 For a full listing of operators, see
 [Template::Alloy::Operator](https://metacpan.org/pod/Template::Alloy::Operator).
+
+## Pagination
+
+A page can list posts across several pages with `paginate` in its front
+matter:
+
+    ---
+    title: Blog
+    template: true
+    paginate:
+      category: blog      # or tag: perl; leave both out for every post
+      per_page: 10
+    ---
+
+`paginate: 10` is short for every post, ten to a page. Page 1 keeps the
+page's own URL; page 2 is written to `page/2/` below it (so `/blog/` is
+followed by `/blog/page/2/`), and so on. The page (its layout, or its
+content with `template: true`) gets a `paginator`:
+
+Variable                   | Description
+---------------------------|-----------------------------------------------
+`paginator.items`          | The posts for this page, newest first
+`paginator.page`           | This page's number, starting at 1
+`paginator.total_pages`    | How many pages there are
+`paginator.total_items`    | How many posts there are in all
+`paginator.per_page`       | Posts per page
+`paginator.previous_url`   | The URL of the previous page, if there is one
+`paginator.next_url`       | The URL of the next page, if there is one
+`paginator.first_url`, `paginator.last_url` | The first and last pages
+`paginator.pages`          | Every page, as `number` and `url`
+
+For example:
+
+    [% FOR post IN paginator.items %]
+    <h2><a href="[% post.url %]">[% post.title | html %]</a></h2>
+    [% END %]
+    [% IF paginator.previous_url %]<a href="[% paginator.previous_url %]">Newer</a>[% END %]
+    [% IF paginator.next_url %]<a href="[% paginator.next_url %]">Older</a>[% END %]
+
+## Category and tag pages
+
+Dapper can generate a page for every category and every tag. Turn them on
+in `_config.yml` and name the layout to use:
+
+    category_pages:
+      layout: list             # _layout/list.html
+      urlpattern: /:category/  # the default
+    tag_pages:
+      layout: list
+      urlpattern: /tags/:tag/  # the default
+      per_page: 20             # optional: paginate each one
+
+Each generated page has `page.title` (the category or tag), `page.category`
+or `page.tag`, and `page.posts` (its posts, newest first). With `per_page`,
+`page.posts` holds that page's share and there is a `paginator` too. A
+simple `_layout/list.html`:
+
+    ---
+    layout: index
+    ---
+    <h1>[% page.title | html %]</h1>
+    [% FOR post IN page.posts %]
+    <p><a href="[% post.url %]">[% post.title | html %]</a></p>
+    [% END %]
+
+To link to them, `site.category_pages` and `site.tag_pages` hold their
+URLs: `<a href="[% site.tag_pages.item(tag) %]">[% tag %]</a>`.
 
 ## Comments
 
@@ -1919,6 +2184,121 @@ current file and line number that the DUMP directive was called from. Example:
     [% dump site %] # dump everything in the site
     [% dump page %] # dump everything in the current page
 
+# Publishing for Search Engines and AI
+
+Dapper writes the files that help search engines, feed readers and AI tools
+find and understand your site. Most need `url` in `_config.yml`, so that
+links can be absolute.
+
+## Sitemap
+
+With `url` set, every build writes `/sitemap.xml`, listing every HTML page
+(except a `404.html`, and pages with `sitemap: false`), with the date each
+was last changed (`updated`, or `date`). Turn it off with `sitemap: false`
+in `_config.yml`.
+
+## Feed
+
+`feed` in `_config.yml` turns on an Atom feed:
+
+    feed:
+      category: blog    # leave out for every page with a category
+      path: /feed.xml   # the default
+      limit: 20         # the default
+      title: My Blog    # the default is the site's name
+
+`feed: true` is a feed of every page with a category, with the defaults.
+Each entry has the post's title, link, dates, summary and full content. If
+a page in the source directory already writes the same file, it is used
+instead.
+
+## SEO tags
+
+Put `[% page.seo %]` in your layout's `<head>`:
+
+    <head>
+      <meta charset="utf-8">
+      <title>[% page.title | html %]</title>
+    [% page.seo %]
+    </head>
+
+and each page gets:
+
+* a `description` (the page's `description`, or its excerpt)
+* a `canonical` link to its own URL
+* links to its Markdown copy and the site's feed
+* Open Graph and Twitter tags, so links shared on social media show a
+  title, description and image (`image` in the page or `_config.yml`)
+* JSON-LD structured data: a `BlogPosting` for pages with a category
+  (with dates, author and publisher), or a `WebPage`
+
+## Markdown copies and llms.txt
+
+AI tools read Markdown more easily than HTML. For each page made from a
+Markdown file, Dapper writes a copy of it next to the HTML
+(`/blog/2026/10/hello-world/index.md` beside `index.html`), with the title
+as a heading. It also writes:
+
+* `/llms.txt`: the site's name and description and a list of links to the
+  Markdown copies, grouped by category, newest first (the
+  [llms.txt](https://llmstxt.org/) convention)
+* `/llms-full.txt`: every Markdown copy in one file
+
+Pages whose Markdown is a template (`template: true` with directives in
+it) get no copy, since it would show template code. Turn these off with
+`markdown_twins: false` or `llms_txt: false` in `_config.yml`, or for one
+page with `markdown_twin: false` or `llms: false`.
+
+## Search
+
+`search: true` in `_config.yml` builds a search index of the site with
+[Pagefind](https://pagefind.app) after each build. Install Pagefind first
+(for instance with `npm install -g pagefind`), or set `search_command`
+(e.g. `search_command: npx -y pagefind`). If Pagefind isn't installed,
+the build still finishes, with a warning.
+
+Then add Pagefind's search box to a layout:
+
+    <link rel="stylesheet" href="/pagefind/pagefind-ui.css">
+    <div id="search"></div>
+    <script src="/pagefind/pagefind-ui.js"></script>
+    <script>new PagefindUI({ element: "#search" });</script>
+
+# AI Assistants (MCP)
+
+`dapper mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io)
+server, so that an AI assistant can read, write, check and build your site
+through Dapper. Dapper's rules act as guardrails: pages are only ever
+written inside the source directory, and a page that doesn't match its
+[schema](#front-matter-schemas) is refused (with the reasons) rather than
+written.
+
+To add it to Claude Code:
+
+    $ claude mcp add dapper -- dapper -C /path/to/site mcp
+
+Other MCP clients take the command and its arguments in their settings:
+
+    {
+      "mcpServers": {
+        "dapper": { "command": "dapper", "args": ["-C", "/path/to/site", "mcp"] }
+      }
+    }
+
+The server offers these tools:
+
+Tool          | What it does
+--------------|-------------------------------------------------------------
+`site_info`   | The site's settings, directories, categories, tags, layouts and schemas
+`list_pages`  | Every page (or those in a `category` or with a `tag`), with source file, URL, title, date, categories and tags
+`read_page`   | A page's front matter and body
+`write_page`  | Create or replace a page from front matter and a body, after checking it against its schema
+`build`       | Build the site
+`check`       | Find problems without touching the output directory
+
+Then ask, for example: "Write a post about our launch in the blog, check
+the site, and build it."
+
 # Deployment
 
 To deploy your content, you have a number of options. This section outlines
@@ -2011,6 +2391,8 @@ automatically available on github.io. Here are the steps:
    The empty `.nojekyll` file tells GitHub Pages to publish the files as
    they are, rather than running them through Jekyll (which would skip
    files and directories that start with an underscore).
+   Dapper never removes files it didn't write, so `.nojekyll` and `.git`
+   survive later builds.
 
 4. In the repository's Settings, under Pages, make sure the site is
    published from the `main` branch. Wait a few minutes, then find your new
@@ -2020,18 +2402,41 @@ automatically available on github.io. Here are the steps:
 
 Dapper is deliberately small. It does not have:
 
-* **Pagination.** A listing page shows everything you loop over; use
-  `[% LAST IF loop.count > 10 %]` to limit it.
-* **Tag or archive pages generated for you.** `site.categories` gives you
-  the pages in each category, but each listing page is a source file you
-  write (one per category, or one page that loops over them all).
 * **Drafts or scheduled posts.** See [Drafts and clean
   builds](#drafts-and-clean-builds).
-* **Cleaning the output directory.** Old files stay until you delete them.
-* **Asset processing** (Sass, minification, bundling). Run those tools
-  separately and let Dapper copy their output.
+* **Asset processing** (Sass, minification, image resizing, bundling). Run
+  those tools separately and let Dapper copy their output.
+* **Server-side code highlighting.** Code blocks are marked with their
+  language for a client-side highlighter instead.
 * **Incremental builds.** Every build processes the whole site, which is
   fast for sites of a few hundred pages.
+
+# Upgrading to 1.0
+
+Dapper 1.0 adds a lot, but changes one thing that can affect existing
+sites:
+
+* **Page content is no longer run as template code.** In 0.x, every page's
+  content, and every value in `_config.yml`, was processed as a template
+  (a second time, after the layout). Now only layouts are. If your pages
+  use `[% ... %]` (to list posts, say), either add `template: true` to
+  those pages, or add `templates_in_content: true` to `_config.yml` to get
+  the old behavior back exactly. Template code in a `_config.yml` value
+  (like a copyright line with the current year) also needs
+  `templates_in_content: true`, or can move into a layout.
+
+And builds now write more files than before:
+
+* A Markdown copy next to each page made from Markdown, `/llms.txt`,
+  `/llms-full.txt`, and (with `url` set) `/sitemap.xml`. Turn them off
+  with `markdown_twins: false`, `llms_txt: false` and `sitemap: false`.
+* Files left over from earlier builds are now removed (only files Dapper
+  wrote; see [Drafts and clean builds](#drafts-and-clean-builds)). The
+  list starts with your first 1.0 build, so delete the output directory
+  once for a fully clean start. Add `.dapper/` to your `.gitignore`.
+
+Run `dapper check` after upgrading; it finds broken links and other
+problems without touching the output directory.
 
 # Upgrading from 0.21
 
@@ -2060,6 +2465,19 @@ as before, but check these:
 The full list is in the [Changes](Changes) file.
 
 # Troubleshooting
+
+**`[% ... %]` shows up as text on a page.** Since Dapper 1.0, page content
+isn't run as template code unless the page sets `template: true` (or the
+site sets `templates_in_content: true`). See [Template code in
+content](#template-code-in-content).
+
+**`N problems with front matter (see the _schema.yml files)`.** Pages don't
+match their schema. Each line names the file and the field; fix the front
+matter or the schema. `dapper check` lists them too.
+
+**`... and ... both write ...`.** Two pages have the same URL, often
+because of a `urlpattern` without `:slug`, or two posts with the same title
+and month. Give one of them a different title or `urlpattern`.
 
 **`could not find the project file "_config.yml"`.** Run `dapper` in the
 directory that contains `_config.yml`, point to it with `-c`, or create a
@@ -2202,10 +2620,12 @@ JSON; print them directly (`[% page.date %]`) to see their values. The
 # Appendix C: Internals
 
 There are two important aspects of Dapper internals that are important
-to understand. The first is that source files are rendered using the
-templating system once, and then again after being combined with
-a layout. This means that layout variables and directives can be used in source
-files.
+to understand. The first is that layouts are templates, but page content
+is not, unless the page sets `template: true`, in which case its content is
+rendered first and then placed in the layout. With
+`templates_in_content: true`, Dapper works as it did before 1.0: the
+layout is rendered, and then the result is rendered a second time, so that
+directives in content and in `_config.yml` values run too.
 
 The second important thing to understand about Dapper internals is that
 after all of the source files are rendered to output, Dapper does a

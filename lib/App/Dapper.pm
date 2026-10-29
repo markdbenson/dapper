@@ -45,11 +45,11 @@ my $DEFAULT_PORT = 8000;
 
 =head1 VERSION
 
-Version 0.22
+Version 1.00
 
 =cut
 
-our $VERSION = '0.22';
+our $VERSION = '1.00';
 
 our @EXPORT = qw($VERSION);
 
@@ -60,6 +60,9 @@ B<Dapper> allows you to transform simple text files into static websites. By ins
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper [-solc] init
 
+    # ...or with a complete starter blog
+    $ dapper init --template blog
+
     # Build the site
     $ dapper [-solc] build
 
@@ -68,6 +71,12 @@ B<Dapper> allows you to transform simple text files into static websites. By ins
 
     # Rebuild the site if anything (source, layout dirs; config file) changes
     $ dapper [-solc] watch
+
+    # Check the site for problems, without touching the output directory
+    $ dapper [-solc] check [--json]
+
+    # Let AI assistants read, write, check and build the site over MCP
+    $ dapper -C /path/to/site mcp
 
     # Get help on usage and switches
     $ dapper -h
@@ -185,6 +194,15 @@ Files in the source directory that do not start with front matter (images,
 PDFs, plain text files and so on) are copied to the output directory as they
 are.
 
+A page's content is not run as template code unless the page sets
+C<template: true>; layouts always are. C<templates_in_content: true> in
+C<_config.yml> restores the behavior of Dapper before 1.0, where all content
+and C<_config.yml> values were templates too.
+
+A C<_schema.yml> file in a source directory describes the front matter its
+pages must have; see L<App::Dapper::Schema>. YAML and JSON files in C<_data>
+are available as C<site.data>.
+
 =item B<_layout/index.html>
 
 Layout files are processed using the template language provided by
@@ -248,6 +266,9 @@ Everything defined in C<_config.yml>, plus:
     site.time         The time the build started (a DateTime)
     site.pages        Every page, in source path order
     site.categories   A hash of category name to its pages, sorted by date
+    site.tags         A hash of tag to its pages, sorted by date
+    site.data         The contents of the files in _data
+    site.category_pages, site.tag_pages   URLs of generated list pages
     site.source       The resolved source directory
     site.output       The resolved output directory
     site.layout       The resolved layout directory
@@ -270,6 +291,10 @@ Everything defined in the page's front matter, plus:
     page.filename     The output file the page is written to
     page.dirname      The directory of page.filename
     page.source_file_extension   The source file's extension (e.g. .md)
+    page.seo          Tags for <head>: description, canonical, Open Graph, JSON-LD
+    page.markdown_url The URL of the page's Markdown copy, if it has one
+    page.posts        On a generated category or tag page: its pages
+    paginator         On a paginated page; see App::Dapper::Collections
 
 =back
 
@@ -280,6 +305,14 @@ their URL describes. The pattern may use C<:category>, C<:year>, C<:month>,
 C<:day>, C<:hour>, C<:minute>, C<:second> and C<:slug>. A URL ending in C</>
 is written as C<index> plus the page extension inside that directory. Other
 pages keep the path of their source file, with the page extension.
+
+=head2 Generated files
+
+After the pages, Dapper writes a sitemap, a feed (if C<feed> is set),
+Markdown copies of pages and C<llms.txt> (see L<App::Dapper::Publish>), can
+generate category and tag pages and paginate lists (see
+L<App::Dapper::Collections>), and can build a search index with Pagefind.
+Files that an earlier build wrote and this one did not are removed.
 
 =head2 Options
 
@@ -310,6 +343,18 @@ Specify the port to use for the serve command. Defaults to 8000.
 =item B<-q>, B<--quiet>
 
 Only print errors.
+
+=item B<-C>, B<--directory>=I<directory>
+
+Run in this directory instead of the current one.
+
+=item B<-t>, B<--template>=I<name>
+
+For the init command: the starter project to create, C<default> or C<blog>.
+
+=item B<--json>
+
+For the check command: print the report as JSON.
 
 =item B<-h>, B<--help>
 
