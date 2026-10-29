@@ -2333,11 +2333,9 @@ It's possible to serve a static website using Amazon S3. Here's how.
        $ aws s3 sync _output/ s3://mydomain.com --delete
 
     The `--delete` option removes files from the bucket that are no longer
-    in `_output`. Note that Dapper does not remove files from `_output`
-    when you delete a source file, so delete the `_output` directory before
-    building if you want the bucket to match your source exactly. If you
-    upload files to the bucket independently of Dapper, leave `--delete`
-    off.
+    in `_output` (Dapper removes the output of source files you delete, so
+    the two stay in step). If you upload files to the bucket independently
+    of Dapper, leave `--delete` off.
 
 If you use Amazon Route 53 for DNS, create an alias A record for
 `mydomain.com` (and `www.mydomain.com`) that points at the bucket's website
@@ -2505,7 +2503,8 @@ such as `Europe/London` or `America/New_York`.
 
 **`could not process ... with layout ...: parse error`.** There is a
 mistake in a template directive, either in the layout or in the source file
-(since source files are processed as templates too). The message gives the
+(if the page has `template: true`, or the site sets
+`templates_in_content: true`). The message gives the
 line and what was expected, e.g. `Missing END directive`.
 
 **`could not start the webserver on port 8000`.** Something else is using
@@ -2520,8 +2519,10 @@ use their methods (`[% page.date.xmlschema %]`,
 `[% page.date.strftime('%Y') %]`), and for hashes and lists use the
 built-in methods (`[% page.json(1) %]`).
 
-**A page I deleted is still on the site.** Dapper doesn't remove old output;
-delete the output directory and build again.
+**A page I deleted is still on the site.** Dapper removes output only for
+files it wrote since your first 1.0 build (see [Drafts and clean
+builds](#drafts-and-clean-builds)), and not at all with `clean: false`.
+Delete the output directory once and build again.
 
 **Accented characters look garbled.** Save source files, layouts and
 `_config.yml` as UTF-8. Dapper reads and writes UTF-8 and declares it in the
