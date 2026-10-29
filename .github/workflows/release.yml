@@ -1,0 +1,54 @@
+name: release
+
+# Runs when a version tag (v1.0.0, ...) is pushed. Builds the single-file
+# dapper and attaches it to a GitHub release, and publishes the Docker image
+# to the GitHub Container Registry (ghcr.io/markdbenson/dapper). The CPAN
+# upload stays manual (see the README).
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  single-file:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: "5.40"
+      - name: Build dist/dapper
+        run: perl packaging/fatpack.pl
+      - name: Check it runs
+        run: PERL5LIB= /usr/bin/perl dist/dapper -v
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          shasum -a 256 dapper > dapper.sha256
+          gh release create "$GITHUB_REF_NAME" dapper dapper.sha256 \
+            --title "Dapper ${GITHUB_REF_NAME#v}" \
+            --notes "See [Changes](https://github.com/markdbenson/dapper/blob/master/Changes). Install the single file with: curl -fsSLo dapper https://github.com/markdbenson/dapper/releases/download/$GITHUB_REF_NAME/dapper && chmod +x dapper"
+
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Build and push
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          image="ghcr.io/markdbenson/dapper"
+          docker build -t "$image:$version" -t "$image:latest" .
+          docker push "$image:$version"
+          docker push "$image:latest"

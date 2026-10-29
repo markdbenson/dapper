@@ -1,0 +1,9 @@
+.git
+.github
+.dapper
+_output
+dist
+blib
+Makefile
+MYMETA.*
+App-Dapper-*

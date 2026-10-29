@@ -50,3 +50,37 @@ jobs:
           make distcheck 2>&1 | tee distcheck.log
           ! grep -q "^Not in MANIFEST" distcheck.log
           make disttest
+
+  single-file:
+    name: single-file build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: "5.40"
+      - name: Build dist/dapper
+        run: perl packaging/fatpack.pl
+      - name: Run it with only core Perl modules
+        run: |
+          mkdir site && cd site
+          PERL5LIB= /usr/bin/perl ../dist/dapper -v
+          PERL5LIB= /usr/bin/perl ../dist/dapper -q init --template blog
+          PERL5LIB= /usr/bin/perl ../dist/dapper check
+          PERL5LIB= /usr/bin/perl ../dist/dapper -q build
+          test -f _output/index.html
+
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t dapper:test .
+      - name: Run it
+        run: |
+          mkdir site
+          docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/site":/site dapper:test -q init --template blog
+          docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/site":/site dapper:test check
+          docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/site":/site dapper:test -q build
+          test -f site/_output/index.html
