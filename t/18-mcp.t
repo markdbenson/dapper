@@ -39,7 +39,7 @@ subtest 'protocol' => sub {
     is(App::Dapper::MCP::handle($d, { jsonrpc => '2.0', method => 'notifications/initialized' }), undef, 'notifications get no reply');
 
     my $list = App::Dapper::MCP::handle($d, { jsonrpc => '2.0', id => 2, method => 'tools/list' });
-    is_deeply([ map { $_->{name} } @{ $list->{result}->{tools} } ], [qw(site_info list_pages read_page write_page build check)], 'tools');
+    is_deeply([ map { $_->{name} } @{ $list->{result}->{tools} } ], [qw(site_info list_pages read_page write_page rename_page read_layout write_layout build check)], 'tools');
 
     my $unknown = App::Dapper::MCP::handle($d, { jsonrpc => '2.0', id => 3, method => 'nope' });
     is($unknown->{error}->{code}, -32601, 'unknown method');

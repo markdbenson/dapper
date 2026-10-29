@@ -685,8 +685,8 @@ sub live_reload_script {
 HTML
 }
 
-# sub write_generated - Write the files Dapper makes for the whole site: the
-# sitemap, the feed, and llms.txt and llms-full.txt. A page that writes the
+# sub write_generated - Write the files Dapper makes for the whole site:
+# redirects, the sitemap, the feed, and llms.txt and llms-full.txt. A page that writes the
 # same file wins, with a warning.
 
 sub write_generated {
@@ -707,6 +707,18 @@ sub write_generated {
         $self->write_output($file, $content);
         $self->_log("Wrote $file");
     };
+
+    my $redirects = App::Dapper::Publish::redirects($site);
+    for my $from (sort keys %$redirects) {
+        my $file = canonpath(catfile($self->{output}, App::Dapper::Publish::redirect_path($from)));
+        if ($taken{$file}) {
+            $self->problem('warning', $file, "a page is still at $from, so the redirect from it to $redirects->{$from} was not written");
+            next;
+        }
+        $self->write_output($file, App::Dapper::Publish::redirect_page($site, $redirects->{$from}));
+        $self->{page_owner}->{$file} = "the redirect from $from";
+        $taken{$file} = 1;
+    }
 
     if (App::Dapper::Publish::enabled($site, 'llms_txt')) {
         my @twins = grep { $_->{markdown_url} } @pages;

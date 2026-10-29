@@ -18,6 +18,9 @@ setting in C<_config.yml>:
       category: blog
       limit: 20
 
+Redirects (C<redirects> in C<_config.yml>, or C<_data/redirects.yml>) are written as
+small pages at the old URLs.
+
 It also builds C<page.seo>, the tags a layout can put in its C<< <head> >>:
 a description, a canonical link, Open Graph and Twitter tags, a feed link,
 and JSON-LD structured data.
@@ -427,6 +430,81 @@ sub feed {
 
     $xml .= "</feed>\n";
     return $xml;
+}
+
+=head2 redirects
+
+Takes the site and returns a hash of old URLs to new ones, from C<redirects>
+in C<_config.yml> and the C<_data/redirects.yml> data file (which wins). Dies
+if an entry isn't a pair of URLs.
+
+=cut
+
+sub redirects {
+    my ($site) = @_;
+
+    my %redirects;
+    for my $source ($site->{redirects}, ref $site->{data} eq 'HASH' ? $site->{data}->{redirects} : undef) {
+        next unless defined $source;
+        die "error: redirects must be pairs of an old URL and a new one, e.g. /old/: /new/\n"
+            unless ref $source eq 'HASH';
+        for my $from (keys %$source) {
+            my $to = $source->{$from};
+            die "error: the redirect from $from must go to a URL\n" unless defined $to and !ref $to and length $to;
+            die "error: the redirect from $from must start with /\n" unless $from =~ m{^/};
+            $redirects{$from} = $to;
+        }
+    }
+
+    return \%redirects;
+}
+
+=head2 redirect_path
+
+Takes an old URL and returns the path of the file to write for it: C</old/>
+becomes C<old/index.html>, C</old.html> stays C<old.html>, and C</old>
+becomes C<old/index.html>.
+
+=cut
+
+sub redirect_path {
+    my ($url) = @_;
+
+    (my $path = $url) =~ s{^/+}{};
+    return "${path}index.html" if $path eq '' or $path =~ m{/$};
+    return $path if $path =~ m{\.[^./]+$};
+    return "$path/index.html";
+}
+
+=head2 redirect_page
+
+Takes the site and the URL to send people to, and returns a small HTML page
+that sends browsers (and search engines) there.
+
+=cut
+
+sub redirect_page {
+    my ($site, $to) = @_;
+
+    my $esc = \&App::Dapper::Filters::xml_escape;
+    my $url = $esc->($to);
+    my $canonical = $esc->(absolute_url($site, $to));
+
+    return <<"HTML";
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>This page has moved</title>
+  <link rel="canonical" href="$canonical">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="0; url=$url">
+</head>
+<body>
+  <p>This page has moved to <a href="$url">$url</a>.</p>
+</body>
+</html>
+HTML
 }
 
 =head2 seo

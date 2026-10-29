@@ -48,6 +48,16 @@ A page's front matter and body, given its source file.
 Create or replace a page from front matter and a body. The page is checked
 against its schema first and is not written if it doesn't match.
 
+=item B<rename_page>
+
+Move or rename a page; if its URL changes, a redirect from the old URL is
+added to C<_data/redirects.yml>.
+
+=item B<read_layout>, B<write_layout>
+
+Read a layout, or create or replace one (it is parsed first and not saved if
+it has an error).
+
 =item B<build>
 
 Build the site.
@@ -71,6 +81,8 @@ use YAML::PP;
 use File::Spec;
 use File::Spec::Functions qw/ canonpath catfile /;
 use File::Basename qw/ dirname /;
+use File::Path qw/ make_path /;
+use Template::Alloy;
 use File::Find ();
 use IO::Handle;
 
@@ -120,6 +132,40 @@ my @TOOLS = (
                 overwrite    => { type => 'boolean', description => 'Replace the file if it already exists (default false)' },
             },
             required => ['source', 'front_matter', 'body'],
+        },
+    },
+    {
+        name        => 'rename_page',
+        description => 'Move or rename a page. If its URL changes, a redirect from the old URL is added to _data/redirects.yml so links keep working. Refused if the page would not match the schema of its new folder.',
+        inputSchema => {
+            type       => 'object',
+            properties => {
+                source     => { type => 'string', description => 'The page to move, e.g. blog/old-name.md' },
+                new_source => { type => 'string', description => 'Where to move it, e.g. blog/new-name.md' },
+            },
+            required => ['source', 'new_source'],
+        },
+    },
+    {
+        name        => 'read_layout',
+        description => 'Read a layout (a template in the layout directory), e.g. "post".',
+        inputSchema => {
+            type       => 'object',
+            properties => { name => { type => 'string', description => 'The layout name, without .html' } },
+            required   => ['name'],
+        },
+    },
+    {
+        name        => 'write_layout',
+        description => 'Create or replace a layout. The template is parsed first and not saved if it has a syntax error. Layouts use Template Toolkit syntax: [% page.content %], [% page.title %], [% site.name %].',
+        inputSchema => {
+            type       => 'object',
+            properties => {
+                name      => { type => 'string', description => 'The layout name, without .html (letters, digits, - and _)' },
+                content   => { type => 'string', description => 'The whole layout, optionally starting with front matter (layout: to wrap it in another layout, description: to explain it)' },
+                overwrite => { type => 'boolean', description => 'Replace an existing layout (default false)' },
+            },
+            required => ['name', 'content'],
         },
     },
     {
@@ -347,6 +393,9 @@ sub call_tool {
         list_pages => \&list_pages,
         read_page  => \&read_page,
         write_page => \&write_page,
+        rename_page  => \&rename_page,
+        read_layout  => \&read_layout,
+        write_layout => \&write_layout,
         build      => \&build,
         check      => \&check,
     );
@@ -589,6 +638,168 @@ sub write_page {
     App::Dapper::Utils::write_file($file, "$yaml---\n\n$body");
 
     return { written => JSON::true, file => $file, note => 'Run check to find problems, or build to publish.' };
+}
+
+=head2 rename_page
+
+The C<rename_page> tool.
+
+=cut
+
+sub rename_page {
+    my ($dapper, $args) = @_;
+
+    $dapper->read_project();
+    my $from = source_path($dapper, $args->{source});
+    my $to = source_path($dapper, $args->{new_source});
+    die "error: there is no file \"$from\"\n" unless -f $from;
+    return ({ moved => JSON::false, error => "$to already exists" }, 1) if -e $to;
+
+    # The page must match the schema of the folder it is moving to
+    my $text = App::Dapper::Utils::read_file($from);
+    my ($front_matter) = App::Dapper::Utils::split_frontmatter($text, $from);
+    if (defined $front_matter and my $schema = schema_for($dapper, $to)) {
+        my @problems = App::Dapper::Schema::validate($schema, $front_matter);
+        return ({ moved => JSON::false, schema => $schema->{file}, problems => \@problems,
+                  error => "The page does not match $schema->{file}, so it was not moved." }, 1) if @problems;
+    }
+
+    my $old_url = _url_of($dapper, $from);
+
+    make_path(dirname($to)) unless -d dirname($to);
+    rename($from, $to) or die "error: could not move $from to $to: $!\n";
+
+    my $new_url = _url_of($dapper, $to);
+    my %result = (moved => JSON::true, from => $from, to => $to, old_url => $old_url, new_url => $new_url);
+
+    if (defined $old_url and defined $new_url and $old_url ne $new_url) {
+        add_redirect($dapper, $old_url, $new_url);
+        $result{redirect} = "$old_url -> $new_url (in " . redirects_file($dapper) . ")";
+    }
+
+    $result{note} = 'Run check to find problems, or build to publish.';
+    return \%result;
+}
+
+sub _url_of {
+    my ($dapper, $file) = @_;
+
+    _load($dapper);
+    my ($page) = grep { $_->{source} eq $file } @{$dapper->{site}->{pages}};
+    return $page ? $page->{url} : undef;
+}
+
+=head2 redirects_file
+
+Takes a Dapper object and returns the path of C<_data/redirects.yml>.
+
+=cut
+
+sub redirects_file {
+    my ($dapper) = @_;
+    return catfile($dapper->{data_dir}, 'redirects.yml');
+}
+
+=head2 add_redirect
+
+Takes a Dapper object, an old URL and a new one, and records the redirect in
+C<_data/redirects.yml>. Redirects that pointed to the old URL are pointed at
+the new one, so there are no chains.
+
+=cut
+
+sub add_redirect {
+    my ($dapper, $from, $to) = @_;
+
+    my $file = redirects_file($dapper);
+    my $redirects = -f $file ? YAML::PP->new->load_file($file) : {};
+    $redirects = {} unless ref $redirects eq 'HASH';
+
+    for my $old (keys %$redirects) {
+        $redirects->{$old} = $to if $redirects->{$old} eq $from;
+    }
+    $redirects->{$from} = $to;
+    delete $redirects->{$to};
+
+    my $yaml = YAML::PP->new->dump_string($redirects);
+    $yaml =~ s/^---\n//;
+    App::Dapper::Utils::write_file($file,
+        "# Redirects from old URLs to new ones (written by Dapper when pages move; edit freely)\n$yaml");
+}
+
+=head2 layout_name
+
+Takes a layout name from a client and returns it, or dies if it isn't a
+plain name.
+
+=cut
+
+sub layout_name {
+    my ($name) = @_;
+
+    die "error: give the layout's name, e.g. post\n" unless defined $name and length $name;
+    $name =~ s/\.html?$//;
+    die "error: a layout name can only have letters, digits, - and _\n" unless $name =~ /^[A-Za-z0-9_-]+$/;
+    return $name;
+}
+
+=head2 read_layout
+
+The C<read_layout> tool.
+
+=cut
+
+sub read_layout {
+    my ($dapper, $args) = @_;
+
+    $dapper->read_project();
+    my $name = layout_name($args->{name});
+    my ($file) = grep { App::Dapper::Utils::filter_stem($_) eq $name } App::Dapper::Utils::read_dir($dapper->{layout});
+    die "error: there is no layout called \"$name\" in $dapper->{layout}\n" unless defined $file;
+
+    my $path = catfile($dapper->{layout}, $file);
+    return { name => $name, file => $path, content => App::Dapper::Utils::read_file($path) };
+}
+
+=head2 write_layout
+
+The C<write_layout> tool.
+
+=cut
+
+sub write_layout {
+    my ($dapper, $args) = @_;
+
+    $dapper->read_project();
+    my $name = layout_name($args->{name});
+    my $content = $args->{content};
+    die "error: content must be text\n" unless defined $content and !ref $content;
+
+    my ($existing) = grep { App::Dapper::Utils::filter_stem($_) eq $name } App::Dapper::Utils::read_dir($dapper->{layout});
+    my $path = catfile($dapper->{layout}, defined $existing ? $existing : "$name.html");
+    if (defined $existing and not $args->{overwrite}) {
+        return ({ written => JSON::false, error => "$path already exists; set overwrite to true to replace it" }, 1);
+    }
+
+    # Check the template before saving it
+    my ($front_matter, $body) = App::Dapper::Utils::split_frontmatter($content, $path);
+    $body = $content unless defined $front_matter;
+    my $parsed = eval { Template::Alloy->new(INCLUDE_PATH => $dapper->{layout})->load_template(\$body); 1 };
+    if (not $parsed) {
+        my $error = ref $@ && $@->can('as_string') ? $@->as_string : "$@";
+        $error =~ s/\s+\z//;
+        return ({ written => JSON::false, error => "The layout has a template error, so it was not saved: $error" }, 1);
+    }
+    if (defined $front_matter and defined $front_matter->{layout}) {
+        my $parent = $front_matter->{layout};
+        my ($found) = grep { App::Dapper::Utils::filter_stem($_) eq $parent } App::Dapper::Utils::read_dir($dapper->{layout});
+        return ({ written => JSON::false, error => "The layout wraps itself in \"$parent\", which does not exist, so it was not saved." }, 1)
+            unless defined $found;
+    }
+
+    $content .= "\n" unless $content =~ /\n\z/;
+    App::Dapper::Utils::write_file($path, $content);
+    return { written => JSON::true, file => $path, note => 'Run check to find problems, or build to publish.' };
 }
 
 =head2 build
