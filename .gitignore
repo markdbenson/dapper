@@ -17,3 +17,12 @@ pm_to_blib
 *.gz
 App-Dapper-*
 MANIFEST.bak
+
+# Release check output (see .github/workflows/test.yml)
+distcheck.log
+
+# Dependencies installed with cpanm -L local or Carton
+local/
+
+# macOS
+.DS_Store
