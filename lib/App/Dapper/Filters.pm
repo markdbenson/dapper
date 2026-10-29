@@ -2,122 +2,138 @@ package App::Dapper::Filters;
 
 =head1 NAME
 
-App::Dapper::Filters - Default Liquid filters available to all projects.
+App::Dapper::Filters - Default template filters available to all projects.
 
 =head1 DESCRIPTION
 
-Filters contained here can be called from Liquid template files using
-the filter/pipe mechanism built in to Liquid. Example:
+Filters contained here can be called from layout and source files using the
+filter/pipe mechanism of the template language. Example:
 
-    {{ site.time | date_to_xmlschema }}
+    [% site.time | date_to_xmlschema %]
 
 =cut
 
 use utf8;
-use open ':std', ':encoding(UTF-8)';
-use 5.8.0;
+use 5.010;
 use strict;
-use warnings FATAL => 'all';
+use warnings;
 
-use Data::Dumper;
-use CGI qw(:standard escapeHTML);
+use JSON ();
+use DateTime::Format::XSD;
 
-=head2 import
+use App::Dapper::Utils;
 
-Called when this module is 'used' from somewhere else. This subroutine
-registers Liquid filters contained in this file.
+=head2 filters
+
+Returns the hash of filters in the form expected by the C<FILTERS> option of
+L<Template::Alloy>. Filters that take arguments (like C<replace_last>) are
+registered as dynamic filters so the arguments reach them.
 
 =cut
 
-#sub import {
-#    $filters = Template::Filters->new({
-#        FILTERS => {
-#            'xml_escape' => \&xml_escape,
-#            'date_to_xmlschema' => \&date_to_xmlschema,
-#            'replace_last' => \&replace_last,
-#            'smart' => \&smart,
-#            'json' => \&json,
-#        },
-#    });
-#}
+sub filters {
+    return {
+        'xml_escape'        => \&xml_escape,
+        'date_to_xmlschema' => \&date_to_xmlschema,
+        'replace_last'      => [ sub {
+            my ($context, @args) = @_;
+            return sub { replace_last($_[0], @args) };
+        }, 1 ],
+        'smart'             => \&smart,
+        'json'              => \&json,
+    };
+}
 
 =head2 xml_escape
 
-Liquid filter to escape strings into formats that can be included
-in XML files.
+Escape a string so that it can be included in XML or HTML files. The
+characters C<&>, C<< < >>, C<< > >>, C<"> and C<'> are replaced with entities.
 
 =cut
 
+my %XML_ENTITIES = (
+    '&' => '&amp;',
+    '<' => '&lt;',
+    '>' => '&gt;',
+    '"' => '&quot;',
+    "'" => '&#39;',
+);
+
 sub xml_escape {
     my $str = shift;
-    my $q = new CGI;
-    return $q->escapeHTML( $str );
+
+    return '' unless defined $str;
+    $str =~ s/([&<>"'])/$XML_ENTITIES{$1}/g;
+    return $str;
 }
 
 =head2 date_to_xmlschema
 
 Convert a date to an XML-formattted version of the date that also includes
-the timezone.
+the timezone. Accepts a L<DateTime> object (such as C<page.date> or
+C<site.time>) or a date string.
 
 =cut
 
 sub date_to_xmlschema {
-    my $str = shift;
+    my $date = shift;
 
-    use DateTime;
-    use DateTime::Format::XSD;
-
-    return DateTime::Format::XSD->format_datetime($str);
+    return '' unless defined $date;
+    return DateTime::Format::XSD->format_datetime(App::Dapper::Utils::parse_date($date));
 }
 
 =head2 replace_last
 
-Liquid filter to replace the last occurrance of a string with another string.
+Replace the last occurrence of a string with another string. The string is
+matched literally, not as a regular expression.
+
+    [% "a, b, c" | replace_last(", ", " and ") %]   # a, b and c
 
 =cut
 
 sub replace_last {
     my ($input, $string, $replacement) = @_;
 
+    return $input unless defined $input and defined $string and length $string;
+
     $replacement = defined $replacement ? $replacement : '';
-    $input =~ s/^(.*)$string(.*)$/$1$replacement$2/s;
+    my $index = rindex($input, $string);
+    return $input if $index < 0;
+
+    substr($input, $index, length $string) = $replacement;
     return $input;
 }
 
-=head2 smart 
+=head2 smart
 
-Replace dashes with mdashes and ndashes.
+Replace C<---> with an em dash (C<&mdash;>) and C<--> with an en dash
+(C<&ndash;>). Longer runs of dashes are left alone.
 
 =cut
 
 sub smart {
     my $input = shift;
 
-    $input =~ s/([^-])--([^-])/$1\&ndash;$2/g;
-    $input =~ s/([^-])---([^-])/$1\&mdash;$2/g;
+    return '' unless defined $input;
+    $input =~ s/(?<!-)---(?!-)/&mdash;/g;
+    $input =~ s/(?<!-)--(?!-)/&ndash;/g;
 
     return $input;
 }
 
 =head2 json
 
-Turn string into json-formatted string.
+Turn a variable into a pretty-printed JSON string. Useful for debugging:
 
-=cut 
+    <pre>[% page | json %]</pre>
 
-use JSON;
+=cut
+
 sub json {
     my $input = shift;
 
-    my $flags = {
-        allow_blessed => 1,
-        allow_barekey => 1,
-        allow_nonref => 1,
-        utf8 => 1,
-        pretty => 1
-    };
-
-    return to_json($input, $flags);
+    my $json = JSON->new->allow_blessed->allow_nonref->pretty->canonical;
+    return $json->encode($input);
 }
 
 1;

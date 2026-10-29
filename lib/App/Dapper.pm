@@ -8,50 +8,42 @@ App::Dapper - A publishing tool for static websites.
 
 use utf8;
 use open ':std', ':encoding(UTF-8)';
-use 5.8.0;
+use 5.010;
 use strict;
-use warnings FATAL => 'all';
+use warnings;
 
 use vars '$VERSION';
 
 use Exporter qw(import);
-use IO::Dir;
 
-#use Template;
 use Template::Alloy;
-use Template::Constants qw( :debug );
 
 use Text::MultiMarkdown 'markdown';
 
-use Net::HTTPServer;
-
-use YAML::PP qw/ Load Dump LoadFile DumpFile /;
-use File::Spec::Functions qw/ canonpath /;
-use File::Path qw(make_path);
-
-use Data::Dumper;
-$Data::Dumper::Indent = 1;
-$Data::Dumper::Sortkeys = 1;
+use YAML::PP qw/ LoadFile /;
+use File::Spec;
+use File::Spec::Functions qw/ canonpath catfile /;
+use File::Basename qw/ basename /;
+use File::Find ();
+use Cwd qw/ abs_path /;
 
 use DateTime;
-use DateTime::Format::XSD;
+use DateTime::TimeZone;
 
-use App::Dapper::Serve;
 use App::Dapper::Init;
 use App::Dapper::Utils;
 use App::Dapper::Defaults;
 use App::Dapper::Filters;
 
 my $DEFAULT_PORT = 8000;
-my $ID = 0;
 
 =head1 VERSION
 
-Version 0.21
+Version 0.22
 
 =cut
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 
 our @EXPORT = qw($VERSION);
 
@@ -66,7 +58,7 @@ B<Dapper> allows you to transform simple text files into static websites. By ins
     $ dapper [-solc] build
 
     # Serve the site locally at http://localhost:8000
-    $ dapper [-solc] serve
+    $ dapper [-solcp] serve
 
     # Rebuild the site if anything (source, layout dirs; config file) changes
     $ dapper [-solc] watch
@@ -144,11 +136,14 @@ specify it in this file. For instance:
     layout : _layout
     output : _output
 
-All of the configurations in this file are available in layout templates,
-based on the Liquid template system. For instance, C<name> in the
-configuration file may be used in a template as follows:
+Directories given on the command line take precedence over the ones in the
+configuration file, which take precedence over the defaults.
 
-    {{ site.name }}
+All of the configurations in this file are available in layout templates
+under the C<site> namespace. For instance, C<name> in the configuration file
+may be used in a template as follows:
+
+    [% site.name %]
 
 =item B<_source/index.md>
 
@@ -165,7 +160,7 @@ There are a few things to note about this file:
 
 =over 4
 
-=item 1. There is a YAML configuration block at the start of the file.
+=item 1. There is a YAML configuration block (the "front matter") at the start of the file.
 
 =item 2. The I<layout> configuration specifies which layout to use.
 
@@ -175,37 +170,42 @@ There are a few things to note about this file:
 
 =item 5. All of the configurations may be used in the corresponding layout file.
 
-    <!-- Example use of "name" in a layout file -->
-    <h1>{{ page.name }}</h1>
+    <!-- Example use of "title" in a layout file -->
+    <h1>[% page.title %]</h1>
 
 =back
 
+Files in the source directory that do not start with front matter (images,
+PDFs, plain text files and so on) are copied to the output directory as they
+are.
+
 =item B<_layout/index.html>
 
-Layout files are processed using the Liquid template system. The initial layout
+Layout files are processed using the template language provided by
+L<Template::Alloy> (the Template Toolkit mini-language). The initial layout
 file that is given after you run the C<dapper init> command, is this:
 
-    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <!DOCTYPE html>
     <html>
     <head>
-      <title>{{ page.title }}</title>
-      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+      <meta charset="utf-8">
+      <title>[% page.title %]</title>
     </head>
 
     <body>
 
-    {{ page.content }}
+    [% page.content %]
 
     </body>
     </html>
 
 The main content of the text file that is being rendered with this template
-is available using C<{{ page.content }}>.
+is available using C<[% page.content %]>.
 
 Definitions specified in the C<_config.yml> file can be referenced under the
-"site" namespace (e.g. {{ site.name }}. Definitions specified in the YAML
-portion of text files can be referenced under the "page" namespace (e.g.
-{{ page.title }}.
+"site" namespace (e.g. C<[% site.name %]>). Definitions specified in the
+front matter of source files can be referenced under the "page" namespace
+(e.g. C<[% page.title %]>).
 
 =item B<_output/index.html>
 
@@ -213,11 +213,11 @@ The output file that is created is a mix of the input file and the layout that
 is specified by the input file. For the default site, the following output
 file is created:
 
-    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="utf-8">
       <title>Welcome</title>
-      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
     </head>
 
     <body>
@@ -229,29 +229,87 @@ file is created:
 
 =back
 
-B<Dapper> provides a number of optional command line switches:
+=head2 Variables
+
+The following variables are available in layouts and source files.
+
+=over 4
+
+=item B<site.*>
+
+Everything defined in C<_config.yml>, plus:
+
+    site.time         The time the build started (a DateTime)
+    site.pages        Every page, in source path order
+    site.categories   A hash of category name to its pages, sorted by date
+    site.source       The resolved source directory
+    site.output       The resolved output directory
+    site.layout       The resolved layout directory
+    site.urlpattern   Default URL pattern (/:category/:year/:month/:slug/)
+    site.extension    Default output extension (.html)
+    site.ignore       Patterns of top-level files not copied to the output
+
+=item B<page.*>
+
+Everything defined in the page's front matter, plus:
+
+    page.content      The rendered body of the page
+    page.excerpt      The first paragraph of a markdown page
+    page.url          The URL of the page, relative to the site root
+    page.slug         The title, slugified (or the file name if no title)
+    page.id           A number unique to the page within a build
+    page.date         The page date (front matter, or the file's mtime)
+    page.year, page.month, page.day,
+    page.hour, page.minute, page.second   Parts of page.date, zero padded
+    page.filename     The output file the page is written to
+    page.dirname      The directory of page.filename
+    page.source_file_extension   The source file's extension (e.g. .md)
+
+=back
+
+=head2 URLs and output files
+
+Pages with C<categories> or their own C<urlpattern> are written to the path
+their URL describes. The pattern may use C<:category>, C<:year>, C<:month>,
+C<:day>, C<:hour>, C<:minute>, C<:second> and C<:slug>. A URL ending in C</>
+is written as C<index> plus the page extension inside that directory. Other
+pages keep the path of their source file, with the page extension.
 
 =head2 Options
+
+B<Dapper> provides a number of optional command line switches:
 
 =over 4
 
 =item B<-s>, B<--source>=I<source directory>
 
-Specify the directory containing source files to process. If this command line option is not present, it defaults to "_source".
+Specify the directory containing source files to process. If this command line option is not present, it defaults to the C<source> setting in the config file, or "_source".
 
 =item B<-o>, B<--output>=I<output directory>
 
-Specify the directory to place the output files in. If this command line option is not present, it defaults to "_output".
+Specify the directory to place the output files in. If this command line option is not present, it defaults to the C<output> setting in the config file, or "_output".
 
 =item B<-l>, B<--layout>=I<layout directory>
 
-Specify the directory containing source files to process. If this command line option is not present, it defaults to "_layout".
+Specify the directory containing layout files. If this command line option is not present, it defaults to the C<layout> setting in the config file, or "_layout".
 
-=item B<-h>
+=item B<-c>, B<--config>=I<config file>
+
+Specify the config file name to use. If this command line option is not present, it defaults to "_config.yml".
+
+=item B<-p>, B<--port>=I<port>
+
+Specify the port to use for the serve command. Defaults to 8000.
+
+=item B<-q>, B<--quiet>
+
+Only print errors.
+
+=item B<-h>, B<--help>
 
 Get help on available commands and options.
 
-=item B<-v>
+=item B<-v>, B<--version>
 
 Print the version and exit.
 
@@ -270,11 +328,12 @@ Create a new B<Dapper> object. Example:
     my $d = App::Dapper->new();
 
 Alternatively, the source dir, output dir, layout dir, and configuration file
-may be specified. Example:
+may be specified. Any of them may be C<undef>, in which case the value from
+the configuration file (or the default) is used. Example:
 
     my $d = App::Dapper->new("_source", "_output", "_layout", "_config.yml");
 
-After creating a B<Dapper> object, the followin hash elements may be accessed:
+After creating a B<Dapper> object, the following hash elements may be accessed:
 
     use App::Dapper;
 
@@ -286,26 +345,33 @@ After creating a B<Dapper> object, the followin hash elements may be accessed:
     print "Config file: $d->{config}\n";
     print "Object instantiation time: $d->{site}->{time}\n";
 
+The directories are updated from the configuration file when the site is
+built or served. Set C<< $d->{quiet} >> to a true value to suppress progress
+messages.
+
 =cut
 
 sub new {
     my $class = shift;
+    my ($source, $output, $layout, $config) = @_;
+
     my $self = {
-        created=> 1,
-        source => shift,
-        output => shift,
-        layout => shift,
-        config => shift,
+        created  => 1,
+        quiet    => 0,
+        explicit => {
+            source => defined $source,
+            output => defined $output,
+            layout => defined $layout,
+            config => defined $config,
+        },
+        source => defined $source ? $source : "_source",
+        output => defined $output ? $output : "_output",
+        layout => defined $layout ? $layout : "_layout",
+        config => defined $config ? $config : "_config.yml",
     };
 
-    $self->{site} = App::Dapper::Defaults::get_defaults();
-    $self->{site}->{time} = DateTime->now( time_zone => DateTime::TimeZone->new( name => 'local' ) );
-    $self->{source} = "_source" unless defined($self->{source});
-    $self->{output} = "_output" unless defined($self->{output});
-    $self->{layout} = "_layout" unless defined($self->{layout});
-    $self->{config} = "_config.yml" unless defined($self->{config});
-
     bless $self, $class;
+    $self->reset_site();
     return $self;
 }
 
@@ -318,7 +384,7 @@ Initializes a new skeleton project in the current directory (of the calling scri
     my $d = App::Dapper->new();
     $d->init();
 
-=cut 
+=cut
 
 sub init {
     my ($self) = @_;
@@ -330,7 +396,7 @@ sub init {
         $self->{config}
     );
 
-    print "Project initialized.\n";
+    $self->_log("Project initialized.");
 }
 
 =head2 build
@@ -338,30 +404,30 @@ sub init {
 Build the site. Example:
 
     use App::Dapper;
-    
+
     my $d = App::Dapper->new();
     $d->build();
 
 When the site is built, it is done in three steps:
 
-1. Parse. In this step, the configuration file is read. In addition, all the source files in the source directory as well as the layout files in the layout directory are reach and stored in the site hash.
- 
+1. Parse. In this step, the configuration file is read. In addition, all the source files in the source directory as well as the layout files in the layout directory are read and stored in the site hash.
+
 2. Transform. Combine source and layout files.
 
 3. Render. Save output files to the output directory.
+
+A Dapper object may be built any number of times; each build starts fresh.
 
 =cut
 
 sub build {
     my($self) = @_;
-   
-    $ID = 0; 
 
     $self->parse();
     $self->transform();
     $self->render();
 
-    print "Project built.\n";
+    $self->_log("Project built.");
 }
 
 # sub parse - Parse the source directory, config file, and templates.
@@ -381,6 +447,8 @@ sub parse {
 sub transform {
     my ($self) = @_;
 
+    die "error: source directory \"$self->{source}\" does not exist\n" unless -d $self->{source};
+
     # recurse through the project tree and generate output (combine src with templates)
     $self->walk($self->{source}, $self->{output});
 }
@@ -394,205 +462,286 @@ sub render {
         INCLUDE_PATH => $self->{layout},
         ANYCASE => 1,
         ENCODING => 'utf8',
-        #STRICT => 1,
-        FILTERS => {
-            'xml_escape' => \&App::Dapper::Filters::xml_escape,
-            'date_to_xmlschema' => \&App::Dapper::Filters::date_to_xmlschema,
-            'replace_last' => \&App::Dapper::Filters::replace_last,
-            'smart' => \&App::Dapper::Filters::smart,
-            'json' => \&App::Dapper::Filters::json,
-        },
-        #ERROR => 'alloy_errors.html', 
+        FILTERS => App::Dapper::Filters::filters(),
         EVAL_PERL => $ENV{EVAL_PERL} || 0,
-        #DEBUG => DEBUG_ALL,
-    }) || die "$Template::ERROR\n";        
+    });
 
     for my $page (@{$self->{site}->{pages}}) {
 
-        #print Dump $page->{content};
-
         if (not $page->{layout}) {
             $page->{layout} = "index";
-            #print "WARNING: $page->{filename} does not have a page layout assigned: $page->{layout}.\n";
         }
 
         my $layout = $self->{layout_content}->{$page->{layout}};
+        die "error: $page->{source} uses the layout \"$page->{layout}\", but there is no such file in $self->{layout}\n"
+            unless defined $layout;
 
         my %tags = ();
         $tags{site} = $self->{site};
         $tags{page} = $page;
-        #$tags{page}->{content} = $content;
 
         my $destination1;
 
         $tt->process(\$layout, \%tags, \$destination1)
-            || die "Error processing $tags{page}->{filename} with $page->{layout}:" . $tt->error() . "\n";
+            || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
 
-        #if ($page->{layout} ne "index" and $layout =~ m/circuits/) {
-        #    print "DANGER WILL ROBINSON ";
-        #    print "PROCESSED: $tags{page}->{filename} with $page->{layout}\n\n$layout\n\n\n";
-        #}
-
-        # Parse and render once more to make sure that any liquid statments
-        # In the source file also gets rendered
+        # Parse and render once more to make sure that any template statements
+        # in the source file (and in site variables) also get rendered
         my $destination;
 
         $tt->process(\$destination1, \%tags, \$destination)
-            || die "Error processing (2nd pass) $tags{page}->{filename} with $page->{layout}:" . $tt->error() . "\n";
+            || die "error: could not process $page->{source} with layout $page->{layout} (2nd pass): " . $tt->error() . "\n";
 
-        if ($page->{filename}) {
-            make_path($page->{dirname}, { verbose => 1 });
-            open(DESTINATION, ">$page->{filename}") or die "error: could not open destination file:$page->{filename}: $!\n";
-            print(DESTINATION $destination) or die "error: could not print to $page->{filename}: $!\n";
-            close(DESTINATION) or die "error: could not close $page->{filename}: $!\n";
-
-            print "Wrote $page->{filename}\n";
-        }
-        else {
-            print Dumper "No filename specified\n";
-        }
+        App::Dapper::Utils::write_file($page->{filename}, $destination);
+        $self->_log("Wrote $page->{filename}");
     }
 
-    #print Dumper $self->{site};
+    # copy source files that have no front matter (images, etc.) as they are
+    for my $file (@{$self->{static_files}}) {
+        App::Dapper::Utils::copy_recursive($file->{source}, $file->{output});
+        $self->_log("Copied $file->{source}");
+    }
 
-    #print Dumper($self->{site}); 
     # copy additional files and directories
     $self->copy(".", $self->{output});
 }
 
-# sub serve - Serve the site locally. Pass in the port number. The port number will be used to serve the site contents from the output directory like this: http://localhost:<port>. Here is an example, using the default port 8000:
-# 
-#    use App::Dapper;
-#
-#    my $d = App::Dapper->new();
-#    $d->serve("8000");
-#
-# The following is equivalent:
-#
-#    $d->serve();
+=head2 serve
+
+Serve the site locally. Pass in the port number. The port number will be used
+to serve the site contents from the output directory like this:
+http://localhost:<port>. Here is an example, using the default port 8000:
+
+    use App::Dapper;
+
+    my $d = App::Dapper->new();
+    $d->serve("8000");
+
+The following is equivalent:
+
+    $d->serve();
+
+=cut
 
 sub serve {
     my($self, $port) = @_;
 
+    require Net::HTTPServer;
+
     $port = $DEFAULT_PORT unless $port;
+
+    $self->read_project(1);
 
     print "Starting webserver at http://localhost:$port\n";
 
-    my $s = new Net::HTTPServer(
+    my $s = Net::HTTPServer->new(
                     port=>$port,
                     docroot=>$self->{output},
                     type=>"forking",
                     log=>"STDOUT",
-                    #debug=>"ALL"
                     );
-    $s->Start();
+    $s->Start() or die "error: could not start the webserver on port $port\n";
     $s->Process();
-    
 }
 
-# sub read_project - Read the project file.
+=head2 watch
 
-sub read_project {
+Build the site, then rebuild it whenever a file in the project changes, is
+added, or is removed. The output directory and dot files are not watched.
+Errors in a rebuild are reported without stopping the watch. Pass the
+polling interval in seconds (default: 1).
+
+    $d->watch();
+
+=cut
+
+sub watch {
+    my ($self, $interval) = @_;
+
+    $interval = 1 unless $interval;
+
+    my $previous;
+    while (1) {
+        my $current = $self->snapshot();
+        if (not defined $previous or not _same_snapshot($previous, $current)) {
+            eval { $self->build(); 1 } or warn $@;
+            $previous = $self->snapshot();
+        }
+        sleep $interval;
+    }
+}
+
+=head2 snapshot
+
+Returns a hash reference of every watched file in the project mapped to its
+modification time and size. Used by L</watch> to detect changes.
+
+=cut
+
+sub snapshot {
     my ($self) = @_;
 
-    my $config = LoadFile($self->{config}) or die "error: could not load \"$self->{config}\": $!\n";
+    my $output = abs_path($self->{output});
+    my %files;
 
-    # Graft together
-    @{$self->{site}}{keys %{$config}} = values %$config;
+    File::Find::find({
+        no_chdir => 1,
+        wanted   => sub {
+            my $path = $File::Find::name;
+            my $name = basename($path);
 
-    die "error: \"source\" must be defined in project file\n" unless defined $self->{source};
-    die "error: \"output\" must be defined in project file\n" unless defined $self->{output};
-    die "error: \"layout\" must be defined in project file\n" unless defined $self->{layout};
+            if (-d $path) {
+                return if $path eq '.';
+                my $abs = abs_path($path);
+                $File::Find::prune = 1
+                    if $name =~ /^\./ or (defined $output and defined $abs and $abs eq $output);
+                return;
+            }
 
-    #print Dump($self->{site});
+            return if $name =~ /^\./;
+            my @stat = stat $path;
+            $files{$path} = "$stat[9]:$stat[7]" if @stat;
+        },
+    }, '.');
+
+    return \%files;
 }
 
-# sub read_templates - Read the content of the templates specified in the project configuration file.
+sub _same_snapshot {
+    my ($old, $new) = @_;
+
+    return 0 unless keys %$old == keys %$new;
+    for my $key (keys %$old) {
+        return 0 unless defined $new->{$key} and $new->{$key} eq $old->{$key};
+    }
+    return 1;
+}
+
+# sub reset_site - Start a fresh site hash from the defaults.
+
+sub reset_site {
+    my ($self) = @_;
+
+    $self->{site} = App::Dapper::Defaults::get_defaults();
+    $self->{site}->{time} = App::Dapper::Utils::parse_date(
+        DateTime->now( time_zone => DateTime::TimeZone->new( name => 'local' ) ));
+    $self->{site}->{pages} = [];
+    $self->{site}->{categories} = {};
+    $self->{layout_content} = {};
+    $self->{static_files} = [];
+    $self->{id} = 0;
+}
+
+# sub read_project - Read the project file and resolve the source, output and
+# layout directories. Precedence: values passed to new() (the command line),
+# then the project file, then the defaults. Pass a true value to allow the
+# project file to be missing.
+
+sub read_project {
+    my ($self, $optional) = @_;
+
+    $self->reset_site();
+
+    if (-f $self->{config}) {
+        my $config = eval { LoadFile($self->{config}) };
+        die "error: could not parse \"$self->{config}\": $@" if $@;
+
+        $config = {} unless defined $config;
+        die "error: \"$self->{config}\" must contain key: value pairs\n" unless ref $config eq 'HASH';
+
+        # Graft together
+        @{$self->{site}}{keys %{$config}} = values %$config;
+    }
+    elsif (not $optional) {
+        die "error: could not find the project file \"$self->{config}\". Run \"dapper init\" to create a new project.\n";
+    }
+
+    for my $key (qw/ source output layout /) {
+        my $value = $self->{explicit}->{$key} ? $self->{$key} : $self->{site}->{$key};
+        die "error: \"$key\" must be defined in project file\n" unless defined $value and length $value;
+        $value = canonpath($value);
+        $self->{$key} = $value;
+        $self->{site}->{$key} = $value;
+    }
+
+    $self->{site}->{pages} = [];
+    $self->{site}->{categories} = {};
+}
+
+# sub read_templates - Read the content of the layouts in the layout directory
+# and expand layouts that name a parent layout in their front matter.
 
 sub read_templates {
     my ($self) = @_;
-    my ($key, $ckey);
 
-    opendir(DIR, $self->{layout}) or die $!;
-    my @files = sort(grep(!/^\..*$/, readdir(DIR)));
+    my %raw;
+
+    opendir(my $dh, $self->{layout})
+        or die "error: could not open layout directory \"$self->{layout}\": $!\n";
+    my @files = sort grep { !/^\./ } readdir($dh);
+    closedir($dh);
 
     for my $file (@files) {
-        my $stem = App::Dapper::Utils::filter_stem($file);
-        $file = $self->{layout} . "/" . $file;
-        $self->{layout_content}->{$stem} = App::Dapper::Utils::read_file($file);
+        my $path = "$self->{layout}/$file";
+        next unless -f $path;
+        $raw{App::Dapper::Utils::filter_stem($file)} = App::Dapper::Utils::read_file($path);
     }
 
-    # Expand sub layouts
-    for my $key (keys %{$self->{layout_content}}) {
-        my $value = $self->{layout_content}->{$key};
-        my $frontmatter;
-        my $content;
-
-        $value =~ /(---.*?)---(.*)/s;
-
-        if (not defined $1) { next; }
-        if (not defined $2) { next; }
-
-        $frontmatter = Load($1) or die "error: could not load \"$1\": $!\n";
-        $content  = $2;
-
-        if (not defined $frontmatter->{layout}) { next; }
-        if (not defined $self->{layout_content}->{$frontmatter->{layout}}) { next; }
-
-        my $master = $self->{layout_content}->{$frontmatter->{layout}};
-        $master =~ s/\[\% *page\.content *\%\]/$content/g;
-        $self->{layout_content}->{$key} = $master;
-
-        #print "$key Result:\n" . $self->{layout_content}->{$frontmatter->{layout}} . "\n\n\n\n\n\n";
+    $self->{layout_content} = {};
+    for my $key (keys %raw) {
+        $self->{layout_content}->{$key} = $self->expand_layout($key, \%raw, {});
     }
+}
+
+# sub expand_layout - Return the content of a layout with its chain of parent
+# layouts applied, so that a layout may be wrapped by another layout, which
+# may in turn be wrapped by another.
+
+sub expand_layout {
+    my ($self, $name, $raw, $seen) = @_;
+
+    die "error: layout \"$name\" is part of a loop of layouts\n" if $seen->{$name};
+
+    my ($frontmatter, $content) =
+        App::Dapper::Utils::split_frontmatter($raw->{$name}, "$self->{layout}/$name");
+
+    return $raw->{$name} unless defined $frontmatter;
+
+    my $parent = $frontmatter->{layout};
+    return $content unless defined $parent;
+
+    if (not exists $raw->{$parent}) {
+        warn "warning: layout \"$name\" names the layout \"$parent\", which does not exist\n";
+        return $content;
+    }
+
+    my $master = $self->expand_layout($parent, $raw, { %$seen, $name => 1 });
+    $master =~ s/\[%[-+=~]?\s*page\.content\s*[-+=~]?%\]/$content/g;
+
+    return $master;
 }
 
 # sub walk - Walk the source directory and output directory and build the site hash.
 
 sub walk {
-  my ($self, $source_dir, $output_dir) = @_;
-  my $source_handle = new IO::Dir "$source_dir";;
-  my $output_handle = new IO::Dir "$output_dir";;
-  my $directory_element;
+    my ($self, $source_dir, $output_dir) = @_;
 
-  # if the directory does not exist, create it
-  if (!(defined $output_handle)) {
-    mkdir($output_dir);
-    $output_handle = new IO::Dir "$output_dir";
-  }
+    opendir(my $dh, $source_dir)
+        or die "error: could not open source directory \"$source_dir\": $!\n";
+    my @entries = sort grep { !/^\./ } readdir($dh);
+    closedir($dh);
 
-  if (defined $source_handle) {
+    for my $entry (@entries) {
+        my $source = "$source_dir/$entry";
+        my $output = "$output_dir/$entry";
 
-    # cycle through each element in the current directory
-    while(defined($directory_element = $source_handle->read)) {
-
-      # print "directory element:$source/$directory_element\n";
-      if(-d "$source_dir/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-        $self->walk("$source_dir/$directory_element", "$output_dir/$directory_element");
-      }
-      elsif(-f "$source_dir/$directory_element" and $directory_element ne "." and $directory_element ne "..") {
-   
-        # Skip dot files
-        if ($directory_element =~ /^\./) { next; }
-    
-        # Construct output file name, which is a combination
-        # of the stem of the source file and the extension of the template.
-        # Example:
-        #   - Source: index.md
-        #   - Template: layout.html
-        #   - Destination: index.html
-        my $source = "$source_dir/$directory_element";
-        my $output = "$output_dir/$directory_element";
-      
-        $self->build_inventory($source, $output);
-      }
+        if (-d $source) {
+            $self->walk($source, $output);
+        }
+        elsif (-f $source) {
+            $self->build_inventory($source, $output);
+        }
     }
-    undef $source_handle;
-  }
-  else {
-    die "error: could not get a handle on $source_dir/$directory_element";
-  }
-  #undef %b_ddm;
 }
 
 # sub build_inventory - Build the internal hash of files, configurations, and layouts.
@@ -600,33 +749,38 @@ sub walk {
 sub build_inventory {
     my ($self, $source_file_name, $destination_file_name) = @_;
 
-    my %page = ();
-    my $frontmatter;
+    # Files without front matter (images, PDFs, etc.) are copied as they are
+    if (not App::Dapper::Utils::has_frontmatter($source_file_name)) {
+        push @{$self->{static_files}}, { source => $source_file_name, output => $destination_file_name };
+        return;
+    }
 
-    print "Processing $source_file_name\n";
+    $self->_log("Processing $source_file_name");
 
     my $source_content = App::Dapper::Utils::read_file($source_file_name);
 
-    $source_content =~ /(---.*?)---(.*)/s;
+    my ($frontmatter, $content) =
+        App::Dapper::Utils::split_frontmatter($source_content, $source_file_name);
+    die "error: \"$source_file_name\" has front matter that is never closed with a line containing ---\n"
+        unless defined $frontmatter;
 
-    $frontmatter = Load($1) or die "error parsing \"$source_file_name\": $!\n";
+    my %page = %$frontmatter;
+    $page{content} = $content;
+    $page{source} = $source_file_name;
 
-    $page{content} = $2;
-
-    for my $key (keys %{$frontmatter}) {
-        $page{$key} = $frontmatter->{$key};
-    }
+    my @categories = ref $page{categories} eq 'ARRAY' ? @{$page{categories}}
+                   : defined $page{categories}        ? ($page{categories})
+                   : ();
+    @categories = grep { defined and length } @categories;
 
     $page{slug} = App::Dapper::Utils::slugify($page{title});
-
-    my $date;
-    if (not $page{date}) {
-        $date = DateTime::Format::XSD->parse_datetime(App::Dapper::Utils::get_modified_time($source_file_name));
-        # print "Didn't find date for $source_file_name. Setting to file modified date of $date\n";
-        $page{date} = $date;
-    } else {
-        $date = DateTime::Format::XSD->parse_datetime($page{date});
+    if (not defined $page{slug} or not length $page{slug}) {
+        $page{slug} = App::Dapper::Utils::slugify(basename(App::Dapper::Utils::filter_stem($source_file_name)));
     }
+
+    my $date = App::Dapper::Utils::parse_date(
+        defined $page{date} ? $page{date} : App::Dapper::Utils::get_modified_time($source_file_name),
+        $source_file_name);
 
     $page{date}   = $date;
     $page{year}   = $date->year();
@@ -635,7 +789,7 @@ sub build_inventory {
     $page{hour}   = $date->hour();
     $page{minute} = $date->minute();
     $page{second} = $date->second();
-      
+
     # Insert zero to beginning if year, month, day,
     # hour, minute or second is less than 10
     $page{$_} < 10 and $page{$_} = '0' . $page{$_}
@@ -645,87 +799,126 @@ sub build_inventory {
         $page{timezone} = DateTime::TimeZone->new( name => 'local' );
     }
 
-    $page{url} = defined $page{urlpattern} ? $page{urlpattern} : $self->{site}->{urlpattern};
-    $page{url} =~ s/\:category/$page{categories}/g unless not defined $page{categories};
-    $page{url} =~ s/\:year/$page{year}/g unless not defined $page{year};
-    $page{url} =~ s/\:month/$page{month}/g unless not defined $page{month};
-    $page{url} =~ s/\:day/$page{day}/g unless not defined $page{day};
-    $page{url} =~ s/\:hour/$page{hour}/g unless not defined $page{hour};
-    $page{url} =~ s/\:minute/$page{minute}/g unless not defined $page{minute};
-    $page{url} =~ s/\:second/$page{second}/g unless not defined $page{second};
-    $page{url} =~ s/\:slug/$page{slug}/g unless not defined $page{slug};
-
-    $page{id} = ++$ID; #$page{url};
+    $page{id} = ++$self->{id};
 
     if (not defined $page{extension}) { $page{extension} = $self->{site}->{extension}; }
+    $page{extension} = '' unless defined $page{extension};
 
     $page{source_file_extension} = App::Dapper::Utils::filter_extension($source_file_name);
+    $page{source_file_extension} = '' unless defined $page{source_file_extension};
 
-    $page{filename} = App::Dapper::Utils::filter_stem("$destination_file_name") . $page{extension};
-    
-    if(defined $page{categories}) {
-        my $filename = $self->{site}->{output} . $page{url};
-        $filename =~ s/\/$/\/index.html/; 
-        $page{filename} = canonpath $filename;
+    if (@categories or defined $page{urlpattern}) {
+        # The URL decides where the page is written
+        my $pattern = defined $page{urlpattern} ? $page{urlpattern} : $self->{site}->{urlpattern};
+        $page{url} = expand_urlpattern($pattern, { %page, category => $categories[0] });
+
+        my $filename = $page{url};
+        $filename .= "index$page{extension}" if $filename =~ m{/$};
+        $page{filename} = canonpath(catfile($self->{output}, $filename));
+    }
+    else {
+        # The path of the source file decides where the page is written
+        $page{filename} = canonpath(App::Dapper::Utils::filter_stem($destination_file_name) . $page{extension});
+
+        my $url = File::Spec->abs2rel($page{filename}, $self->{output});
+        $url = join('/', File::Spec->splitdir($url));
+        $url =~ s{(^|/)index\Q$page{extension}\E$}{$1} if length $page{extension};
+        $page{url} = "/$url";
     }
 
     my ($volume, $dirname, $file) = File::Spec->splitpath( $page{filename} );
     $page{dirname} = $dirname;
 
-    if ($page{source_file_extension} eq ".md") { 
+    if ($page{source_file_extension} eq ".md") {
         $page{content} = markdown($page{content});
 
         # Save first paragraph of content as excerpt
-        $page{content} =~ /(<p>.*?<\/p>)/s;
-        $page{excerpt} = $1;
-    }
-    else {
-        print "Did not run markdown on $page{filename} since the extension was not .md\n";
+        $page{excerpt} = $1 if $page{content} =~ /(<p>.*?<\/p>)/s;
     }
 
     # Remove leading spaces and newline
     $page{content} =~ s/^[ \n]*//;
-    
-    if ($page{categories}) {
-        push @{$self->{site}->{categories}->{$page{categories}}}, \%page;
+
+    for my $category (@categories) {
+        my $list = $self->{site}->{categories}->{$category} ||= [];
+        push @$list, \%page;
 
         # Keep the array sorted
-        @{$self->{site}->{categories}->{$page{categories}}} = sort { $a->{date} <=> $b->{date} } @{$self->{site}->{categories}->{$page{categories}}};
+        @$list = sort { $a->{date} <=> $b->{date} } @$list;
     }
 
     push @{$self->{site}->{pages}}, \%page;
 }
 
-# sub copy(sourcedir, outputdir) - Copies files and directories from <sourcedir> to <outputdir> as long as they do not made what is contained in $self->{site}->{ignore}.
+=head2 expand_urlpattern
+
+Takes a URL pattern (e.g. C</:category/:year/:month/:slug/>) and a hash of page
+values, and returns the URL with each C<:name> token replaced. Tokens with no
+value are removed along with their slash.
+
+=cut
+
+sub expand_urlpattern {
+    my ($pattern, $page) = @_;
+
+    my $url = defined $pattern ? $pattern : '';
+    for my $token (qw/ category year month day hour minute second slug /) {
+        my $value = $page->{$token};
+        $value = '' unless defined $value;
+        $url =~ s/:$token\b/$value/g;
+    }
+
+    $url =~ s{/{2,}}{/}g;
+    $url = "/$url" unless $url =~ m{^/};
+
+    return $url;
+}
+
+# sub copy(sourcedir, outputdir) - Copies files and directories from <sourcedir> to <outputdir> as long as they do not match what is contained in $self->{site}->{ignore}. The source, output and layout directories and the project file are never copied.
 
 sub copy {
     my ($self, $dir, $output) = @_;
 
-    opendir(DIR, $dir) or die $!;
+    my @skip = map { abs_path($_) } grep { -e $_ }
+        ($self->{source}, $self->{output}, $self->{layout}, $self->{config});
+    my %skip = map { $_ => 1 } grep { defined } @skip;
 
-    DIR: while (my $file = readdir(DIR)) {
-        for my $i (@{ $self->{site}->{ignore} }) {
-            next DIR if ($file =~ m/$i/);
+    opendir(my $dh, $dir) or die "error: could not open \"$dir\": $!\n";
+    my @entries = sort readdir($dh);
+    closedir($dh);
+
+    ENTRY: for my $file (@entries) {
+        next if $file eq '.' or $file eq '..';
+
+        for my $i (@{ $self->{site}->{ignore} || [] }) {
+            next ENTRY if ($file =~ m/$i/);
         }
 
-        $output =~ s/\/$//;
-        my $command = "cp -r $file $output";
-        print $command . "\n";
-        system($command);
-    }
+        my $path = $dir eq '.' ? $file : "$dir/$file";
+        my $abs = abs_path($path);
+        next if defined $abs and $skip{$abs};
 
-    closedir(DIR);
+        App::Dapper::Utils::copy_recursive($path, catfile($output, $file), $self->{output});
+        $self->_log("Copied $path");
+    }
+}
+
+# sub _log - Print a progress message unless quiet.
+
+sub _log {
+    my ($self, $message) = @_;
+
+    print "$message\n" unless $self->{quiet};
 }
 
 =head1 AUTHOR
 
-Mark Benson, C<< <markbenson at vanilladraft.com> >>
+Mark Benson, C<< <mark at jayber.org> >>
 
 =head1 BUGS
 
-Please report any bugs or feature requests to C<bug-text-dapper at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=App-Dapper>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
+Please report any bugs or feature requests at
+L<https://github.com/markdbenson/dapper/issues>.
 
 =head1 SUPPORT
 
@@ -737,21 +930,13 @@ You can also look for information at:
 
 =over 4
 
-=item * RT: CPAN's request tracker (report bugs here)
+=item * GitHub: source code and issue tracker
 
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=App-Dapper>
+L<https://github.com/markdbenson/dapper>
 
-=item * AnnoCPAN: Annotated CPAN documentation
+=item * MetaCPAN
 
-L<http://annocpan.org/dist/App-Dapper>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/App-Dapper>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/App-Dapper/>
+L<https://metacpan.org/dist/App-Dapper>
 
 =back
 
@@ -759,7 +944,7 @@ L<http://search.cpan.org/dist/App-Dapper/>
 
 The MIT License (MIT)
 
-Copyright (c) 2002-2014 Mark Benson
+Copyright (c) 2002-2026 Mark Benson
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -782,4 +967,3 @@ SOFTWARE.
 =cut
 
 1; # End of App::Dapper
-

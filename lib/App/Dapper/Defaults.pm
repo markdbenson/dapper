@@ -13,10 +13,9 @@ overridden in a project-specific YAML file.
 =cut
 
 use utf8;
-use open ':std', ':encoding(UTF-8)';
-use 5.8.0;
+use 5.010;
 use strict;
-use warnings FATAL => 'all';
+use warnings;
 
 use YAML::PP qw(Load);
 

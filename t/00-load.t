@@ -1,15 +1,20 @@
-#!perl -T
-use 5.8.0;
+use 5.010;
 use strict;
-use warnings FATAL => 'all';
+use warnings;
 use Test::More;
-use App::Dapper;
 
-plan tests => 1;
+my @modules = qw(
+    App::Dapper
+    App::Dapper::Defaults
+    App::Dapper::Filters
+    App::Dapper::Init
+    App::Dapper::Utils
+);
 
-BEGIN {
-    use_ok( 'App::Dapper' ) || print "Bail out!\n";
+plan tests => scalar @modules;
+
+for my $module (@modules) {
+    use_ok($module) || print "Bail out!\n";
 }
 
 diag( "Testing App::Dapper $App::Dapper::VERSION, Perl $], $^X" );
-
