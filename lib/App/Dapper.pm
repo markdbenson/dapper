@@ -23,6 +23,7 @@ use App::Dapper::Markdown;
 use App::Dapper::Schema;
 use App::Dapper::Publish;
 use App::Dapper::Collections;
+use App::Dapper::Check;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -431,6 +432,7 @@ sub build {
 
     $self->{problems} = [];
     $self->{written} = {};
+    $self->{page_owner} = {};
 
     $self->parse();
     $self->transform();
@@ -516,6 +518,14 @@ sub render {
     # sitemap, feed and llms.txt
     $self->attempt($self->{config}, sub { $self->write_generated() });
 
+    # with live reload on, a new value here tells open pages to reload
+    if ($self->{live_reload}) {
+        $self->write_output(catfile($self->{output}, '.dapper-reload'), time() . '-' . int(rand(1_000_000)) . "\n");
+    }
+
+    # remove what earlier builds wrote that this one did not
+    $self->clean_output() unless $self->{collect};
+
     # search index
     $self->run_search() unless $self->{collect};
 }
@@ -542,6 +552,79 @@ sub run_search {
     my @quiet = $self->{quiet} ? ('--quiet') : ();
     system(@command, '--site', $self->{output}, @quiet) == 0
         or $self->problem('warning', $self->{config}, "@command did not finish (exit status " . ($? >> 8) . ")");
+}
+
+# sub clean_output - Remove files that an earlier build wrote to the output
+# directory but this build did not (the output of a page that was renamed or
+# deleted, say). Only files Dapper itself wrote are ever removed: the list is
+# kept in .dapper/manifest.json in the project directory. "clean: false" in
+# the project file turns this off.
+
+sub clean_output {
+    my ($self) = @_;
+
+    return unless App::Dapper::Publish::enabled($self->{site}, 'clean');
+
+    my $manifest_file = catfile('.dapper', 'manifest.json');
+    my $output = abs_path($self->{output});
+    return unless defined $output;
+
+    my $manifest = {};
+    if (-f $manifest_file) {
+        $manifest = eval { JSON->new->decode(App::Dapper::Utils::read_file($manifest_file)) } || {};
+        $manifest = {} unless ref $manifest eq 'HASH';
+    }
+
+    my $old = $manifest->{$output};
+    my $removed = 0;
+    my %dirs;
+    if (ref $old eq 'ARRAY') {
+        for my $path (@$old) {
+            next if $self->{written}->{$path};
+            next if $path =~ m{(?:^|/)\.\.(?:/|$)} or $path =~ m{^/};
+            my $file = catfile($self->{output}, $path);
+            next unless -f $file;
+            unlink $file or next;
+            $removed++;
+            (my $dir = $path) =~ s{/?[^/]*$}{};
+            while (length $dir) {
+                $dirs{$dir} = 1;
+                $dir =~ s{/?[^/]*$}{};
+            }
+        }
+    }
+
+    # Remove directories the removed files leave empty, deepest first
+    for my $dir (sort { length $b <=> length $a } keys %dirs) {
+        rmdir catfile($self->{output}, $dir);
+    }
+
+    $self->_log("Removed $removed file" . ($removed == 1 ? '' : 's') . " left over from an earlier build") if $removed;
+
+    $manifest->{$output} = [ sort keys %{$self->{written}} ];
+    App::Dapper::Utils::write_file($manifest_file, JSON->new->canonical->pretty->encode($manifest));
+}
+
+# sub live_reload_script - The script added to pages while "dapper serve" is
+# running. It asks for /.dapper-reload every second and reloads the page when
+# a new build changes it.
+
+sub live_reload_script {
+    return <<'HTML';
+<script>
+(function () {
+  var last = null;
+  function poll() {
+    fetch('/.dapper-reload?' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.text() : last; })
+      .then(function (t) { if (last !== null && t !== last) { location.reload(); } last = t; })
+      .catch(function () {})
+      .then(function () { setTimeout(poll, 1000); });
+  }
+  poll();
+})();
+</script>
+HTML
 }
 
 # sub write_generated - Write the files Dapper makes for the whole site: the
@@ -638,6 +721,15 @@ sub render_page {
             || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
     }
 
+    if ($self->{live_reload} and App::Dapper::Publish::is_html($page)) {
+        my $script = live_reload_script();
+        $output =~ s{(</body>)}{$script$1}i or $output .= $script;
+    }
+
+    my $owner = $self->{page_owner}->{$page->{filename}};
+    die "error: $page->{source} and $owner both write $page->{filename}\n" if defined $owner;
+    $self->{page_owner}->{$page->{filename}} = $page->{source};
+
     $self->write_output($page->{filename}, $output);
     $self->_log("Wrote $page->{filename}");
 
@@ -698,6 +790,22 @@ sub problem {
 
     die "error: $message\n" if $severity eq 'error';
     warn "warning: $message\n";
+}
+
+=head2 check
+
+Build the site into a temporary directory and return a report of every
+problem found, without touching the output directory. See
+L<App::Dapper::Check>.
+
+    my $report = $d->check();
+    print "ok\n" if $report->{ok};
+
+=cut
+
+sub check {
+    my ($self) = @_;
+    return App::Dapper::Check::run($self);
 }
 
 =head2 serve

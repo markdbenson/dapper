@@ -18,6 +18,7 @@ use lib "$FindBin::Bin/../lib";
 use Pod::Usage;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use App::Dapper;
+use JSON ();
 
 my $SOURCE  = undef;
 my $OUTPUT  = undef;
@@ -27,6 +28,7 @@ my $PORT    = 8000;
 my $QUIET   = 0;
 my $HELP    = 0;
 my $VERSION = 0;
+my $JSON    = 0;
 
 =head1 SYNOPSIS
 
@@ -44,6 +46,9 @@ my $VERSION = 0;
 
     # Rebuild the site whenever a file (source, layout, config) changes
     $ dapper watch
+
+    # Check the site for problems (add --json for a machine-readable report)
+    $ dapper check
 
     # Get help on usage and switches
     $ dapper -h
@@ -89,6 +94,10 @@ Specify the port to use for the serve command. This option is only used for the 
 
 Only print errors.
 
+=item B<--json>
+
+For the check command: print the report as JSON.
+
 =item B<-h>, B<--help>
 
 Get help on available commands and options.
@@ -119,10 +128,26 @@ sub watch {
     dapper()->watch();
 }
 
+sub check {
+    my $report = dapper()->check();
+    if ($JSON) {
+        print JSON->new->canonical->pretty->encode($report);
+    }
+    else {
+        print App::Dapper::Check::text($report);
+    }
+    exit($report->{ok} ? 0 : 1);
+}
+
 sub serve {
     my $pid = fork();
     die "error: could not fork: $!\n" unless defined $pid;
-    if ($pid == 0) { watch(); exit(0); }
+    if ($pid == 0) {
+        my $d = dapper();
+        $d->{live_reload} = 1;
+        $d->watch();
+        exit(0);
+    }
     dapper()->serve($PORT);
 }
 
@@ -145,6 +170,7 @@ GetOptions(
     'q|quiet'    => \$QUIET,
     'h|help'     => \$HELP,
     'v|version'  => \$VERSION,
+    'json'       => \$JSON,
 ) or help(2);
 
 help(0) if $HELP;
@@ -158,6 +184,7 @@ my $switch = {
     'build' => \&build,
     'serve' => \&serve,
     'watch' => \&watch,
+    'check' => \&check,
 };
 
 if (not $switch->{$COMMAND}) {
