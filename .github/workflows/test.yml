@@ -24,7 +24,11 @@ jobs:
         with:
           perl-version: ${{ matrix.perl }}
       - name: Install dependencies
-        run: cpanm --notest --installdeps .
+        # A checkout has no META.json, so cpanm cannot see configure_requires;
+        # upgrade MakeMaker first (Perl 5.10 ships one that writes no MYMETA).
+        run: |
+          cpanm --notest ExtUtils::MakeMaker
+          cpanm --notest --installdeps .
       - name: Run tests
         run: prove -lv t
 
