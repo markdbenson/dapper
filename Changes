@@ -1,5 +1,65 @@
 Revision history for App-Dapper
 
+0.22    2026-10-29
+        Fixed: settings in _config.yml (source, output, layout) are now
+        honoured by every command. Command line options override the
+        config file, which overrides the defaults. (GitHub #8)
+
+        Fixed: pages with their own urlpattern are written to the path
+        their URL describes, not the source file name. URLs ending in /
+        become index files using the page extension. Empty tokens such as
+        :category are dropped, and :slug falls back to the file name when a
+        page has no title. page.url is now correct for plain pages too.
+        (GitHub #5)
+
+        Documented every site.* and page.* variable. Replaced the old
+        Liquid syntax in the POD with the template syntax Dapper uses.
+        (GitHub #4)
+
+        Moved continuous integration from Travis CI to GitHub Actions,
+        testing Perl 5.10 to 5.40 on Linux and macOS. (GitHub #11)
+
+        Fixed: files are copied by Dapper itself instead of the shell, so
+        names with spaces or shell characters work and cannot run commands.
+        The output, source and layout directories are never copied into
+        the output.
+
+        Fixed: files in the source directory without front matter (images,
+        zip files, plain text) are copied as they are instead of crashing
+        the build.
+
+        Fixed: front matter must start on the first line and close on a
+        line of its own, so "---" inside a value no longer breaks a page.
+        Empty front matter is allowed. Parse errors name the file.
+
+        Fixed: dates in the pre-0.19 "2014-05-02 10:30:00" format and plain
+        dates are accepted again, and a bad date names the file.
+
+        Fixed: layouts can be nested any number of levels, loops are
+        reported, and front matter is removed from top-level layouts.
+
+        Fixed: categories may be a list, and pages are processed in sorted
+        path order so site.pages and page.id are the same on every machine.
+        (page.id values may differ from 0.21, which used directory order.)
+
+        Fixed: the replace_last filter now receives its arguments and
+        matches literally; smart handles adjacent dashes; json no longer
+        double-encodes non-ASCII text. Dates gained an xmlschema method
+        ([% page.date.xmlschema %]) because filters do not apply to dates.
+
+        Fixed: watch now notices the config file and added or removed
+        files, and keeps running when a rebuild fails.
+
+        Fixed: unknown commands and options exit with an error, and failed
+        builds exit non-zero. Added -q/--quiet, --help and --version.
+
+        Removed dependencies on CGI, Data::Dumper::HTML, File::Monitor,
+        Getopt::Mixed, Template::Toolkit (Template::Constants), Text::Markdown
+        and Test. Removed the unused App::Dapper::Serve module. The minimum
+        Perl version is now 5.10.
+
+        Replaced the placeholder tests with a real test suite.
+
 0.21    2025-01-22
         Added CGI to list of module dependencies.
 

@@ -1,17 +1,24 @@
-.travis.yml
-bin/dapper
 Changes
+LICENSE
+MANIFEST			This list of files
+Makefile.PL
+README.md
+bin/dapper
 lib/App/Dapper.pm
 lib/App/Dapper/Defaults.pm
 lib/App/Dapper/Filters.pm
 lib/App/Dapper/Init.pm
-lib/App/Dapper/Serve.pm
 lib/App/Dapper/Utils.pm
-Makefile.PL
-MANIFEST			This list of files
-README.md
 t/00-load.t
-t/01-manifest.t
+t/01-pod.t
 t/02-new.t
 t/03-init.t
-t/04-build.t
+t/04-config.t
+t/05-urls.t
+t/06-source.t
+t/07-layouts.t
+t/08-copy.t
+t/09-filters.t
+t/10-cli.t
+t/11-watch.t
+t/lib/DapperTest.pm

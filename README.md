@@ -1,8 +1,11 @@
 # Dapper
 
+[![test](https://github.com/markdbenson/dapper/actions/workflows/test.yml/badge.svg)](https://github.com/markdbenson/dapper/actions/workflows/test.yml)
+[![CPAN](https://img.shields.io/cpan/v/App-Dapper.svg)](https://metacpan.org/dist/App-Dapper)
+
 A publishing tool for static websites
 
-[Distributed as a Perl module](http://search.cpan.org/~mdb/App-Dapper/),
+[Distributed as a Perl module](https://metacpan.org/dist/App-Dapper),
 Dapper comes with a command-line application called `dapper` which you
 can use to create static websites.
 
@@ -17,9 +20,9 @@ Dapper has three goals:
    want.
 
 2. **Flexible**. Content is written in
-   [Markdown](http://search.cpan.org/~bobtfish/Text-MultiMarkdown/), and
+   [Markdown](https://metacpan.org/pod/Text::MultiMarkdown), and
    templates are written using the TT3 mini-language from
-   [Template::Alloy](http://search.cpan.org/~abw/Template-Toolkit/) for 
+   [Template::Alloy](https://metacpan.org/pod/Template::Alloy) for 
    maximum flexibility.
 
 3. **Pragmatic**. The easy things are easy and the hard things are
@@ -57,8 +60,8 @@ of static websites that each had their own look and feel, but shared
 content. Since then, Dapper has been used to create websites for speakers,
 artists, authors, illusionists, web designers, piano tuners,
 photographers, entertainment agencies, and API documentation for
-industrial sensing equipment. In addition, it is the tool that powers
-[markbenson.io](http://markbenson.io/).
+industrial sensing equipment. For many years it was also the tool that
+powered the author's personal website.
 
 In 2014, Dapper was submitted as a Perl module (App::Dapper) to
 [CPAN](http://cpan.org/) under the MIT license for anyone to use for any
@@ -109,12 +112,11 @@ You can compare this with the latest version from CPAN like this:
     $ cpan -D App::Dapper
 
     ...
-    M/MD/MDB/App-Dapper-0.13.tar.gz
-    /Library/Perl/5.16/App/Dapper.pm
-    Installed: 0.12
-    CPAN:      0.13  Not up to date
+    M/MD/MDB/App-Dapper-0.22.tar.gz
+    /Library/Perl/5.34/App/Dapper.pm
+    Installed: 0.21
+    CPAN:      0.22  Not up to date
     Mark Benson (MDB)
-    mark@markbenson.io
 
 In this example, you can see there is a newer version available. Upgrade
 like this:
@@ -125,7 +127,7 @@ Stable releases are available on CPAN, but development happens at
 [Github](https://github.com/markdbenson/dapper). If you like living on the
 edge, install from the latest development tip like this:
 
-    $ cpanm git://github.com/markdbenson/dapper.git
+    $ cpanm https://github.com/markdbenson/dapper.git
 
 A list of recent commits can also be
 [viewed on Github](https://github.com/markdbenson/dapper/commits/master).
@@ -186,12 +188,16 @@ using *Ctrl-C*.
     $ dapper watch
 
 Specifically, the dapper command watches all files in the current
-directory and all subdirectories and files except:
+directory and all subdirectories, including the project file
+(`_config.yml`), and notices files that are added or removed. It does not
+watch:
 
-* Files that begin with a period (.).
-* Files that begin with an underscore (_).
-* Files in the output directory (`_output`) or any subfolder of the output 
-  directory.
+* Files and directories that begin with a period (.), such as `.git`.
+* The output directory (`_output`, or whatever `output` is set to) and
+  everything in it.
+
+If a rebuild fails (for instance, because of a typo in a layout), the
+error is printed and Dapper keeps watching.
 
 ### Serve
 
@@ -208,6 +214,23 @@ the *-p* option:
 
     # Serve the site locally at http://localhost:9000
     $ dapper -p 9000 serve
+
+### Options
+
+Every command accepts these options. Directories given on the command line
+take precedence over the ones in `_config.yml`, which take precedence over
+the defaults.
+
+Option                     | Description
+---------------------------|------------------------------------------------------
+`-s`, `--source` *dir*     | Source directory (default: `source` in `_config.yml`, or `_source`)
+`-o`, `--output` *dir*     | Output directory (default: `output` in `_config.yml`, or `_output`)
+`-l`, `--layout` *dir*     | Layout directory (default: `layout` in `_config.yml`, or `_layout`)
+`-c`, `--config` *file*    | Project file (default: `_config.yml`)
+`-p`, `--port` *number*    | Port for `dapper serve` (default: `8000`)
+`-q`, `--quiet`            | Only print errors
+`-h`, `--help`             | Print usage
+`-v`, `--version`          | Print the version
 
 ### Help
 
@@ -431,9 +454,10 @@ Writing with Markdown allows you to separate the content and structure of
 your document from the formatting which allows you to focus on the actual
 writing.
 
-All source files must contain [YAML](http://yaml.org/) at the beginning.
-The YAML at the beginning of the source files is denoted by leading
-and trailing lines that each contain a sequence of three dashes. Example:
+Source files that are pages start with [YAML](http://yaml.org/) "front
+matter". The front matter is denoted by leading and trailing lines that
+each contain a sequence of three dashes, and must begin on the very first
+line of the file. Example:
 
 ```
 ---
@@ -448,6 +472,10 @@ The variables specified as YAML are available under the `page` namespace
 in layouts. The body of the page (`Here is the text of
 the post.`) in the above example, is available as `content` in Template
 Toolkit templates.
+
+Files in the source directory that do *not* start with front matter, such
+as images, PDFs, zip files or plain text, are copied to the same place in
+the output directory exactly as they are.
 
 Variable definitions in source files that carry special meaning are as
 follows:
@@ -484,7 +512,40 @@ follows:
       modification timestamp.
     - `:slug` - The title of the page with all non-ASCII characters
       removed, all non-word characters removed, all spaces converted to
-      hyphens (`-`), and converted to lowercase.
+      hyphens (`-`), and converted to lowercase. If the page has no
+      title, the source file name is used.
+
+  Tokens without a value (for instance `:category` on a page with no
+  categories) are removed along with their slash.
+
+  **Where the page is written.** Pages that have `categories`, or their
+  own `urlpattern` in their front matter, are written to the path their
+  URL describes. A URL that ends in `/` is written as `index.html` (or
+  `index` plus the page's `extension`) inside that directory. For
+  example, `_source/posts/0001.md` with:
+
+      ---
+      title: Foo Bar Baz
+      date: 2015-08-01T10:00:00
+      urlpattern: /:year/:month/:slug.html
+      ---
+
+  is written to `_output/2015/08/foo-bar-baz.html`, and `page.url` is
+  `/2015/08/foo-bar-baz.html`. All other pages keep the path of their
+  source file (`_source/about/index.md` becomes `_output/about/index.html`
+  with a `page.url` of `/about/`).
+
+* `categories: blog` puts the page in `site.categories.blog`. A list
+  (`categories: [news, blog]`) puts it in each; the first is used for
+  `:category`.
+
+* `date: 2014-05-02T10:30:00` sets the page's date. ISO 8601 date-times
+  (optionally with a time zone, e.g. `2014-05-02T10:30:00-05:00`), the
+  older `2014-05-02 10:30:00` format and plain dates (`2014-05-02`) are
+  accepted. Without a `date`, the file's modification time is used.
+
+* `layout: post` selects `_layout/post.html`. Without a `layout`,
+  `_layout/index.html` is used.
 
 Here is an example that shows a few different types of YAML definitions
 at the beginning of a source file and how to use those definitions in
@@ -540,7 +601,7 @@ Internals](#appendix-c-internals).
 Dapper depends on
 [MultiMarkdown](http://fletcherpenney.net/multimarkdown/). Or, more
 specifically, the Perl module implementation of MultiMarkdown ([Text::
-MultiMarkdown](http://search.cpan.org/~bobtfish/Text-MultiMarkdown/).
+MultiMarkdown](https://metacpan.org/pod/Text::MultiMarkdown).
 
 MultiMarkdown is based on the traditional definition of Markdown by
 John Gruber of [Daring Fireball](http://daringfireball.net), but adds
@@ -697,7 +758,7 @@ This is an example of an inline footnote.[^This is the *actual* footnote.]
 
 Layout templates in Dapper are based on a superset of the [Template
 Toolkit](http://template-toolkit.org/) v3 (TT3) mini language as implemented by
-[Template::Alloy](http://search.cpan.org/~rhandom/Template-Alloy/). 
+[Template::Alloy](https://metacpan.org/pod/Template::Alloy). 
 Although both Dapper and Template::Alloy are both written in Perl, you do 
 not need to know Perl in order to use them.
 
@@ -744,10 +805,58 @@ an example of printing the contents of `page.title`:
 ```
 
 In Dapper, there are two top-level variables (think of them as namespaces),
-which are `site` and `page`. All `site` variables are defined in
-`_config.yml`, and are available in layouts as `[% site.* %]`. All page
-variables (defined at the beginning of source files) are available in
-layouts as `[% page.* %]`.
+which are `site` and `page`. Everything defined in `_config.yml` is
+available in layouts as `[% site.* %]`, and everything defined in the front
+matter of a source file is available as `[% page.* %]`. Dapper adds the
+following variables of its own.
+
+**Site variables**
+
+Variable           | Description
+-------------------|-----------------------------------------------------------
+`site.pages`       | A list of every page, in source path order. Each item has all of the `page.*` variables below.
+`site.categories`  | A hash of category name to a list of its pages, oldest first, e.g. `[% FOR post IN site.categories.blog.reverse %]`.
+`site.time`        | The time the build started (a date; see [Dates](#dates)).
+`site.source`      | The source directory being used.
+`site.output`      | The output directory being used.
+`site.layout`      | The layout directory being used.
+`site.urlpattern`  | The default URL pattern (`/:category/:year/:month/:slug/`).
+`site.extension`   | The default output extension (`.html`).
+`site.ignore`      | The list of patterns for top-level files that are not copied to the output.
+
+**Page variables**
+
+Variable                      | Description
+------------------------------|------------------------------------------------
+`page.content`                | The body of the page, rendered from Markdown for `.md` files.
+`page.excerpt`                | The first paragraph of a Markdown page (`<p>...</p>`).
+`page.title`, `page.layout`, ...| Anything in the page's front matter.
+`page.url`                    | The page's URL relative to the site root, e.g. `/blog/2015/08/my-post/`.
+`page.slug`                   | The title, slugified (or the file name if there is no title).
+`page.id`                     | A number unique to the page within a build, in source path order.
+`page.date`                   | The page's date: its `date` setting, or the file's modification time.
+`page.year`, `page.month`, `page.day`, `page.hour`, `page.minute`, `page.second` | Parts of `page.date`, zero padded (e.g. `08`).
+`page.categories`             | The page's categories, as written in its front matter.
+`page.extension`              | The output extension for the page.
+`page.filename`               | The output file the page is written to.
+`page.dirname`                | The directory of `page.filename`.
+`page.source`                 | The source file the page came from.
+`page.source_file_extension`  | The source file's extension, e.g. `.md`.
+
+<a name="dates"></a>**Dates**
+
+`page.date` and `site.time` are [DateTime](https://metacpan.org/pod/DateTime)
+objects, so you can call DateTime methods on them, and they print as
+`2014-05-02T10:30:00`. They also have an `xmlschema` method that includes
+the time zone, which is what Atom feeds need:
+
+```
+<updated>[% page.date.xmlschema %]</updated>
+<p>Posted [% page.date.strftime('%B %e, %Y') %]</p>
+```
+
+Note that template filters only apply to text, not to objects, so use
+`[% page.date.xmlschema %]` rather than `[% page.date | date_to_xmlschema %]`.
 
 Example `_config.yml`:
 
@@ -869,7 +978,7 @@ Examples:
 ```
 
 For a full listing of operators, see
-[Template::Alloy::Operator](http://search.cpan.org/~rhandom/Template-Alloy/lib/Template/Alloy/Operator.pm).
+[Template::Alloy::Operator](https://metacpan.org/pod/Template::Alloy::Operator).
 
 ## Comments
 
@@ -913,7 +1022,7 @@ Filter               | Description
 `chunk(n)`           | Split string up into a list of chunks of text n chars wide.
 `collapse`           | Strip leading and trailing whitespace and collapse all other space to one space.
 `cos`                | Returns the cosine of the item.
-`date_to_xmlschema`  | [DSF] Convert a date to an XML-formatted version of the date that also includes the timezone
+`date_to_xmlschema`  | [DSF] Convert a date string to an XML Schema date that also includes the timezone. For `page.date` and `site.time` use `.xmlschema` instead (see [Dates](#dates))
 `defined`            | Always true - because the undef sub translates all undefs to ''.
 `eval`               | Process the string as though it was a template.
 `evaltt`             | Same as the eval filter.
@@ -941,12 +1050,12 @@ Filter               | Description
 `remove(p)`          | Same as replace, but is global and replaces the regular expression `p` with nothing.
 `repeat(n, s)`       | Repeat the item `n` times, separated with `s`. `s` is optional.
 `replace(p, q)`      | Globally replace all `p` with `q`. `p` and `q` may be strings or regular expressions. An optional third argument of `0` may be passed to turn off global replacement.
-`replace_last`       | [DSF] Replace the last occurrance of a string with another string
+`replace_last(a, b)` | [DSF] Replace the last occurrence of the string `a` with `b`
 `return`             | Returns the item from the inner most block, macro, or file. Similar to the `return` directive.
 `search(s)`          | Tests if the given pattern is in the string.
 `sin`                | Returns the sine of the item.
 `size`               | Always returns 1 for text variables.
-`smart`              | [DSF] Replace dashes with mdashes and ndashes
+`smart`              | [DSF] Replace `---` with an em dash and `--` with an en dash
 `split(s, n)`        | Splits the item on regular expression `s` and returns an array with the chunks. If `n` is passed, processing stops after the first `n` chunks.
 `sprintf(p, q, ...)` | Uses the pattern stored in self, and passes it to sprintf with the passed arguments. Opposite from the fmt vmethod.
 `sqrt`               | Returns the square root of the number.
@@ -1201,7 +1310,7 @@ Anonymous `block` definitions can be used for capturing chunks of text:
 ## Perl code
 
 You can execute perl code inside templates as of v0.19. In order to enable it,
-make sure that `EVAL_PERL` is defined in your environmeht. For instance:
+make sure that `EVAL_PERL` is defined in your environment. For instance:
 
     $ export EVAL_PERL=true
 
@@ -1618,7 +1727,7 @@ automatically available on github.io. Here are the steps:
 
 You can look for more information here:
 
-* [CPAN](http://search.cpan.org/dist/App-Dapper/)
+* [MetaCPAN](https://metacpan.org/dist/App-Dapper)
 
 * [Github](https://github.com/markdbenson/dapper)
 
@@ -1626,7 +1735,7 @@ You can look for more information here:
 
 * [Historical Releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
-* [Continuous Integration Status](https://travis-ci.org/markdbenson/dapper)
+* [Continuous Integration Status](https://github.com/markdbenson/dapper/actions)
 
 # Appendix A: Extending
 
@@ -1712,7 +1821,7 @@ Then, build your site and view the content locally at http://localhost:8000/debu
 
 # Appendix C: Internals
 
-There are two importatn aspects of Dapper internals that are important
+There are two important aspects of Dapper internals that are important
 to understand. The first is that source files are rendered using the
 templating system once, and then again after being combined with
 a layout. This means that layout variables and directives can be used in source
@@ -1723,8 +1832,11 @@ after all of the source files are rendered to output, Dapper does a
 copy operation which copies things like binary files, images, or other
 files that need to be transferred into the output directory but do not
 need to be processed by Markdown or the templating system. The rules for what to 
-copy are simple: everything is copied except for those things that match the
-site.ignore list. By default, the following ignore list is used:
+copy are simple: every top-level file and directory is copied except for
+those that match the site.ignore list. The source, layout and output
+directories and the project file are never copied. Copying is done by Dapper
+itself, not the shell, so file names with spaces or special characters are
+fine. By default, the following ignore list is used:
 
 ```
 ignore :
@@ -1746,13 +1858,17 @@ ignore :
 
 # Appendix D: Meta
 
-Dapper development environment:
-* perlbrew on osx to isolate and test against different versions of Perl
+Dapper development:
+
+* Run the tests with `prove -l t` (or `perl Makefile.PL && make test`).
+* Set `RELEASE_TESTING=1` to also check the POD.
+* GitHub Actions runs the tests on every push and pull request across a
+  range of Perl versions.
 
 # Author
 
 Dapper was written by Mark Benson
-[mark@markbenson.io](mailto:mark@markbenson.io).
+[mark@jayber.org](mailto:mark@jayber.org).
 
 # License and Copyright
 
