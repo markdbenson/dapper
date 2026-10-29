@@ -22,6 +22,7 @@ use JSON ();
 use App::Dapper::Markdown;
 use App::Dapper::Schema;
 use App::Dapper::Publish;
+use App::Dapper::Collections;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -467,6 +468,9 @@ sub transform {
     my @errors = @{$self->{schema_errors}};
     die "error: " . scalar(@errors) . " problem" . (@errors == 1 ? '' : 's') . " with front matter (see the _schema.yml files):\n"
         . join('', map { "  $_\n" } @errors) if @errors;
+
+    # category pages, tag pages and pagination
+    $self->attempt($self->{config}, sub { App::Dapper::Collections::generate($self) });
 }
 
 # sub render - Combine each page with its layout and write it to the output
@@ -511,6 +515,33 @@ sub render {
 
     # sitemap, feed and llms.txt
     $self->attempt($self->{config}, sub { $self->write_generated() });
+
+    # search index
+    $self->run_search() unless $self->{collect};
+}
+
+# sub run_search - With "search: true", run Pagefind (https://pagefind.app) over
+# the output directory to build a search index. "search_command" can name a
+# different command, such as "npx -y pagefind".
+
+sub run_search {
+    my ($self) = @_;
+
+    my $site = $self->{site};
+    return unless $site->{search} and App::Dapper::Publish::enabled($site, 'search');
+
+    my @command = defined $site->{search_command} ? split(' ', $site->{search_command}) : ('pagefind');
+    my $found = $command[0] =~ m{/} ? -x $command[0] : grep { -x catfile($_, $command[0]) } File::Spec->path();
+    if (not $found) {
+        $self->problem('warning', $self->{config},
+            "search: true needs Pagefind; install it (see https://pagefind.app) or set search_command");
+        return;
+    }
+
+    $self->_log("Building the search index with @command");
+    my @quiet = $self->{quiet} ? ('--quiet') : ();
+    system(@command, '--site', $self->{output}, @quiet) == 0
+        or $self->problem('warning', $self->{config}, "@command did not finish (exit status " . ($? >> 8) . ")");
 }
 
 # sub write_generated - Write the files Dapper makes for the whole site: the
@@ -795,6 +826,7 @@ sub reset_site {
         DateTime->now( time_zone => DateTime::TimeZone->new( name => 'local' ) ));
     $self->{site}->{pages} = [];
     $self->{site}->{categories} = {};
+    $self->{site}->{tags} = {};
     $self->{layout_content} = {};
     $self->{static_files} = [];
     $self->{id} = 0;
@@ -836,6 +868,7 @@ sub read_project {
 
     $self->{site}->{pages} = [];
     $self->{site}->{categories} = {};
+    $self->{site}->{tags} = {};
 
     $self->{data_dir} = canonpath($self->{site}->{data_dir});
     $self->{site}->{data} = -d $self->{data_dir} ? read_data($self->{data_dir}) : {};
@@ -1085,13 +1118,24 @@ sub build_inventory {
         @$list = sort { $a->{date} <=> $b->{date} } @$list;
     }
 
+    my @tags = ref $page{tags} eq 'ARRAY' ? @{$page{tags}}
+             : defined $page{tags}        ? ($page{tags})
+             : ();
+    for my $tag (grep { defined and !ref and length } @tags) {
+        my $list = $self->{site}->{tags}->{$tag} ||= [];
+        push @$list, \%page;
+        @$list = sort { $a->{date} <=> $b->{date} } @$list;
+    }
+
     push @{$self->{site}->{pages}}, \%page;
 }
 
 =head2 expand_urlpattern
 
 Takes a URL pattern (e.g. C</:category/:year/:month/:slug/>) and a hash of page
-values, and returns the URL with each C<:name> token replaced. Tokens with no
+values, and returns the URL with each C<:name> token replaced. The tokens are
+C<:category>, C<:tag>, C<:year>, C<:month>, C<:day>, C<:hour>, C<:minute>,
+C<:second> and C<:slug>. Tokens with no
 value are removed along with their slash.
 
 =cut
@@ -1100,7 +1144,7 @@ sub expand_urlpattern {
     my ($pattern, $page) = @_;
 
     my $url = defined $pattern ? $pattern : '';
-    for my $token (qw/ category year month day hour minute second slug /) {
+    for my $token (qw/ category tag year month day hour minute second slug /) {
         my $value = $page->{$token};
         $value = '' unless defined $value;
         $url =~ s/:$token\b/$value/g;
