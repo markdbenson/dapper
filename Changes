@@ -34,6 +34,9 @@ Revision history for App-Dapper
 
         Fixed: dates in the pre-0.19 "2014-05-02 10:30:00" format and plain
         dates are accepted again, and a bad date names the file.
+        Dates written without a time zone are now in the page's timezone
+        setting, the new site-wide timezone setting, or the local time zone
+        (xmlschema used to label them UTC).
 
         Fixed: layouts can be nested any number of levels, loops are
         reported, and front matter is removed from top-level layouts.
@@ -43,9 +46,12 @@ Revision history for App-Dapper
         (page.id values may differ from 0.21, which used directory order.)
 
         Fixed: the replace_last filter now receives its arguments and
-        matches literally; smart handles adjacent dashes; json no longer
-        double-encodes non-ASCII text. Dates gained an xmlschema method
-        ([% page.date.xmlschema %]) because filters do not apply to dates.
+        matches literally, and smart handles adjacent dashes. The built-in
+        json method ([% page.json(1) %], [% x | json %]) no longer
+        double-encodes non-ASCII text. Removed Dapper's own json filter,
+        which the built-in json always took precedence over. Dates gained
+        an xmlschema method ([% page.date.xmlschema %]) because filters do
+        not apply to dates.
 
         Fixed: watch now notices the config file and added or removed
         files, and keeps running when a rebuild fails.
@@ -59,6 +65,11 @@ Revision history for App-Dapper
         Perl version is now 5.10.
 
         Replaced the placeholder tests with a real test suite.
+
+        Documentation: added a table of contents, a step-by-step blog
+        tutorial, sections on source file types, assets, drafts and clean
+        builds, limitations, upgrading from 0.21, troubleshooting and
+        contributing, and refreshed the deployment instructions.
 
 0.21    2025-01-22
         Added CGI to list of module dependencies.
@@ -126,7 +137,7 @@ Revision history for App-Dapper
         Added Getopt::Mixed to list of build options.
 
 0.06    2014-02-20
-        Addded DateTime::Format::XSD dependency to resolve test errors.
+        Added DateTime::Format::XSD dependency to resolve test errors.
 
 0.05    2014-02-19
         Updated Makefile.PL dependencies to resolve errors for cpantesters.org.
