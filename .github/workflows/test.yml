@@ -65,10 +65,13 @@ jobs:
         run: |
           mkdir site && cd site
           PERL5LIB= /usr/bin/perl ../dist/dapper -v
-          PERL5LIB= /usr/bin/perl ../dist/dapper -q init --template blog
-          PERL5LIB= /usr/bin/perl ../dist/dapper check
-          PERL5LIB= /usr/bin/perl ../dist/dapper -q build
-          test -f _output/index.html
+          for t in default blog portfolio business docs; do
+            mkdir $t
+            PERL5LIB= /usr/bin/perl ../dist/dapper -C $t -q init --template $t
+            PERL5LIB= /usr/bin/perl ../dist/dapper -C $t check
+            PERL5LIB= /usr/bin/perl ../dist/dapper -C $t -q build
+            test -f $t/_output/index.html
+          done
 
   docker:
     name: docker image

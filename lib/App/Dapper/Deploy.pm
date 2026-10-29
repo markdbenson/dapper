@@ -81,7 +81,7 @@ sub run {
 
     $dapper->read_project();
     my $settings = $dapper->{site}->{deploy};
-    die "error: there is nowhere to deploy to; add deploy settings to $dapper->{config} (see \"dapper -h\" or the README)\n"
+    die "error: there is nowhere to deploy to; add deploy settings to $dapper->{config} (see \"Deploying with dapper deploy\" in the README)\n"
         unless ref $settings eq 'HASH' and %$settings;
 
     my @configured = grep { exists $settings->{$_} } @TARGETS;
