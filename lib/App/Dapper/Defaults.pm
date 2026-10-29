@@ -24,6 +24,7 @@ urlpattern : /:category/:year/:month/:slug/
 source : _source/
 output : _output/
 layout : _layout/
+data_dir : _data
 ignore :
     - ^\.
     - ^_

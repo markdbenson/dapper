@@ -20,6 +20,7 @@ use Template::Alloy;
 use JSON ();
 
 use App::Dapper::Markdown;
+use App::Dapper::Schema;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -457,8 +458,14 @@ sub transform {
 
     die "error: source directory \"$self->{source}\" does not exist\n" unless -d $self->{source};
 
+    $self->{schema_errors} = [];
+
     # recurse through the source tree, mapping each file to its output path
     $self->walk($self->{source}, $self->{output});
+
+    my @errors = @{$self->{schema_errors}};
+    die "error: " . scalar(@errors) . " problem" . (@errors == 1 ? '' : 's') . " with front matter (see the _schema.yml files):\n"
+        . join('', map { "  $_\n" } @errors) if @errors;
 }
 
 # sub render - Combine each page with its layout and write it to the output
@@ -759,6 +766,43 @@ sub read_project {
 
     $self->{site}->{pages} = [];
     $self->{site}->{categories} = {};
+
+    $self->{data_dir} = canonpath($self->{site}->{data_dir});
+    $self->{site}->{data} = -d $self->{data_dir} ? read_data($self->{data_dir}) : {};
+}
+
+# sub read_data(dir) - Read every YAML (.yml, .yaml) and JSON (.json) file in a
+# directory into a hash keyed by file name without the extension, so that
+# _data/authors.yml is available as site.data.authors. Directories become
+# nested hashes: _data/menus/main.yml is site.data.menus.main.
+
+sub read_data {
+    my ($dir) = @_;
+
+    my %data;
+
+    opendir(my $dh, $dir) or die "error: could not open data directory \"$dir\": $!\n";
+    my @entries = sort grep { !/^\./ } readdir($dh);
+    closedir($dh);
+
+    for my $entry (@entries) {
+        my $path = "$dir/$entry";
+        if (-d $path) {
+            $data{$entry} = read_data($path);
+        }
+        elsif ($entry =~ /^(.+)\.(?:ya?ml)$/i) {
+            my $value = eval { LoadFile($path) };
+            die "error: could not parse the data file \"$path\": $@" if $@;
+            $data{$1} = $value;
+        }
+        elsif ($entry =~ /^(.+)\.json$/i) {
+            my $value = eval { JSON->new->decode(App::Dapper::Utils::read_file($path)) };
+            die "error: could not parse the data file \"$path\": $@" if $@;
+            $data{$1} = $value;
+        }
+    }
+
+    return \%data;
 }
 
 # sub read_templates - Read the content of the layouts in the layout directory
@@ -818,22 +862,31 @@ sub expand_layout {
 # its output path to build_inventory. Dot files and directories are skipped.
 
 sub walk {
-    my ($self, $source_dir, $output_dir) = @_;
+    my ($self, $source_dir, $output_dir, $schema) = @_;
 
     opendir(my $dh, $source_dir)
         or die "error: could not open source directory \"$source_dir\": $!\n";
     my @entries = sort grep { !/^\./ } readdir($dh);
     closedir($dh);
 
+    # A _schema.yml applies to this directory and those below it, unless they
+    # have a schema of their own
+    my $schema_file = "$source_dir/_schema.yml";
+    if (-f $schema_file) {
+        $self->attempt($schema_file, sub { $schema = App::Dapper::Schema::load($schema_file) });
+    }
+
     for my $entry (@entries) {
+        next if $entry eq '_schema.yml';
+
         my $source = "$source_dir/$entry";
         my $output = "$output_dir/$entry";
 
         if (-d $source) {
-            $self->walk($source, $output);
+            $self->walk($source, $output, $schema);
         }
         elsif (-f $source) {
-            $self->build_inventory($source, $output);
+            $self->attempt($source, sub { $self->build_inventory($source, $output, $schema) });
         }
     }
 }
@@ -843,7 +896,7 @@ sub walk {
 # matter is recorded to be copied as it is instead.
 
 sub build_inventory {
-    my ($self, $source_file_name, $destination_file_name) = @_;
+    my ($self, $source_file_name, $destination_file_name, $schema) = @_;
 
     # Files without front matter (images, PDFs, etc.) are copied as they are
     if (not App::Dapper::Utils::has_frontmatter($source_file_name)) {
@@ -859,6 +912,20 @@ sub build_inventory {
         App::Dapper::Utils::split_frontmatter($source_content, $source_file_name);
     die "error: \"$source_file_name\" has front matter that is never closed with a line containing ---\n"
         unless defined $frontmatter;
+
+    # A page that does not match its schema is reported and goes no further
+    if ($schema) {
+        my @messages = App::Dapper::Schema::validate($schema, $frontmatter);
+        for my $message (@messages) {
+            if ($self->{collect}) {
+                $self->problem('error', $source_file_name, "$message (see $schema->{file})");
+            }
+            else {
+                push @{$self->{schema_errors}}, "$source_file_name: $message";
+            }
+        }
+        return if @messages;
+    }
 
     my %page = %$frontmatter;
     $page{content} = $content;
@@ -984,7 +1051,7 @@ sub copy {
     my ($self, $dir, $output) = @_;
 
     my @skip = map { abs_path($_) } grep { -e $_ }
-        ($self->{source}, $self->{output}, $self->{layout}, $self->{config});
+        ($self->{source}, $self->{output}, $self->{layout}, $self->{config}, $self->{data_dir});
     my %skip = map { $_ => 1 } grep { defined } @skip;
 
     opendir(my $dh, $dir) or die "error: could not open \"$dir\": $!\n";
