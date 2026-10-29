@@ -24,6 +24,7 @@ use App::Dapper::Schema;
 use App::Dapper::Publish;
 use App::Dapper::Collections;
 use App::Dapper::Check;
+use App::Dapper::MCP;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -391,16 +392,22 @@ Nothing is written if any of the files already exist. Example usage:
     my $d = App::Dapper->new();
     $d->init();
 
+Set C<< $d->{template} >> to C<blog> first for a complete starter blog (see
+L<App::Dapper::Init>).
+
 =cut
 
 sub init {
     my ($self) = @_;
 
+    local $App::Dapper::Utils::QUIET = $self->{quiet};
+
     App::Dapper::Init::init(
         $self->{source},
         $self->{output},
         $self->{layout},
-        $self->{config}
+        $self->{config},
+        $self->{template}
     );
 
     $self->_log("Project initialized.");
@@ -808,6 +815,19 @@ sub check {
     return App::Dapper::Check::run($self);
 }
 
+=head2 mcp
+
+Run a Model Context Protocol server on standard input and output, so that AI
+assistants can read, write, build and check the site. See
+L<App::Dapper::MCP>.
+
+=cut
+
+sub mcp {
+    my ($self) = @_;
+    App::Dapper::MCP::serve($self);
+}
+
 =head2 serve
 
 Serve the site locally. Pass in the port number. The port number will be used
@@ -992,9 +1012,7 @@ sub read_data {
 
     my %data;
 
-    opendir(my $dh, $dir) or die "error: could not open data directory \"$dir\": $!\n";
-    my @entries = sort grep { !/^\./ } readdir($dh);
-    closedir($dh);
+    my @entries = grep { !/^\./ } App::Dapper::Utils::read_dir($dir);
 
     for my $entry (@entries) {
         my $path = "$dir/$entry";
@@ -1024,10 +1042,8 @@ sub read_templates {
 
     my %raw;
 
-    opendir(my $dh, $self->{layout})
-        or die "error: could not open layout directory \"$self->{layout}\": $!\n";
-    my @files = sort grep { !/^\./ } readdir($dh);
-    closedir($dh);
+    die "error: could not open layout directory \"$self->{layout}\"\n" unless -d $self->{layout};
+    my @files = grep { !/^\./ } App::Dapper::Utils::read_dir($self->{layout});
 
     for my $file (@files) {
         my $path = "$self->{layout}/$file";
@@ -1075,10 +1091,8 @@ sub expand_layout {
 sub walk {
     my ($self, $source_dir, $output_dir, $schema) = @_;
 
-    opendir(my $dh, $source_dir)
-        or die "error: could not open source directory \"$source_dir\": $!\n";
-    my @entries = sort grep { !/^\./ } readdir($dh);
-    closedir($dh);
+    die "error: could not open source directory \"$source_dir\"\n" unless -d $source_dir;
+    my @entries = grep { !/^\./ } App::Dapper::Utils::read_dir($source_dir);
 
     # A _schema.yml applies to this directory and those below it, unless they
     # have a schema of their own
@@ -1276,12 +1290,7 @@ sub copy {
         ($self->{source}, $self->{output}, $self->{layout}, $self->{config}, $self->{data_dir});
     my %skip = map { $_ => 1 } grep { defined } @skip;
 
-    opendir(my $dh, $dir) or die "error: could not open \"$dir\": $!\n";
-    my @entries = sort readdir($dh);
-    closedir($dh);
-
-    ENTRY: for my $file (@entries) {
-        next if $file eq '.' or $file eq '..';
+    ENTRY: for my $file (App::Dapper::Utils::read_dir($dir)) {
 
         for my $i (@{ $self->{site}->{ignore} || [] }) {
             next ENTRY if ($file =~ m/$i/);

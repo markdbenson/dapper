@@ -141,6 +141,21 @@ subtest 'template errors in opted-in content name the file' => sub {
     like($@, qr{could not process the content of _source/a.md}, 'error names the file');
 };
 
+subtest 'file names with accented letters' => sub {
+    make_site({
+        '_source/café.md'           => "---\ntitle: Café\nlayout: résumé\n---\nBonjour.\n",
+        '_source/photos/été.txt'    => "summer\n",
+        'naïve.txt'                 => "top level\n",
+        '_data/équipe.yml'          => "- Zoë\n",
+        '_layout/résumé.html'       => "[% page.title %]|[% page.url %]|[% site.data.équipe.0 %]|[% page.content %]",
+    });
+    my $d = quiet_build();
+    is(scalar @{ $d->{site}->{pages} }, 1, 'the page is found');
+    is(slurp('_output/café.html'), "Café|/café.html|Zoë|<p>Bonjour.</p>\n", 'rendered with its layout, URL and data');
+    is(slurp('_output/photos/été.txt'), "summer\n", 'static file in the source copied');
+    is(slurp('_output/naïve.txt'), "top level\n", 'top-level file copied');
+};
+
 subtest 'fenced code blocks' => sub {
     make_site({
         '_source/index.md'   => "---\ntitle: x\n---\nText\n\n```perl\nmy \$x = 1 < 2;\n```\n",

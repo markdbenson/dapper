@@ -29,6 +29,8 @@ my $QUIET   = 0;
 my $HELP    = 0;
 my $VERSION = 0;
 my $JSON    = 0;
+my $TEMPLATE = undef;
+my $DIRECTORY = undef;
 
 =head1 SYNOPSIS
 
@@ -36,6 +38,9 @@ my $JSON    = 0;
 
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper init
+
+    # ...or with a complete starter blog
+    $ dapper init --template blog
 
     # Build the site
     $ dapper build
@@ -49,6 +54,9 @@ my $JSON    = 0;
 
     # Check the site for problems (add --json for a machine-readable report)
     $ dapper check
+
+    # Let AI assistants work on the site over MCP
+    $ dapper -C /path/to/site mcp
 
     # Get help on usage and switches
     $ dapper -h
@@ -94,6 +102,14 @@ Specify the port to use for the serve command. This option is only used for the 
 
 Only print errors.
 
+=item B<-C>, B<--directory>=I<directory>
+
+Run in this directory instead of the current one.
+
+=item B<-t>, B<--template>=I<name>
+
+For the init command: the starter project to create, C<default> or C<blog>.
+
 =item B<--json>
 
 For the check command: print the report as JSON.
@@ -113,6 +129,7 @@ Print the version and exit.
 sub dapper {
     my $d = App::Dapper->new($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->{quiet} = $QUIET;
+    $d->{template} = $TEMPLATE;
     return $d;
 }
 
@@ -171,10 +188,16 @@ GetOptions(
     'h|help'     => \$HELP,
     'v|version'  => \$VERSION,
     'json'       => \$JSON,
+    't|template=s' => \$TEMPLATE,
+    'C|directory=s' => \$DIRECTORY,
 ) or help(2);
 
 help(0) if $HELP;
 version() if $VERSION;
+
+if (defined $DIRECTORY) {
+    chdir $DIRECTORY or do { print STDERR "error: could not change to \"$DIRECTORY\": $!\n"; exit(1) };
+}
 
 my $COMMAND = shift @ARGV;
 help(0) if not defined $COMMAND or $COMMAND eq 'help';
@@ -185,6 +208,7 @@ my $switch = {
     'serve' => \&serve,
     'watch' => \&watch,
     'check' => \&check,
+    'mcp'   => sub { dapper()->mcp() },
 };
 
 if (not $switch->{$COMMAND}) {

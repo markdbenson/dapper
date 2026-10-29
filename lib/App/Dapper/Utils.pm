@@ -25,6 +25,9 @@ use Cwd qw/ abs_path /;
 use YAML::PP qw/ Load /;
 use DateTime::Format::XSD;
 
+# Set to a true value to stop create_file printing what it creates
+our $QUIET = 0;
+
 =head2 read_file
 
 Read a file and return a scalar with the file's contents, decoded as UTF-8.
@@ -221,7 +224,7 @@ sub create_file {
     $filename = canonpath $filename;
     die "error: \"$filename\" already exists\n" if -e $filename;
 
-    print "Creating $filename\n";
+    print "Creating $filename\n" unless $QUIET;
     write_file($filename, $content);
 }
 
@@ -239,6 +242,54 @@ sub create_dir {
     return if -d $dirname;
     make_path($dirname)
         or die "error: could not create directory \"$dirname\": $!\n";
+}
+
+=head2 name_chars
+
+Takes a file name as read from the file system (bytes) and returns it as
+characters, decoding UTF-8. Names that are not valid UTF-8 are returned as
+they are. Every name read from a directory goes through this, so that joining
+it to other text (such as a directory name from C<_config.yml>) doesn't
+mangle accented letters.
+
+=cut
+
+sub name_chars {
+    my ($name) = @_;
+    return $name unless defined $name;
+    utf8::decode($name);
+    return $name;
+}
+
+=head2 name_bytes
+
+Takes a file name and returns it as UTF-8 bytes, for code (like
+L<File::Find>) that joins it to names it reads itself.
+
+=cut
+
+sub name_bytes {
+    my ($name) = @_;
+    return $name unless defined $name;
+    utf8::encode($name) if utf8::is_utf8($name);
+    return $name;
+}
+
+=head2 read_dir
+
+Takes a directory and returns the names in it (without C<.> and C<..>), as
+characters, sorted. Dies if the directory can't be read.
+
+=cut
+
+sub read_dir {
+    my ($dir) = @_;
+
+    opendir(my $dh, $dir) or die "error: could not open \"$dir\": $!\n";
+    my @names = sort map { name_chars($_) } grep { $_ ne '.' and $_ ne '..' } readdir($dh);
+    closedir($dh);
+
+    return @names;
 }
 
 =head2 copy_recursive
@@ -267,17 +318,17 @@ sub copy_recursive {
     File::Find::find({
         no_chdir => 1,
         wanted   => sub {
-            my $path = $File::Find::name;
+            my $path = name_chars($File::Find::name);
             if (-d $path) {
                 my $abs = abs_path($path);
                 if (defined $abs and $skip{$abs}) { $File::Find::prune = 1; return; }
             }
-            my $relative = File::Spec->abs2rel($path, $source);
+            my $relative = File::Spec->abs2rel($path, name_chars(name_bytes($source)));
             my $target = $relative eq '.' ? $destination : catfile($destination, $relative);
             if (-d $path) { make_path($target) unless -d $target; }
             elsif (-f $path) { _copy_file($path, $target); push @copied, $target; }
         },
-    }, $source);
+    }, name_bytes($source));
 
     return @copied;
 }
