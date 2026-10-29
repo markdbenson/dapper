@@ -42,6 +42,9 @@ my $DIRECTORY = undef;
     # ...or with a complete starter blog
     $ dapper init --template blog
 
+    # List the starter templates
+    $ dapper templates
+
     # Build the site
     $ dapper build
 
@@ -111,7 +114,8 @@ Run in this directory instead of the current one.
 
 =item B<-t>, B<--template>=I<name>
 
-For the init command: the starter project to create, C<default> or C<blog>.
+For the init command: the starter to create, a built-in template (see
+C<dapper templates>), a directory, or a git URL.
 
 =item B<--json>
 
@@ -213,6 +217,7 @@ my $switch = {
     'check' => \&check,
     'mcp'   => sub { dapper()->mcp() },
     'agents' => sub { dapper()->agents() },
+    'templates' => sub { print map { sprintf("%-10s %s\n", $_, App::Dapper::Init::description($_)) } App::Dapper::Init::templates() },
 };
 
 if (not $switch->{$COMMAND}) {

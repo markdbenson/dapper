@@ -189,6 +189,9 @@ MD
 - **Images** need meaningful alt text: `![A loaf of sourdough on a board](/images/loaf.jpg)`.
 - When you rename or move a page, add a redirect from its old URL in
   `_data/redirects.yml` (`/old-url/: /new-url/`).
+- In layouts, don't name template variables after directives (`next`, `last`, `loop`,
+  `block`, `wrapper`, ...): Dapper's templates are case-insensitive, so they are read as
+  directives. Use names like `later` or `count` instead.
 - Don't edit or commit the output directory or `.dapper/`.
 MD
 

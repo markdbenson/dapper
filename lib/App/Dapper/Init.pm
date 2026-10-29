@@ -6,8 +6,8 @@ App::Dapper::Init - Starter projects for the "dapper init" command.
 
 =head1 DESCRIPTION
 
-C<dapper init> writes a starter project into the current directory. There are
-two templates:
+C<dapper init> writes a starter project into the current directory. These
+templates are built in (C<dapper templates> lists them):
 
 =over 4
 
@@ -22,10 +22,29 @@ pages, a page per post, category and tag pages, an Atom feed, a sitemap,
 SEO tags, a schema for posts, a menu from a data file, code highlighting,
 and optional search.
 
+=item B<portfolio>
+
+A grid of projects with images, and about and contact pages.
+
+=item B<business>
+
+A small business: services, opening hours, contact details and news, all from
+one data file.
+
+=item B<docs>
+
+Documentation with a sidebar, previous and next links, and code highlighting.
+
 =back
 
     $ dapper init
     $ dapper init --template blog
+    $ dapper init --template ./my-theme
+    $ dapper init --template https://github.com/someone/dapper-theme.git
+
+A template can also be a directory, or a git repository (cloned with C<git>),
+laid out like a project: its files are copied into the current directory
+(without C<.git>, the output directory or C<.dapper>).
 
 =cut
 
@@ -35,6 +54,12 @@ use strict;
 use warnings;
 
 use App::Dapper::Utils;
+use App::Dapper::Theme::Portfolio;
+use App::Dapper::Theme::Business;
+use App::Dapper::Theme::Docs;
+use File::Temp qw/ tempdir /;
+use File::Find ();
+use File::Basename ();
 
 my %TEMPLATES;
 
@@ -106,6 +131,9 @@ search: false
 FILE
 
     '_layout/index.html' => <<'FILE',
+---
+description: The page wrapper used by every page (header with the menu, footer, SEO tags, code highlighting, search)
+---
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -151,6 +179,7 @@ FILE
     '_layout/post.html' => <<'FILE',
 ---
 layout: index
+description: A blog post, with its date and tags
 ---
 <article data-pagefind-body>
   <h1>[% page.title | html %]</h1>
@@ -170,6 +199,7 @@ FILE
     '_layout/list.html' => <<'FILE',
 ---
 layout: index
+description: A list of posts, used for the category and tag pages
 ---
 <h1>[% page.title | html %]</h1>
 [% FOR post IN page.posts %]
@@ -316,6 +346,18 @@ FILE
 # Notes about each template, added to AGENTS.md below the part Dapper writes
 my %NOTES;
 
+my %DESCRIPTIONS = (
+    default => 'The smallest project: a project file, one layout and one page',
+    blog    => 'A blog: paginated home page, posts, category and tag pages, feed, a schema for posts',
+);
+
+for my $theme (qw/ Portfolio Business Docs /) {
+    my $class = "App::Dapper::Theme::$theme";
+    my $name = lc $theme;
+    $TEMPLATES{$name} = $class->files();
+    $DESCRIPTIONS{$name} = $class->description();
+}
+
 my $GITIGNORE = <<'FILE';
 _output/
 .dapper/
@@ -329,15 +371,74 @@ $NOTES{blog} = <<'NOTES';
 - The home page (`_source/index.html`) lists posts ten to a page, newest first.
 - The menu is `_data/menu.yml`.
 NOTES
+$NOTES{$_} = "App::Dapper::Theme::\u$_"->notes() for qw/ portfolio business docs /;
 
 =head2 templates
 
-Returns the names of the available templates.
+Returns the names of the built-in templates.
 
 =cut
 
 sub templates {
     return sort keys %TEMPLATES;
+}
+
+=head2 description
+
+Takes a template name and returns its one-line description.
+
+=cut
+
+sub description {
+    my ($name) = @_;
+    return $DESCRIPTIONS{$name};
+}
+
+=head2 template_files
+
+Takes a template: a built-in name, a directory, or a git URL. Returns a hash
+of the template's files (path to content) and its notes for C<AGENTS.md>.
+
+=cut
+
+sub template_files {
+    my ($template) = @_;
+
+    return ($TEMPLATES{$template}, $NOTES{$template}) if $TEMPLATES{$template};
+
+    my $dir = $template;
+    if ($template =~ m{^(?:https?|git|ssh)://|^git@|\.git$}) {
+        $dir = tempdir(CLEANUP => 1) . '/template';
+        system('git', 'clone', '--quiet', '--depth', '1', '--', $template, $dir) == 0
+            or die "error: could not clone the template from $template (is git installed, and is the URL right?)\n";
+    }
+    elsif (not -d $dir) {
+        die "error: there is no template called \"$template\"; use one of: " . join(', ', templates())
+          . ", a directory, or a git URL\n";
+    }
+
+    my %files;
+    my $root = App::Dapper::Utils::name_bytes($dir);
+    File::Find::find({
+        no_chdir => 1,
+        wanted   => sub {
+            my $path = App::Dapper::Utils::name_chars($File::Find::name);
+            (my $relative = $path) =~ s{^\Q$dir\E/?}{};
+            return if $relative eq '';
+            if (-d $File::Find::name) {
+                $File::Find::prune = 1 if $relative =~ m{^(?:\.git|_output|\.dapper|node_modules)$};
+                return;
+            }
+            return if $relative =~ m{(?:^|/)\.DS_Store$};
+            open(my $fh, '<:raw', $File::Find::name) or die "error: could not read $path: $!\n";
+            local $/;
+            $files{$relative} = { raw => scalar <$fh> };
+            close $fh;
+        },
+    }, $root);
+
+    die "error: the template $template has no files\n" unless %files;
+    return (\%files, undef);
 }
 
 =head2 init
@@ -354,8 +455,7 @@ sub init {
     my ($source, $output, $layout, $config, $template) = @_;
 
     $template = 'default' unless defined $template;
-    my $files = $TEMPLATES{$template}
-        or die "error: there is no template called \"$template\"; use one of: " . join(', ', templates()) . "\n";
+    my ($files, $notes) = template_files($template);
 
     # Map the template's paths onto the directories being used
     my %targets;
@@ -371,7 +471,19 @@ sub init {
     die "error: refusing to initialize, these files already exist: @existing\n" if @existing;
 
     for my $target (sort keys %targets) {
-        App::Dapper::Utils::create_file($target, $targets{$target});
+        my $content = $targets{$target};
+        if (ref $content) {
+            # A file from a template directory, copied byte for byte
+            print "Creating $target\n" unless $App::Dapper::Utils::QUIET;
+            my $dir = File::Basename::dirname($target);
+            App::Dapper::Utils::create_dir($dir) unless -d $dir;
+            open(my $fh, '>:raw', $target) or die "error: could not write $target: $!\n";
+            print $fh $content->{raw};
+            close $fh;
+        }
+        else {
+            App::Dapper::Utils::create_file($target, $content);
+        }
     }
 
     if (not -e '.gitignore') {
@@ -379,7 +491,7 @@ sub init {
         App::Dapper::Utils::create_file('.gitignore', $ignore);
     }
 
-    return $NOTES{$template};
+    return $notes;
 }
 
 1;
