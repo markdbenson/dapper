@@ -1,5 +1,7 @@
 package App::Dapper::Utils;
 
+=encoding utf8
+
 =head1 NAME
 
 App::Dapper::Utils - Common utility functions used throughout Dapper.
@@ -152,10 +154,12 @@ sub get_modified_time {
 
 =head2 slugify
 
-Takes an input string (e.g. the title of a blog post) and "slugifies" it, meaning that
-it removes non-ASCII characters, removes all non-word characters (e.g. '_', '-', etc.),
-removes leading and trailing whitespace, replaces spaces with hyphens, and converts to
-lowercase.
+Takes an input string (e.g. the title of a blog post) and "slugifies" it: accented
+letters are reduced to their plain form, other non-ASCII characters are removed,
+punctuation is removed (letters, digits, underscores, hyphens and spaces are kept),
+leading and trailing whitespace is trimmed, the result is lowercased, and runs of
+spaces and hyphens become a single hyphen. For example, "Café: A Story" becomes
+"cafe-a-story".
 
 =cut
 

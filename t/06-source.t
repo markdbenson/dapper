@@ -62,6 +62,22 @@ subtest 'dates' => sub {
     is(slurp('_output/day.html'), '2014-05-02 00:00', 'date only');
     is(slurp('_output/tz.html'), '2014-05-02 10:30', 'with a time zone');
 
+    make_site({
+        '_config.yml'      => "---\nname: x\ntimezone: America/Chicago\n",
+        '_source/site.md'  => "---\ndate: 2014-05-02T10:30:00\n---\nx\n",
+        '_source/page.md'  => "---\ndate: 2014-05-02T10:30:00\ntimezone: Asia/Tokyo\n---\nx\n",
+        '_source/given.md' => "---\ndate: 2014-05-02T10:30:00+02:00\n---\nx\n",
+        '_layout/index.html' => "[% page.date.xmlschema %]",
+    });
+    quiet_build();
+    is(slurp('_output/site.html'), '2014-05-02T10:30:00-05:00', 'site timezone applies to dates without one');
+    is(slurp('_output/page.html'), '2014-05-02T10:30:00+09:00', 'page timezone wins over the site');
+    is(slurp('_output/given.html'), '2014-05-02T10:30:00+02:00', 'an explicit offset is kept');
+
+    make_site({ '_source/a.md' => "---\ntimezone: Mars/Olympus\n---\nx\n" });
+    eval { quiet_build() };
+    like($@, qr{unknown time zone "Mars/Olympus" in "_source/a.md"}, 'bad time zone names the file');
+
     make_site({ '_source/bad.md' => "---\ndate: last tuesday\n---\nx\n" });
     eval { quiet_build() };
     like($@, qr{could not understand the date "last tuesday" in "_source/bad.md"}, 'bad date names the file');

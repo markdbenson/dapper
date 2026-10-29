@@ -17,6 +17,7 @@ use vars '$VERSION';
 use Exporter qw(import);
 
 use Template::Alloy;
+use JSON ();
 
 use Text::MultiMarkdown 'markdown';
 
@@ -377,7 +378,9 @@ sub new {
 
 =head2 init
 
-Initializes a new skeleton project in the current directory (of the calling script, and uses the defined source dir, output dir, layout dir, and config file. Example usage:
+Initializes a new skeleton project in the current directory of the calling
+script, using the source dir, layout dir and config file given to L</new>.
+Nothing is written if any of the files already exist. Example usage:
 
     use App::Dapper;
 
@@ -435,28 +438,36 @@ sub build {
 sub parse {
     my ($self) = @_;
 
-    # load program and project configuration
+    # load the defaults and the project file, and resolve the directories
     $self->read_project();
 
-    # replaces the values of h_template with actual content
+    # read the layouts, expanding layouts that are wrapped in other layouts
     $self->read_templates();
 }
 
-# sub transform - Walk the source and output directories and transform the text into the output files.
+# sub transform - Walk the source directory and record every page (and every
+# file to copy as it is) in the site hash.
 
 sub transform {
     my ($self) = @_;
 
     die "error: source directory \"$self->{source}\" does not exist\n" unless -d $self->{source};
 
-    # recurse through the project tree and generate output (combine src with templates)
+    # recurse through the source tree, mapping each file to its output path
     $self->walk($self->{source}, $self->{output});
 }
 
-# sub render - Render the internal hash of source files, config file, and layouts into the actual output files on disk.
+# sub render - Combine each page with its layout and write it to the output
+# directory, then copy the files that are not pages.
 
 sub render {
     my ($self) = @_;
+
+    # Template::Alloy's built-in json method returns UTF-8 bytes, which would
+    # be encoded a second time when the page is written. Give it encoders
+    # that return characters instead.
+    $Template::Alloy::VMethod::JSON  = JSON->new->allow_nonref->allow_unknown->allow_blessed->convert_blessed->canonical;
+    $Template::Alloy::VMethod::JSONP = JSON->new->allow_nonref->allow_unknown->allow_blessed->convert_blessed->canonical->pretty;
 
     my $tt = Template::Alloy->new({
         INCLUDE_PATH => $self->{layout},
@@ -520,6 +531,11 @@ http://localhost:<port>. Here is an example, using the default port 8000:
 The following is equivalent:
 
     $d->serve();
+
+This method only serves what is already in the output directory (as read from
+the project file, if there is one); it does not build the site. The C<dapper
+serve> command builds and watches the site in a separate process while it
+serves.
 
 =cut
 
@@ -649,7 +665,7 @@ sub read_project {
         $config = {} unless defined $config;
         die "error: \"$self->{config}\" must contain key: value pairs\n" unless ref $config eq 'HASH';
 
-        # Graft together
+        # Settings in the project file override the defaults
         @{$self->{site}}{keys %{$config}} = values %$config;
     }
     elsif (not $optional) {
@@ -721,7 +737,8 @@ sub expand_layout {
     return $master;
 }
 
-# sub walk - Walk the source directory and output directory and build the site hash.
+# sub walk - Walk the source directory in sorted order, passing each file and
+# its output path to build_inventory. Dot files and directories are skipped.
 
 sub walk {
     my ($self, $source_dir, $output_dir) = @_;
@@ -744,7 +761,9 @@ sub walk {
     }
 }
 
-# sub build_inventory - Build the internal hash of files, configurations, and layouts.
+# sub build_inventory - Read one source file and add it to the site hash as a
+# page, working out its date, slug, URL and output file. A file without front
+# matter is recorded to be copied as it is instead.
 
 sub build_inventory {
     my ($self, $source_file_name, $destination_file_name) = @_;
@@ -782,6 +801,14 @@ sub build_inventory {
         defined $page{date} ? $page{date} : App::Dapper::Utils::get_modified_time($source_file_name),
         $source_file_name);
 
+    # A date written without a time zone is in the page's time zone: its
+    # "timezone" setting, the site's, or the local time zone
+    my $zone = $page{timezone} || $self->{site}->{timezone} || 'local';
+    my $timezone = ref $zone ? $zone : eval { DateTime::TimeZone->new( name => $zone ) }
+        or die "error: unknown time zone \"$zone\" in \"$source_file_name\"\n";
+    $date->set_time_zone($timezone) if $date->time_zone->is_floating;
+    $page{timezone} = $timezone;
+
     $page{date}   = $date;
     $page{year}   = $date->year();
     $page{month}  = $date->month();
@@ -794,10 +821,6 @@ sub build_inventory {
     # hour, minute or second is less than 10
     $page{$_} < 10 and $page{$_} = '0' . $page{$_}
       for ('year', 'month', 'day', 'hour', 'minute', 'second');
-
-    if(not $page{timezone}) {
-        $page{timezone} = DateTime::TimeZone->new( name => 'local' );
-    }
 
     $page{id} = ++$self->{id};
 
@@ -874,7 +897,10 @@ sub expand_urlpattern {
     return $url;
 }
 
-# sub copy(sourcedir, outputdir) - Copies files and directories from <sourcedir> to <outputdir> as long as they do not match what is contained in $self->{site}->{ignore}. The source, output and layout directories and the project file are never copied.
+# sub copy(sourcedir, outputdir) - Copy the files and directories in <sourcedir>
+# to <outputdir>, except those whose names match a pattern in
+# $self->{site}->{ignore}. The source, output and layout directories and the
+# project file are never copied.
 
 sub copy {
     my ($self, $dir, $output) = @_;

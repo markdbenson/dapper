@@ -9,7 +9,14 @@ App::Dapper::Filters - Default template filters available to all projects.
 Filters contained here can be called from layout and source files using the
 filter/pipe mechanism of the template language. Example:
 
-    [% site.time | date_to_xmlschema %]
+    [% page.title | xml_escape %]
+
+They are in addition to the filters and methods built in to
+L<Template::Alloy>, such as C<html>, C<upper> and C<json>. These filters only
+apply to text: given a hash, a list or an object (such as a date) they print
+nothing. For dates use the C<xmlschema> method (C<[% page.date.xmlschema %]>);
+for dumping variables use the built-in C<json> method
+(C<[% page.json(1) %]>).
 
 =cut
 
@@ -18,7 +25,6 @@ use 5.010;
 use strict;
 use warnings;
 
-use JSON ();
 use DateTime::Format::XSD;
 
 use App::Dapper::Utils;
@@ -40,7 +46,6 @@ sub filters {
             return sub { replace_last($_[0], @args) };
         }, 1 ],
         'smart'             => \&smart,
-        'json'              => \&json,
     };
 }
 
@@ -69,9 +74,16 @@ sub xml_escape {
 
 =head2 date_to_xmlschema
 
-Convert a date to an XML-formattted version of the date that also includes
-the timezone. Accepts a L<DateTime> object (such as C<page.date> or
-C<site.time>) or a date string.
+Convert a date string to an XML Schema date that also includes the timezone.
+
+    [% "2014-05-02T10:30:00-05:00" | date_to_xmlschema %]
+
+Filters only apply to text in templates, so for C<page.date> and
+C<site.time> (which are date objects) use their C<xmlschema> method instead:
+
+    [% page.date.xmlschema %]
+
+Called from Perl, it also accepts a L<DateTime> object.
 
 =cut
 
@@ -119,21 +131,6 @@ sub smart {
     $input =~ s/(?<!-)--(?!-)/&ndash;/g;
 
     return $input;
-}
-
-=head2 json
-
-Turn a variable into a pretty-printed JSON string. Useful for debugging:
-
-    <pre>[% page | json %]</pre>
-
-=cut
-
-sub json {
-    my $input = shift;
-
-    my $json = JSON->new->allow_blessed->allow_nonref->pretty->canonical;
-    return $json->encode($input);
 }
 
 1;

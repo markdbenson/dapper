@@ -18,4 +18,12 @@ is($defaults->{output}, "_output", "default output directory");
 is($defaults->{config}, "_config.yml", "default config file name");
 isa_ok($defaults->{site}->{time}, 'DateTime', 'site.time');
 
+can_ok('App::Dapper', qw(new init build serve watch snapshot));
+
+# Every subroutine in the module must be compiled code, not swallowed by POD
+my $source = do { local $/; open my $fh, '<', $INC{'App/Dapper.pm'} or die $!; <$fh> };
+my @declared = $source =~ /^sub\s+(\w+)/mg;
+my @missing = grep { !App::Dapper->can($_) } @declared;
+is_deeply(\@missing, [], 'every sub in App::Dapper is defined');
+
 done_testing();

@@ -26,8 +26,6 @@ my $dt = DateTime->new(year => 2014, month => 5, day => 2, hour => 10, minute =>
 is(App::Dapper::Filters::date_to_xmlschema($dt), '2014-05-02T10:30:00+00:00', 'date_to_xmlschema with a DateTime');
 is(App::Dapper::Filters::date_to_xmlschema('2014-05-02T10:30:00-05:00'), '2014-05-02T10:30:00-05:00', 'date_to_xmlschema with a string');
 
-like(App::Dapper::Filters::json({ name => 'Café' }), qr/"name" : "Café"/, 'json keeps characters, not bytes');
-
 make_site({
     '_source/index.md'   => "---\ntitle: Café & Co\nlist: a, b, c\ndate: 2014-05-02T10:30:00\n---\nHi\n",
     '_layout/index.html' => join("\n",
@@ -36,6 +34,8 @@ make_site({
         '[% "x--y" | smart %]',
         '[% page.date.xmlschema %]',
         '[% page.date | date_to_xmlschema %]',
+        '[% page.title | json %]',
+        '[% page.json(1) %]',
     ),
 });
 quiet_build();
@@ -44,6 +44,8 @@ is($lines[0], 'Café &amp; Co', 'xml_escape in a template');
 is($lines[1], 'a, b and c', 'replace_last receives its arguments in a template');
 is($lines[2], 'x&ndash;y', 'smart in a template');
 like($lines[3], qr/^2014-05-02T10:30:00(?:[-+]\d\d:\d\d|Z)?$/, 'page.date.xmlschema in a template');
-is($lines[4], undef, 'filters do not apply to date objects, hence .xmlschema');
+is($lines[4], '', 'filters do not apply to date objects, hence .xmlschema');
+is($lines[5], '"Café & Co"', 'built-in json keeps characters, not bytes');
+like(slurp('_output/index.html'), qr/"title" : "Café & Co"/, 'built-in json(1) on a hash, pretty printed');
 
 done_testing();
