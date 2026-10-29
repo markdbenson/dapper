@@ -26,6 +26,7 @@ use App::Dapper::Collections;
 use App::Dapper::Check;
 use App::Dapper::MCP;
 use App::Dapper::Agents;
+use App::Dapper::Deploy;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -75,6 +76,9 @@ B<Dapper> allows you to transform simple text files into static websites. By ins
 
     # Check the site for problems, without touching the output directory
     $ dapper [-solc] check [--json]
+
+    # Build, check and publish the site (to S3, GitHub Pages, or a command)
+    $ dapper deploy [target] [--dry-run]
 
     # Let AI assistants read, write, check and build the site over MCP
     $ dapper -C /path/to/site mcp
@@ -890,6 +894,22 @@ sub agents {
     for my $file (App::Dapper::Agents::update($self)) {
         $self->_log("Wrote $file");
     }
+}
+
+=head2 deploy
+
+Build, check and publish the site to a target set under C<deploy> in
+C<_config.yml> (Amazon S3, GitHub Pages, or a command). Takes the target name
+(optional if there is only one) and options: C<dry_run>, C<force>,
+C<no_build>. See L<App::Dapper::Deploy>.
+
+    $d->deploy('s3', dry_run => 1);
+
+=cut
+
+sub deploy {
+    my ($self, $target, %options) = @_;
+    return App::Dapper::Deploy::run($self, $target, %options);
 }
 
 =head2 mcp

@@ -31,6 +31,9 @@ my $VERSION = 0;
 my $JSON    = 0;
 my $TEMPLATE = undef;
 my $DIRECTORY = undef;
+my $DRY_RUN  = 0;
+my $FORCE    = 0;
+my $NO_BUILD = 0;
 
 =head1 SYNOPSIS
 
@@ -57,6 +60,10 @@ my $DIRECTORY = undef;
 
     # Check the site for problems (add --json for a machine-readable report)
     $ dapper check
+
+    # Build, check and publish the site (to S3, GitHub Pages, or a command)
+    $ dapper deploy
+    $ dapper deploy --dry-run
 
     # Let AI assistants work on the site over MCP
     $ dapper -C /path/to/site mcp
@@ -116,6 +123,12 @@ Run in this directory instead of the current one.
 
 For the init command: the starter to create, a built-in template (see
 C<dapper templates>), a directory, or a git URL.
+
+=item B<--dry-run>, B<--force>, B<--no-build>
+
+For the deploy command: show what would happen without publishing; deploy even
+if C<dapper check> finds errors; deploy the output directory without building
+it first.
 
 =item B<--json>
 
@@ -197,6 +210,9 @@ GetOptions(
     'json'       => \$JSON,
     't|template=s' => \$TEMPLATE,
     'C|directory=s' => \$DIRECTORY,
+    'dry-run'    => \$DRY_RUN,
+    'force'      => \$FORCE,
+    'no-build'   => \$NO_BUILD,
 ) or help(2);
 
 help(0) if $HELP;
@@ -215,6 +231,7 @@ my $switch = {
     'serve' => \&serve,
     'watch' => \&watch,
     'check' => \&check,
+    'deploy' => sub { dapper()->deploy(shift(@ARGV), dry_run => $DRY_RUN, force => $FORCE, no_build => $NO_BUILD) },
     'mcp'   => sub { dapper()->mcp() },
     'agents' => sub { dapper()->agents() },
     'templates' => sub { print map { sprintf("%-10s %s\n", $_, App::Dapper::Init::description($_)) } App::Dapper::Init::templates() },
