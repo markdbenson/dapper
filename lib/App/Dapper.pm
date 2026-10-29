@@ -21,6 +21,7 @@ use JSON ();
 
 use App::Dapper::Markdown;
 use App::Dapper::Schema;
+use App::Dapper::Publish;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -488,6 +489,13 @@ sub render {
         EVAL_PERL => $ENV{EVAL_PERL} || 0,
     });
 
+    # Work out what layouts can show about each page before any are rendered
+    for my $page (@{$self->{site}->{pages}}) {
+        $page->{markdown_url} = App::Dapper::Publish::twin_url($page)
+            if App::Dapper::Publish::has_twin($self->{site}, $page);
+        $page->{seo} = App::Dapper::Publish::seo($self->{site}, $page);
+    }
+
     for my $page (@{$self->{site}->{pages}}) {
         $self->attempt($page->{source}, sub { $self->render_page($tt, $page) });
     }
@@ -500,6 +508,60 @@ sub render {
 
     # copy additional files and directories
     $self->copy(".", $self->{output});
+
+    # sitemap, feed and llms.txt
+    $self->attempt($self->{config}, sub { $self->write_generated() });
+}
+
+# sub write_generated - Write the files Dapper makes for the whole site: the
+# sitemap, the feed, and llms.txt and llms-full.txt. A page that writes the
+# same file wins, with a warning.
+
+sub write_generated {
+    my ($self) = @_;
+
+    my $site  = $self->{site};
+    my @pages = @{$site->{pages}};
+    my %taken = map { $_->{filename} => 1 } @pages;
+    my $has_url = defined $site->{url} && length $site->{url};
+
+    my $write = sub {
+        my ($path, $content) = @_;
+        my $file = canonpath(catfile($self->{output}, $path));
+        if ($taken{$file}) {
+            $self->problem('warning', $file, "a page in the source directory already writes $file, so Dapper did not generate one");
+            return;
+        }
+        $self->write_output($file, $content);
+        $self->_log("Wrote $file");
+    };
+
+    if (App::Dapper::Publish::enabled($site, 'llms_txt')) {
+        my @twins = grep { $_->{markdown_url} } @pages;
+        if (@twins) {
+            $write->('llms.txt', App::Dapper::Publish::llms_txt($site, \@twins));
+            $write->('llms-full.txt', App::Dapper::Publish::llms_full_txt($site, \@twins));
+        }
+    }
+
+    if (App::Dapper::Publish::enabled($site, 'sitemap')) {
+        if ($has_url) {
+            $write->('sitemap.xml', App::Dapper::Publish::sitemap($site, \@pages));
+        }
+        elsif ($self->{configured}->{sitemap}) {
+            $self->problem('warning', $self->{config}, "the sitemap needs the site's address; set url in $self->{config}");
+        }
+    }
+
+    if (my $settings = App::Dapper::Publish::feed_settings($site)) {
+        if ($has_url) {
+            my $pages = App::Dapper::Publish::feed_pages($site, $settings);
+            $write->($settings->{path}, App::Dapper::Publish::feed($site, $settings, $pages));
+        }
+        else {
+            $self->problem('warning', $self->{config}, "the feed needs the site's address; set url in $self->{config}");
+        }
+    }
 }
 
 # sub render_page - Render one page with its layout and write it to disk.
@@ -547,6 +609,12 @@ sub render_page {
 
     $self->write_output($page->{filename}, $output);
     $self->_log("Wrote $page->{filename}");
+
+    if ($page->{markdown_url}) {
+        my $twin = App::Dapper::Publish::twin_path($page);
+        $self->write_output($twin, App::Dapper::Publish::twin($self->{site}, $page));
+        $self->_log("Wrote $twin");
+    }
 }
 
 # sub write_output - Write a file to the output directory and remember that
@@ -741,6 +809,7 @@ sub read_project {
     my ($self, $optional) = @_;
 
     $self->reset_site();
+    $self->{configured} = {};
 
     if (-f $self->{config}) {
         my $config = eval { LoadFile($self->{config}) };
@@ -751,6 +820,7 @@ sub read_project {
 
         # Settings in the project file override the defaults
         @{$self->{site}}{keys %{$config}} = values %$config;
+        $self->{configured} = { map { $_ => 1 } keys %$config };
     }
     elsif (not $optional) {
         die "error: could not find the project file \"$self->{config}\". Run \"dapper init\" to create a new project.\n";

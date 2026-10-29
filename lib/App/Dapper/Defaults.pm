@@ -30,6 +30,9 @@ ignore :
     - ^_
     - ^dapper$
 extension : .html
+markdown_twins : true
+llms_txt : true
+sitemap : true
 DEFAULTS
 
 =head2 get_defaults
