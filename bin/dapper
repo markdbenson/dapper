@@ -58,6 +58,9 @@ my $DIRECTORY = undef;
     # Let AI assistants work on the site over MCP
     $ dapper -C /path/to/site mcp
 
+    # Write or update AGENTS.md, which explains the project to AI coding agents
+    $ dapper agents
+
     # Get help on usage and switches
     $ dapper -h
 
@@ -209,6 +212,7 @@ my $switch = {
     'watch' => \&watch,
     'check' => \&check,
     'mcp'   => sub { dapper()->mcp() },
+    'agents' => sub { dapper()->agents() },
 };
 
 if (not $switch->{$COMMAND}) {

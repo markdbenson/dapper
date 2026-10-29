@@ -25,6 +25,7 @@ use App::Dapper::Publish;
 use App::Dapper::Collections;
 use App::Dapper::Check;
 use App::Dapper::MCP;
+use App::Dapper::Agents;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -447,13 +448,18 @@ sub init {
 
     local $App::Dapper::Utils::QUIET = $self->{quiet};
 
-    App::Dapper::Init::init(
+    my $notes = App::Dapper::Init::init(
         $self->{source},
         $self->{output},
         $self->{layout},
         $self->{config},
         $self->{template}
     );
+
+    # Explain the new project to AI coding agents
+    for my $file (App::Dapper::Agents::update($self, $notes)) {
+        $self->_log("Creating $file");
+    }
 
     $self->_log("Project initialized.");
 }
@@ -858,6 +864,20 @@ L<App::Dapper::Check>.
 sub check {
     my ($self) = @_;
     return App::Dapper::Check::run($self);
+}
+
+=head2 agents
+
+Write or update C<AGENTS.md> (and a C<CLAUDE.md> if there isn't one), which
+explains the project to AI coding agents. See L<App::Dapper::Agents>.
+
+=cut
+
+sub agents {
+    my ($self) = @_;
+    for my $file (App::Dapper::Agents::update($self)) {
+        $self->_log("Wrote $file");
+    }
 }
 
 =head2 mcp

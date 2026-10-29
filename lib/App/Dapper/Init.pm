@@ -313,10 +313,22 @@ footer { margin-top: 3em; color: #666; font-size: 0.9em; }
 FILE
 };
 
+# Notes about each template, added to AGENTS.md below the part Dapper writes
+my %NOTES;
+
 my $GITIGNORE = <<'FILE';
 _output/
 .dapper/
 FILE
+
+$NOTES{blog} = <<'NOTES';
+## About this blog
+
+- Posts go in `_source/blog/`, one Markdown file each, with `layout: post`,
+  `categories: blog`, a `title`, a `date` and optional `tags`.
+- The home page (`_source/index.html`) lists posts ten to a page, newest first.
+- The menu is `_data/menu.yml`.
+NOTES
 
 =head2 templates
 
@@ -334,6 +346,7 @@ Initialize a Dapper project from a template. Takes the source directory,
 output directory, layout directory, config file name and template name
 (default: C<default>). Nothing is written if any of the files already exist.
 A C<.gitignore> for the output directory is added if there isn't one.
+Returns the template's notes for C<AGENTS.md>, if it has any.
 
 =cut
 
@@ -365,6 +378,8 @@ sub init {
         (my $ignore = $GITIGNORE) =~ s{^_output/}{$output/}m;
         App::Dapper::Utils::create_file('.gitignore', $ignore);
     }
+
+    return $NOTES{$template};
 }
 
 1;

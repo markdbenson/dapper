@@ -20,6 +20,12 @@ Other clients take a command and arguments in their configuration:
 
     { "command": "dapper", "args": ["-C", "/path/to/site", "mcp"] }
 
+=head2 Prompts and resources
+
+The server also offers prompts for common jobs (C<new_site>, C<write_post>,
+C<audit_site>) and resources an assistant can read: C<dapper://guide> (the
+same guide as C<AGENTS.md>), C<dapper://config> and C<dapper://schemas>.
+
 =head2 Tools
 
 =over 4
@@ -70,6 +76,7 @@ use IO::Handle;
 
 use App::Dapper::Utils;
 use App::Dapper::Schema;
+use App::Dapper::Agents;
 
 my $PROTOCOL_VERSION = '2025-06-18';
 
@@ -125,6 +132,33 @@ my @TOOLS = (
         description => 'Check the site for problems (front matter, schemas, layouts, templates, broken links) without touching the output directory.',
         inputSchema => { type => 'object', properties => {} },
     },
+);
+
+my @PROMPTS = (
+    {
+        name        => 'new_site',
+        description => 'Turn this project into a new site from a description of what it is for.',
+        arguments   => [ { name => 'description', description => 'What the site is for and what it should contain', required => JSON::true } ],
+    },
+    {
+        name        => 'write_post',
+        description => 'Write a new post or page that matches the site\'s schemas.',
+        arguments   => [
+            { name => 'topic', description => 'What the post is about', required => JSON::true },
+            { name => 'category', description => 'The category to put it in (optional)', required => JSON::false },
+        ],
+    },
+    {
+        name        => 'audit_site',
+        description => 'Check the whole site for problems and fix them.',
+        arguments   => [],
+    },
+);
+
+my @RESOURCES = (
+    { uri => 'dapper://guide',   name => 'Guide to this site', description => 'How this Dapper project works: commands, folders, layouts, schemas and rules (the same as AGENTS.md).', mimeType => 'text/markdown' },
+    { uri => 'dapper://config',  name => 'Project file',       description => 'The site\'s settings (_config.yml).', mimeType => 'text/yaml' },
+    { uri => 'dapper://schemas', name => 'Schemas',            description => 'The front matter rules for each folder, as JSON.', mimeType => 'application/json' },
 );
 
 =head2 serve
@@ -184,7 +218,7 @@ sub handle {
         my $requested = $params->{protocolVersion};
         $result = {
             protocolVersion => defined $requested ? $requested : $PROTOCOL_VERSION,
-            capabilities    => { tools => {} },
+            capabilities    => { tools => {}, prompts => {}, resources => {} },
             serverInfo      => { name => 'dapper', version => "$App::Dapper::VERSION" },
             instructions    => 'Dapper builds a static website from Markdown and HTML files with YAML front matter. '
                              . 'Use site_info first to learn the site\'s schemas and categories, write_page to create pages '
@@ -197,6 +231,24 @@ sub handle {
     elsif ($method eq 'tools/list') {
         $result = { tools => \@TOOLS };
     }
+    elsif ($method eq 'prompts/list') {
+        $result = { prompts => \@PROMPTS };
+    }
+    elsif ($method eq 'prompts/get') {
+        my $prompt = get_prompt($dapper, $params->{name}, ref $params->{arguments} eq 'HASH' ? $params->{arguments} : {});
+        return { jsonrpc => '2.0', id => $id, error => { code => -32602, message => "There is no prompt called \"" . (defined $params->{name} ? $params->{name} : '') . "\"" } }
+            unless $prompt;
+        $result = $prompt;
+    }
+    elsif ($method eq 'resources/list') {
+        $result = { resources => \@RESOURCES };
+    }
+    elsif ($method eq 'resources/read') {
+        my $contents = read_resource($dapper, $params->{uri});
+        return { jsonrpc => '2.0', id => $id, error => { code => -32002, message => "Resource not found: " . (defined $params->{uri} ? $params->{uri} : '') } }
+            unless $contents;
+        $result = { contents => [ $contents ] };
+    }
     elsif ($method eq 'tools/call') {
         $result = call_tool($dapper, $params->{name}, ref $params->{arguments} eq 'HASH' ? $params->{arguments} : {});
     }
@@ -205,6 +257,79 @@ sub handle {
     }
 
     return { jsonrpc => '2.0', id => $id, result => $result };
+}
+
+=head2 get_prompt
+
+Takes a Dapper object, a prompt name and its arguments, and returns the
+prompt's messages, or nothing if there is no such prompt.
+
+=cut
+
+sub get_prompt {
+    my ($dapper, $name, $args) = @_;
+
+    return unless defined $name;
+
+    my $steps = "Work through the dapper MCP tools: start with site_info to learn the schemas, "
+              . "categories and layouts; use write_page for every page (it refuses pages that don't match "
+              . "their schema, so fix what it reports); run check until it reports no errors; then build.";
+
+    my $text;
+    if ($name eq 'new_site') {
+        my $description = defined $args->{description} ? $args->{description} : '';
+        $text = "Turn this Dapper project into this site:\n\n$description\n\n"
+              . "Write the home page and the other pages the site needs, with a title and a description on each, "
+              . "and replace any placeholder text from the starter template. Keep to the existing layouts and schemas. "
+              . "Read the dapper://guide resource for this project's conventions. $steps";
+    }
+    elsif ($name eq 'write_post') {
+        my $topic = defined $args->{topic} ? $args->{topic} : '';
+        my $category = defined $args->{category} && length $args->{category} ? " in the \"$args->{category}\" category" : '';
+        $text = "Write a new post$category about:\n\n$topic\n\n"
+              . "Use today's date, a clear title, a description of about 150 characters, and tags that are already "
+              . "in use where they fit. Write it in Markdown, with a strong first paragraph (it becomes the excerpt). $steps";
+    }
+    elsif ($name eq 'audit_site') {
+        $text = "Audit this Dapper site. Run check and fix every error it reports. Then look for pages without a "
+              . "description, placeholder text, outdated dates, and broken or vague links, and fix what you can with "
+              . "write_page. Finish with check and build, and summarize what you changed. $steps";
+    }
+    else {
+        return;
+    }
+
+    return {
+        description => (grep { $_->{name} eq $name } @PROMPTS)[0]->{description},
+        messages    => [ { role => 'user', content => { type => 'text', text => $text } } ],
+    };
+}
+
+=head2 read_resource
+
+Takes a Dapper object and a resource URI, and returns its contents, or
+nothing if there is no such resource.
+
+=cut
+
+sub read_resource {
+    my ($dapper, $uri) = @_;
+
+    return unless defined $uri;
+
+    if ($uri eq 'dapper://guide') {
+        return { uri => $uri, mimeType => 'text/markdown', text => App::Dapper::Agents::guide($dapper) };
+    }
+    if ($uri eq 'dapper://config') {
+        my $text = -f $dapper->{config} ? App::Dapper::Utils::read_file($dapper->{config}) : '';
+        return { uri => $uri, mimeType => 'text/yaml', text => $text };
+    }
+    if ($uri eq 'dapper://schemas') {
+        my $info = site_info($dapper);
+        return { uri => $uri, mimeType => 'application/json', text => JSON->new->canonical->pretty->encode($info->{schemas}) };
+    }
+
+    return;
 }
 
 =head2 call_tool
