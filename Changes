@@ -1,5 +1,94 @@
 Revision history for App-Dapper
 
+1.00    2026-10-29
+        Dapper 1.0 makes page content safe by default, adds what a modern
+        static site needs (schemas, data files, pagination, feeds,
+        sitemaps, SEO tags), and makes sites easy for AI tools to read and
+        for AI assistants to work on. It adds starter themes and makes
+        publishing one command. See "Upgrading to 1.0" in the README.
+
+        Changed: page content is no longer run as template code unless the
+        page sets template: true. Layouts always are. Set
+        templates_in_content: true in _config.yml for the old behavior,
+        where content and _config.yml values were templates too.
+
+        Added: front matter schemas. A _schema.yml in a source directory
+        lists required fields and types, allowed values, patterns and
+        limits, and every problem on every page is reported at once.
+
+        Added: data files. YAML and JSON files in _data are available as
+        site.data.
+
+        Added: tags (site.tags), pagination (paginate in front matter, with
+        a paginator), and generated category and tag pages
+        (category_pages and tag_pages in _config.yml).
+
+        Added: a sitemap (/sitemap.xml), an Atom feed (feed in
+        _config.yml), and page.seo with a description, canonical link,
+        Open Graph and Twitter tags and JSON-LD structured data.
+
+        Added: a Markdown copy of each Markdown page next to its HTML, and
+        /llms.txt and /llms-full.txt listing them, for AI tools.
+
+        Added: dapper check, which finds broken links, front matter and
+        schema problems, missing layouts, template errors and pages
+        written to the same file, without touching the output directory.
+        --json prints the report for scripts and AI assistants.
+
+        Added: dapper mcp, a Model Context Protocol server that lets AI
+        assistants list, read, write (checked against schemas), check and
+        build pages.
+
+        Added: dapper init --template blog, a complete starter blog.
+
+        Added: fenced code blocks (```perl ... ```) with language-* classes
+        for client-side highlighting, which Text::MultiMarkdown did not
+        support, and search with Pagefind (search: true).
+
+        Added: builds remove files left over from earlier builds (only
+        files Dapper wrote; clean: false turns it off), and dapper serve
+        reloads pages in the browser after each rebuild.
+
+        Added: -C/--directory to run in another directory.
+
+        Added: new ways to install: a single file that runs with any Perl
+        5.10+ (attached to each GitHub release), a Docker image
+        (ghcr.io/markdbenson/dapper) and a Homebrew formula.
+
+        Added: AGENTS.md. dapper init writes a guide to the project for AI
+        coding agents, generated from the project (commands, folders,
+        layouts, the rules in every schema, categories and tags in use),
+        and a CLAUDE.md that points Claude Code at it. dapper agents
+        updates it, keeping notes outside its markers. Layouts can
+        describe themselves with a description in their front matter.
+
+        Added: MCP prompts (new_site, write_post, audit_site), resources
+        (dapper://guide, dapper://config, dapper://schemas), and tools:
+        rename_page (adds a redirect from the old URL), read_layout and
+        write_layout (a layout is parsed before it is saved).
+
+        Added: redirects, from redirects in _config.yml or
+        _data/redirects.yml, written as small pages at the old URLs.
+
+        Added: three themes alongside blog: portfolio, business (services,
+        hours and contact details from one data file, with LocalBusiness
+        structured data) and docs (a sidebar from a data file, with
+        previous and next links). dapper init --template also takes a
+        directory or a git URL, and dapper templates lists the built-ins.
+
+        Added: dapper deploy, which builds, checks and publishes the site
+        to Amazon S3 (with the AWS CLI, and an optional CloudFront
+        invalidation), GitHub Pages (keeping the branch's history), or a
+        command of your own. It refuses to deploy a site with errors unless
+        --force is given; --dry-run shows what would happen.
+
+        Added: ROADMAP.md.
+
+        Fixed: files with accented letters in their names were skipped or
+        copied to the wrong name.
+
+        Fixed: two pages writing the same output file is now an error.
+
 0.22    2026-10-29
         Fixed: settings in _config.yml (source, output, layout) are now
         honoured by every command. Command line options override the

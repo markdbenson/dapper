@@ -24,11 +24,15 @@ urlpattern : /:category/:year/:month/:slug/
 source : _source/
 output : _output/
 layout : _layout/
+data_dir : _data
 ignore :
     - ^\.
     - ^_
     - ^dapper$
 extension : .html
+markdown_twins : true
+llms_txt : true
+sitemap : true
 DEFAULTS
 
 =head2 get_defaults

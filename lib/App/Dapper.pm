@@ -19,7 +19,14 @@ use Exporter qw(import);
 use Template::Alloy;
 use JSON ();
 
-use Text::MultiMarkdown 'markdown';
+use App::Dapper::Markdown;
+use App::Dapper::Schema;
+use App::Dapper::Publish;
+use App::Dapper::Collections;
+use App::Dapper::Check;
+use App::Dapper::MCP;
+use App::Dapper::Agents;
+use App::Dapper::Deploy;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -40,11 +47,11 @@ my $DEFAULT_PORT = 8000;
 
 =head1 VERSION
 
-Version 0.22
+Version 1.00
 
 =cut
 
-our $VERSION = '0.22';
+our $VERSION = '1.00';
 
 our @EXPORT = qw($VERSION);
 
@@ -55,6 +62,9 @@ B<Dapper> allows you to transform simple text files into static websites. By ins
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper [-solc] init
 
+    # ...or with a complete starter blog
+    $ dapper init --template blog
+
     # Build the site
     $ dapper [-solc] build
 
@@ -63,6 +73,15 @@ B<Dapper> allows you to transform simple text files into static websites. By ins
 
     # Rebuild the site if anything (source, layout dirs; config file) changes
     $ dapper [-solc] watch
+
+    # Check the site for problems, without touching the output directory
+    $ dapper [-solc] check [--json]
+
+    # Build, check and publish the site (to S3, GitHub Pages, or a command)
+    $ dapper deploy [target] [--dry-run]
+
+    # Let AI assistants read, write, check and build the site over MCP
+    $ dapper -C /path/to/site mcp
 
     # Get help on usage and switches
     $ dapper -h
@@ -180,6 +199,15 @@ Files in the source directory that do not start with front matter (images,
 PDFs, plain text files and so on) are copied to the output directory as they
 are.
 
+A page's content is not run as template code unless the page sets
+C<template: true>; layouts always are. C<templates_in_content: true> in
+C<_config.yml> restores the behavior of Dapper before 1.0, where all content
+and C<_config.yml> values were templates too.
+
+A C<_schema.yml> file in a source directory describes the front matter its
+pages must have; see L<App::Dapper::Schema>. YAML and JSON files in C<_data>
+are available as C<site.data>.
+
 =item B<_layout/index.html>
 
 Layout files are processed using the template language provided by
@@ -243,6 +271,9 @@ Everything defined in C<_config.yml>, plus:
     site.time         The time the build started (a DateTime)
     site.pages        Every page, in source path order
     site.categories   A hash of category name to its pages, sorted by date
+    site.tags         A hash of tag to its pages, sorted by date
+    site.data         The contents of the files in _data
+    site.category_pages, site.tag_pages   URLs of generated list pages
     site.source       The resolved source directory
     site.output       The resolved output directory
     site.layout       The resolved layout directory
@@ -265,6 +296,10 @@ Everything defined in the page's front matter, plus:
     page.filename     The output file the page is written to
     page.dirname      The directory of page.filename
     page.source_file_extension   The source file's extension (e.g. .md)
+    page.seo          Tags for <head>: description, canonical, Open Graph, JSON-LD
+    page.markdown_url The URL of the page's Markdown copy, if it has one
+    page.posts        On a generated category or tag page: its pages
+    paginator         On a paginated page; see App::Dapper::Collections
 
 =back
 
@@ -275,6 +310,14 @@ their URL describes. The pattern may use C<:category>, C<:year>, C<:month>,
 C<:day>, C<:hour>, C<:minute>, C<:second> and C<:slug>. A URL ending in C</>
 is written as C<index> plus the page extension inside that directory. Other
 pages keep the path of their source file, with the page extension.
+
+=head2 Generated files
+
+After the pages, Dapper writes a sitemap, a feed (if C<feed> is set),
+Markdown copies of pages and C<llms.txt> (see L<App::Dapper::Publish>), can
+generate category and tag pages and paginate lists (see
+L<App::Dapper::Collections>), and can build a search index with Pagefind.
+Files that an earlier build wrote and this one did not are removed.
 
 =head2 Options
 
@@ -305,6 +348,18 @@ Specify the port to use for the serve command. Defaults to 8000.
 =item B<-q>, B<--quiet>
 
 Only print errors.
+
+=item B<-C>, B<--directory>=I<directory>
+
+Run in this directory instead of the current one.
+
+=item B<-t>, B<--template>=I<name>
+
+For the init command: the starter project to create, C<default> or C<blog>.
+
+=item B<--json>
+
+For the check command: print the report as JSON.
 
 =item B<-h>, B<--help>
 
@@ -387,17 +442,28 @@ Nothing is written if any of the files already exist. Example usage:
     my $d = App::Dapper->new();
     $d->init();
 
+Set C<< $d->{template} >> to C<blog> first for a complete starter blog (see
+L<App::Dapper::Init>).
+
 =cut
 
 sub init {
     my ($self) = @_;
 
-    App::Dapper::Init::init(
+    local $App::Dapper::Utils::QUIET = $self->{quiet};
+
+    my $notes = App::Dapper::Init::init(
         $self->{source},
         $self->{output},
         $self->{layout},
-        $self->{config}
+        $self->{config},
+        $self->{template}
     );
+
+    # Explain the new project to AI coding agents
+    for my $file (App::Dapper::Agents::update($self, $notes)) {
+        $self->_log("Creating $file");
+    }
 
     $self->_log("Project initialized.");
 }
@@ -426,11 +492,16 @@ A Dapper object may be built any number of times; each build starts fresh.
 sub build {
     my($self) = @_;
 
+    $self->{problems} = [];
+    $self->{written} = {};
+    $self->{page_owner} = {};
+
     $self->parse();
     $self->transform();
     $self->render();
 
     $self->_log("Project built.");
+    return $self;
 }
 
 # sub parse - Parse the source directory, config file, and templates.
@@ -453,8 +524,17 @@ sub transform {
 
     die "error: source directory \"$self->{source}\" does not exist\n" unless -d $self->{source};
 
+    $self->{schema_errors} = [];
+
     # recurse through the source tree, mapping each file to its output path
     $self->walk($self->{source}, $self->{output});
+
+    my @errors = @{$self->{schema_errors}};
+    die "error: " . scalar(@errors) . " problem" . (@errors == 1 ? '' : 's') . " with front matter (see the _schema.yml files):\n"
+        . join('', map { "  $_\n" } @errors) if @errors;
+
+    # category pages, tag pages and pagination
+    $self->attempt($self->{config}, sub { App::Dapper::Collections::generate($self) });
 }
 
 # sub render - Combine each page with its layout and write it to the output
@@ -477,44 +557,372 @@ sub render {
         EVAL_PERL => $ENV{EVAL_PERL} || 0,
     });
 
+    # Work out what layouts can show about each page before any are rendered
     for my $page (@{$self->{site}->{pages}}) {
+        $page->{markdown_url} = App::Dapper::Publish::twin_url($page)
+            if App::Dapper::Publish::has_twin($self->{site}, $page);
+        $page->{seo} = App::Dapper::Publish::seo($self->{site}, $page);
+    }
 
-        if (not $page->{layout}) {
-            $page->{layout} = "index";
-        }
-
-        my $layout = $self->{layout_content}->{$page->{layout}};
-        die "error: $page->{source} uses the layout \"$page->{layout}\", but there is no such file in $self->{layout}\n"
-            unless defined $layout;
-
-        my %tags = ();
-        $tags{site} = $self->{site};
-        $tags{page} = $page;
-
-        my $destination1;
-
-        $tt->process(\$layout, \%tags, \$destination1)
-            || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
-
-        # Parse and render once more to make sure that any template statements
-        # in the source file (and in site variables) also get rendered
-        my $destination;
-
-        $tt->process(\$destination1, \%tags, \$destination)
-            || die "error: could not process $page->{source} with layout $page->{layout} (2nd pass): " . $tt->error() . "\n";
-
-        App::Dapper::Utils::write_file($page->{filename}, $destination);
-        $self->_log("Wrote $page->{filename}");
+    for my $page (@{$self->{site}->{pages}}) {
+        $self->attempt($page->{source}, sub { $self->render_page($tt, $page) });
     }
 
     # copy source files that have no front matter (images, etc.) as they are
     for my $file (@{$self->{static_files}}) {
-        App::Dapper::Utils::copy_recursive($file->{source}, $file->{output});
+        $self->record_written(App::Dapper::Utils::copy_recursive($file->{source}, $file->{output}));
         $self->_log("Copied $file->{source}");
     }
 
     # copy additional files and directories
     $self->copy(".", $self->{output});
+
+    # sitemap, feed and llms.txt
+    $self->attempt($self->{config}, sub { $self->write_generated() });
+
+    # with live reload on, a new value here tells open pages to reload
+    if ($self->{live_reload}) {
+        $self->write_output(catfile($self->{output}, '.dapper-reload'), time() . '-' . int(rand(1_000_000)) . "\n");
+    }
+
+    # remove what earlier builds wrote that this one did not
+    $self->clean_output() unless $self->{collect};
+
+    # search index
+    $self->run_search() unless $self->{collect};
+}
+
+# sub run_search - With "search: true", run Pagefind (https://pagefind.app) over
+# the output directory to build a search index. "search_command" can name a
+# different command, such as "npx -y pagefind".
+
+sub run_search {
+    my ($self) = @_;
+
+    my $site = $self->{site};
+    return unless $site->{search} and App::Dapper::Publish::enabled($site, 'search');
+
+    my @command = defined $site->{search_command} ? split(' ', $site->{search_command}) : ('pagefind');
+    my $found = $command[0] =~ m{/} ? -x $command[0] : grep { -x catfile($_, $command[0]) } File::Spec->path();
+    if (not $found) {
+        $self->problem('warning', $self->{config},
+            "search: true needs Pagefind; install it (see https://pagefind.app) or set search_command");
+        return;
+    }
+
+    $self->_log("Building the search index with @command");
+    my @quiet = $self->{quiet} ? ('--quiet') : ();
+    system(@command, '--site', $self->{output}, @quiet) == 0
+        or $self->problem('warning', $self->{config}, "@command did not finish (exit status " . ($? >> 8) . ")");
+}
+
+# sub clean_output - Remove files that an earlier build wrote to the output
+# directory but this build did not (the output of a page that was renamed or
+# deleted, say). Only files Dapper itself wrote are ever removed: the list is
+# kept in .dapper/manifest.json in the project directory. "clean: false" in
+# the project file turns this off.
+
+sub clean_output {
+    my ($self) = @_;
+
+    return unless App::Dapper::Publish::enabled($self->{site}, 'clean');
+
+    my $manifest_file = catfile('.dapper', 'manifest.json');
+    my $output = abs_path($self->{output});
+    return unless defined $output;
+
+    my $manifest = {};
+    if (-f $manifest_file) {
+        $manifest = eval { JSON->new->decode(App::Dapper::Utils::read_file($manifest_file)) } || {};
+        $manifest = {} unless ref $manifest eq 'HASH';
+    }
+
+    my $old = $manifest->{$output};
+    my $removed = 0;
+    my %dirs;
+    if (ref $old eq 'ARRAY') {
+        for my $path (@$old) {
+            next if $self->{written}->{$path};
+            next if $path =~ m{(?:^|/)\.\.(?:/|$)} or $path =~ m{^/};
+            my $file = catfile($self->{output}, $path);
+            next unless -f $file;
+            unlink $file or next;
+            $removed++;
+            (my $dir = $path) =~ s{/?[^/]*$}{};
+            while (length $dir) {
+                $dirs{$dir} = 1;
+                $dir =~ s{/?[^/]*$}{};
+            }
+        }
+    }
+
+    # Remove directories the removed files leave empty, deepest first
+    for my $dir (sort { length $b <=> length $a } keys %dirs) {
+        rmdir catfile($self->{output}, $dir);
+    }
+
+    $self->_log("Removed $removed file" . ($removed == 1 ? '' : 's') . " left over from an earlier build") if $removed;
+
+    $manifest->{$output} = [ sort keys %{$self->{written}} ];
+    App::Dapper::Utils::write_file($manifest_file, JSON->new->canonical->pretty->encode($manifest));
+}
+
+# sub live_reload_script - The script added to pages while "dapper serve" is
+# running. It asks for /.dapper-reload every second and reloads the page when
+# a new build changes it.
+
+sub live_reload_script {
+    return <<'HTML';
+<script>
+(function () {
+  var last = null;
+  function poll() {
+    fetch('/.dapper-reload?' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.text() : last; })
+      .then(function (t) { if (last !== null && t !== last) { location.reload(); } last = t; })
+      .catch(function () {})
+      .then(function () { setTimeout(poll, 1000); });
+  }
+  poll();
+})();
+</script>
+HTML
+}
+
+# sub write_generated - Write the files Dapper makes for the whole site:
+# redirects, the sitemap, the feed, and llms.txt and llms-full.txt. A page that writes the
+# same file wins, with a warning.
+
+sub write_generated {
+    my ($self) = @_;
+
+    my $site  = $self->{site};
+    my @pages = @{$site->{pages}};
+    my %taken = map { $_->{filename} => 1 } @pages;
+    my $has_url = defined $site->{url} && length $site->{url};
+
+    my $write = sub {
+        my ($path, $content) = @_;
+        my $file = canonpath(catfile($self->{output}, $path));
+        if ($taken{$file}) {
+            $self->problem('warning', $file, "a page in the source directory already writes $file, so Dapper did not generate one");
+            return;
+        }
+        $self->write_output($file, $content);
+        $self->_log("Wrote $file");
+    };
+
+    my $redirects = App::Dapper::Publish::redirects($site);
+    for my $from (sort keys %$redirects) {
+        my $file = canonpath(catfile($self->{output}, App::Dapper::Publish::redirect_path($from)));
+        if ($taken{$file}) {
+            $self->problem('warning', $file, "a page is still at $from, so the redirect from it to $redirects->{$from} was not written");
+            next;
+        }
+        $self->write_output($file, App::Dapper::Publish::redirect_page($site, $redirects->{$from}));
+        $self->{page_owner}->{$file} = "the redirect from $from";
+        $taken{$file} = 1;
+    }
+
+    if (App::Dapper::Publish::enabled($site, 'llms_txt')) {
+        my @twins = grep { $_->{markdown_url} } @pages;
+        if (@twins) {
+            $write->('llms.txt', App::Dapper::Publish::llms_txt($site, \@twins));
+            $write->('llms-full.txt', App::Dapper::Publish::llms_full_txt($site, \@twins));
+        }
+    }
+
+    if (App::Dapper::Publish::enabled($site, 'sitemap')) {
+        if ($has_url) {
+            $write->('sitemap.xml', App::Dapper::Publish::sitemap($site, \@pages));
+        }
+        elsif ($self->{configured}->{sitemap}) {
+            $self->problem('warning', $self->{config}, "the sitemap needs the site's address; set url in $self->{config}");
+        }
+    }
+
+    if (my $settings = App::Dapper::Publish::feed_settings($site)) {
+        if ($has_url) {
+            my $pages = App::Dapper::Publish::feed_pages($site, $settings);
+            $write->($settings->{path}, App::Dapper::Publish::feed($site, $settings, $pages));
+        }
+        else {
+            $self->problem('warning', $self->{config}, "the feed needs the site's address; set url in $self->{config}");
+        }
+    }
+}
+
+# sub render_page - Render one page with its layout and write it to disk.
+#
+# Layouts are always processed as templates. The page's content is processed
+# as a template only if the page sets "template: true". With
+# "templates_in_content: true" in the project file, Dapper instead works as it
+# did before 1.0: the layout is rendered, and then the result is rendered a
+# second time, so that template code in content and in site variables runs.
+
+sub render_page {
+    my ($self, $tt, $page) = @_;
+
+    $page->{layout} = "index" unless $page->{layout};
+
+    my $layout = $self->{layout_content}->{$page->{layout}};
+    die "error: $page->{source} uses the layout \"$page->{layout}\", but there is no such file in $self->{layout}\n"
+        unless defined $layout;
+
+    my %vars = (
+        site      => $self->{site},
+        page      => $page,
+        paginator => $page->{paginator},
+    );
+
+    my $output;
+
+    if ($self->{site}->{templates_in_content}) {
+        my $first;
+        $tt->process(\$layout, \%vars, \$first)
+            || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
+        $tt->process(\$first, \%vars, \$output)
+            || die "error: could not process $page->{source} with layout $page->{layout} (2nd pass): " . $tt->error() . "\n";
+    }
+    else {
+        if ($page->{template}) {
+            my $content;
+            $tt->process(\$page->{content}, \%vars, \$content)
+                || die "error: could not process the content of $page->{source}: " . $tt->error() . "\n";
+            $page->{content} = $content;
+        }
+        $tt->process(\$layout, \%vars, \$output)
+            || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
+    }
+
+    if ($self->{live_reload} and App::Dapper::Publish::is_html($page)) {
+        my $script = live_reload_script();
+        $output =~ s{(</body>)}{$script$1}i or $output .= $script;
+    }
+
+    my $owner = $self->{page_owner}->{$page->{filename}};
+    die "error: $page->{source} and $owner both write $page->{filename}\n" if defined $owner;
+    $self->{page_owner}->{$page->{filename}} = $page->{source};
+
+    $self->write_output($page->{filename}, $output);
+    $self->_log("Wrote $page->{filename}");
+
+    if ($page->{markdown_url}) {
+        my $twin = App::Dapper::Publish::twin_path($page);
+        $self->write_output($twin, App::Dapper::Publish::twin($self->{site}, $page));
+        $self->_log("Wrote $twin");
+    }
+}
+
+# sub write_output - Write a file to the output directory and remember that
+# Dapper wrote it.
+
+sub write_output {
+    my ($self, $filename, $content) = @_;
+
+    App::Dapper::Utils::write_file($filename, $content);
+    $self->record_written($filename);
+}
+
+# sub record_written - Remember files written to the output directory, so that
+# files left over from earlier builds can be found.
+
+sub record_written {
+    my ($self, @files) = @_;
+
+    for my $file (@files) {
+        my $relative = File::Spec->abs2rel($file, $self->{output});
+        $self->{written}->{ join('/', File::Spec->splitdir($relative)) } = 1;
+    }
+}
+
+# sub attempt - Run a step of the build for a file. Normally an error stops the
+# build. When collecting problems (as "dapper check" does), the error is
+# recorded and the build carries on.
+
+sub attempt {
+    my ($self, $file, $code) = @_;
+
+    return $code->() unless $self->{collect};
+
+    eval { $code->(); 1 } or $self->problem('error', $file, $@);
+}
+
+# sub problem - Record a problem found during the build. Errors stop the build
+# unless problems are being collected; warnings are printed.
+
+sub problem {
+    my ($self, $severity, $file, $message) = @_;
+
+    $message =~ s/^(?:error|warning): //;
+    $message =~ s/\s+\z//;
+
+    if ($self->{collect}) {
+        push @{$self->{problems}}, { severity => $severity, file => $file, message => $message };
+        return;
+    }
+
+    die "error: $message\n" if $severity eq 'error';
+    warn "warning: $message\n";
+}
+
+=head2 check
+
+Build the site into a temporary directory and return a report of every
+problem found, without touching the output directory. See
+L<App::Dapper::Check>.
+
+    my $report = $d->check();
+    print "ok\n" if $report->{ok};
+
+=cut
+
+sub check {
+    my ($self) = @_;
+    return App::Dapper::Check::run($self);
+}
+
+=head2 agents
+
+Write or update C<AGENTS.md> (and a C<CLAUDE.md> if there isn't one), which
+explains the project to AI coding agents. See L<App::Dapper::Agents>.
+
+=cut
+
+sub agents {
+    my ($self) = @_;
+    for my $file (App::Dapper::Agents::update($self)) {
+        $self->_log("Wrote $file");
+    }
+}
+
+=head2 deploy
+
+Build, check and publish the site to a target set under C<deploy> in
+C<_config.yml> (Amazon S3, GitHub Pages, or a command). Takes the target name
+(optional if there is only one) and options: C<dry_run>, C<force>,
+C<no_build>. See L<App::Dapper::Deploy>.
+
+    $d->deploy('s3', dry_run => 1);
+
+=cut
+
+sub deploy {
+    my ($self, $target, %options) = @_;
+    return App::Dapper::Deploy::run($self, $target, %options);
+}
+
+=head2 mcp
+
+Run a Model Context Protocol server on standard input and output, so that AI
+assistants can read, write, build and check the site. See
+L<App::Dapper::MCP>.
+
+=cut
+
+sub mcp {
+    my ($self) = @_;
+    App::Dapper::MCP::serve($self);
 }
 
 =head2 serve
@@ -643,6 +1051,7 @@ sub reset_site {
         DateTime->now( time_zone => DateTime::TimeZone->new( name => 'local' ) ));
     $self->{site}->{pages} = [];
     $self->{site}->{categories} = {};
+    $self->{site}->{tags} = {};
     $self->{layout_content} = {};
     $self->{static_files} = [];
     $self->{id} = 0;
@@ -657,6 +1066,7 @@ sub read_project {
     my ($self, $optional) = @_;
 
     $self->reset_site();
+    $self->{configured} = {};
 
     if (-f $self->{config}) {
         my $config = eval { LoadFile($self->{config}) };
@@ -667,6 +1077,7 @@ sub read_project {
 
         # Settings in the project file override the defaults
         @{$self->{site}}{keys %{$config}} = values %$config;
+        $self->{configured} = { map { $_ => 1 } keys %$config };
     }
     elsif (not $optional) {
         die "error: could not find the project file \"$self->{config}\". Run \"dapper init\" to create a new project.\n";
@@ -682,6 +1093,42 @@ sub read_project {
 
     $self->{site}->{pages} = [];
     $self->{site}->{categories} = {};
+    $self->{site}->{tags} = {};
+
+    $self->{data_dir} = canonpath($self->{site}->{data_dir});
+    $self->{site}->{data} = -d $self->{data_dir} ? read_data($self->{data_dir}) : {};
+}
+
+# sub read_data(dir) - Read every YAML (.yml, .yaml) and JSON (.json) file in a
+# directory into a hash keyed by file name without the extension, so that
+# _data/authors.yml is available as site.data.authors. Directories become
+# nested hashes: _data/menus/main.yml is site.data.menus.main.
+
+sub read_data {
+    my ($dir) = @_;
+
+    my %data;
+
+    my @entries = grep { !/^\./ } App::Dapper::Utils::read_dir($dir);
+
+    for my $entry (@entries) {
+        my $path = "$dir/$entry";
+        if (-d $path) {
+            $data{$entry} = read_data($path);
+        }
+        elsif ($entry =~ /^(.+)\.(?:ya?ml)$/i) {
+            my $value = eval { LoadFile($path) };
+            die "error: could not parse the data file \"$path\": $@" if $@;
+            $data{$1} = $value;
+        }
+        elsif ($entry =~ /^(.+)\.json$/i) {
+            my $value = eval { JSON->new->decode(App::Dapper::Utils::read_file($path)) };
+            die "error: could not parse the data file \"$path\": $@" if $@;
+            $data{$1} = $value;
+        }
+    }
+
+    return \%data;
 }
 
 # sub read_templates - Read the content of the layouts in the layout directory
@@ -692,10 +1139,8 @@ sub read_templates {
 
     my %raw;
 
-    opendir(my $dh, $self->{layout})
-        or die "error: could not open layout directory \"$self->{layout}\": $!\n";
-    my @files = sort grep { !/^\./ } readdir($dh);
-    closedir($dh);
+    die "error: could not open layout directory \"$self->{layout}\"\n" unless -d $self->{layout};
+    my @files = grep { !/^\./ } App::Dapper::Utils::read_dir($self->{layout});
 
     for my $file (@files) {
         my $path = "$self->{layout}/$file";
@@ -741,22 +1186,29 @@ sub expand_layout {
 # its output path to build_inventory. Dot files and directories are skipped.
 
 sub walk {
-    my ($self, $source_dir, $output_dir) = @_;
+    my ($self, $source_dir, $output_dir, $schema) = @_;
 
-    opendir(my $dh, $source_dir)
-        or die "error: could not open source directory \"$source_dir\": $!\n";
-    my @entries = sort grep { !/^\./ } readdir($dh);
-    closedir($dh);
+    die "error: could not open source directory \"$source_dir\"\n" unless -d $source_dir;
+    my @entries = grep { !/^\./ } App::Dapper::Utils::read_dir($source_dir);
+
+    # A _schema.yml applies to this directory and those below it, unless they
+    # have a schema of their own
+    my $schema_file = "$source_dir/_schema.yml";
+    if (-f $schema_file) {
+        $self->attempt($schema_file, sub { $schema = App::Dapper::Schema::load($schema_file) });
+    }
 
     for my $entry (@entries) {
+        next if $entry eq '_schema.yml';
+
         my $source = "$source_dir/$entry";
         my $output = "$output_dir/$entry";
 
         if (-d $source) {
-            $self->walk($source, $output);
+            $self->walk($source, $output, $schema);
         }
         elsif (-f $source) {
-            $self->build_inventory($source, $output);
+            $self->attempt($source, sub { $self->build_inventory($source, $output, $schema) });
         }
     }
 }
@@ -766,7 +1218,7 @@ sub walk {
 # matter is recorded to be copied as it is instead.
 
 sub build_inventory {
-    my ($self, $source_file_name, $destination_file_name) = @_;
+    my ($self, $source_file_name, $destination_file_name, $schema) = @_;
 
     # Files without front matter (images, PDFs, etc.) are copied as they are
     if (not App::Dapper::Utils::has_frontmatter($source_file_name)) {
@@ -782,6 +1234,20 @@ sub build_inventory {
         App::Dapper::Utils::split_frontmatter($source_content, $source_file_name);
     die "error: \"$source_file_name\" has front matter that is never closed with a line containing ---\n"
         unless defined $frontmatter;
+
+    # A page that does not match its schema is reported and goes no further
+    if ($schema) {
+        my @messages = App::Dapper::Schema::validate($schema, $frontmatter);
+        for my $message (@messages) {
+            if ($self->{collect}) {
+                $self->problem('error', $source_file_name, "$message (see $schema->{file})");
+            }
+            else {
+                push @{$self->{schema_errors}}, "$source_file_name: $message";
+            }
+        }
+        return if @messages;
+    }
 
     my %page = %$frontmatter;
     $page{content} = $content;
@@ -853,7 +1319,8 @@ sub build_inventory {
     $page{dirname} = $dirname;
 
     if ($page{source_file_extension} eq ".md") {
-        $page{content} = markdown($page{content});
+        $page{markdown} = $page{content};
+        $page{content} = App::Dapper::Markdown::to_html($page{content});
 
         # Save first paragraph of content as excerpt
         $page{excerpt} = $1 if $page{content} =~ /(<p>.*?<\/p>)/s;
@@ -870,13 +1337,24 @@ sub build_inventory {
         @$list = sort { $a->{date} <=> $b->{date} } @$list;
     }
 
+    my @tags = ref $page{tags} eq 'ARRAY' ? @{$page{tags}}
+             : defined $page{tags}        ? ($page{tags})
+             : ();
+    for my $tag (grep { defined and !ref and length } @tags) {
+        my $list = $self->{site}->{tags}->{$tag} ||= [];
+        push @$list, \%page;
+        @$list = sort { $a->{date} <=> $b->{date} } @$list;
+    }
+
     push @{$self->{site}->{pages}}, \%page;
 }
 
 =head2 expand_urlpattern
 
 Takes a URL pattern (e.g. C</:category/:year/:month/:slug/>) and a hash of page
-values, and returns the URL with each C<:name> token replaced. Tokens with no
+values, and returns the URL with each C<:name> token replaced. The tokens are
+C<:category>, C<:tag>, C<:year>, C<:month>, C<:day>, C<:hour>, C<:minute>,
+C<:second> and C<:slug>. Tokens with no
 value are removed along with their slash.
 
 =cut
@@ -885,7 +1363,7 @@ sub expand_urlpattern {
     my ($pattern, $page) = @_;
 
     my $url = defined $pattern ? $pattern : '';
-    for my $token (qw/ category year month day hour minute second slug /) {
+    for my $token (qw/ category tag year month day hour minute second slug /) {
         my $value = $page->{$token};
         $value = '' unless defined $value;
         $url =~ s/:$token\b/$value/g;
@@ -906,15 +1384,10 @@ sub copy {
     my ($self, $dir, $output) = @_;
 
     my @skip = map { abs_path($_) } grep { -e $_ }
-        ($self->{source}, $self->{output}, $self->{layout}, $self->{config});
+        ($self->{source}, $self->{output}, $self->{layout}, $self->{config}, $self->{data_dir});
     my %skip = map { $_ => 1 } grep { defined } @skip;
 
-    opendir(my $dh, $dir) or die "error: could not open \"$dir\": $!\n";
-    my @entries = sort readdir($dh);
-    closedir($dh);
-
-    ENTRY: for my $file (@entries) {
-        next if $file eq '.' or $file eq '..';
+    ENTRY: for my $file (App::Dapper::Utils::read_dir($dir)) {
 
         for my $i (@{ $self->{site}->{ignore} || [] }) {
             next ENTRY if ($file =~ m/$i/);
@@ -924,7 +1397,7 @@ sub copy {
         my $abs = abs_path($path);
         next if defined $abs and $skip{$abs};
 
-        App::Dapper::Utils::copy_recursive($path, catfile($output, $file), $self->{output});
+        $self->record_written(App::Dapper::Utils::copy_recursive($path, catfile($output, $file), $self->{output}));
         $self->_log("Copied $path");
     }
 }
