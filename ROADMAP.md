@@ -55,25 +55,15 @@ is wrong, and a fast loop from edit to preview to publish.
 6. Months later: "Post Saturday's event recap with these photos." The
    assistant knows how, because the project explains itself.
 
-## Where 1.0 stands
+## What 1.0 has
 
-Done in 1.0: safe content, front matter schemas, data files, pagination,
+Safe content, front matter schemas, data files, pagination,
 category and tag pages, a sitemap, an Atom feed, SEO and structured data
 tags, Markdown copies and `llms.txt`, Pagefind search, `dapper check
 --json`, the MCP server, clean output, live reload, the blog starter, and
-installs as a single file, a Docker image and a Homebrew formula.
-
-The biggest gaps for real users are **design** (only one theme),
-**publishing** (deploying is left to the user), **images** (no resizing or
-alt text checks), and **guidance for assistants** (they have to discover
-Dapper's conventions on their own).
-
-## Releases
-
-### 1.1: Assistants, themes and deploy
-
-Make assistants good at Dapper from the first minute, give people good
-looking starting points, and make publishing one command.
+installs as a single file, a Docker image and a Homebrew formula. 1.0 also
+makes assistants good at Dapper from the first minute, gives people good
+looking starting points, and makes publishing one command:
 
 - **AGENTS.md in every project.** `dapper init` writes an `AGENTS.md` that
   explains the project to coding agents: where pages, layouts and data live,
@@ -106,7 +96,13 @@ looking starting points, and make publishing one command.
   - `--dry-run` shows what would happen; credentials always come from the
     standard tools' own configuration, never from `_config.yml`.
 
-### 1.2: Rich content, safely
+## Next
+
+The biggest gaps left for real users are **images** (no resizing or alt
+text checks), **rich content** without template code, and **quality
+checks** beyond links and front matter.
+
+### Rich content, safely
 
 - **Components for content.** A safe way to add callouts, YouTube and
   Vimeo embeds, image galleries, buttons, maps and notices to Markdown
@@ -122,7 +118,7 @@ looking starting points, and make publishing one command.
   page (with a redirect), start a preview and return its URL, and undo the
   last change through git.
 
-### 1.3: Quality and migration
+### Quality and migration
 
 - **Accessibility checks:** missing alt text, skipped heading levels, the
   page language, empty or vague link text ("click here").
@@ -160,7 +156,7 @@ looking starting points, and make publishing one command.
 
 ## How releases are made
 
-Each release keeps the 1.0 bar: every feature has tests that fail without
+Each release keeps the bar set by 1.0: every feature has tests that fail without
 it, the retired markbenson.io site still builds the same, `dapper check`
 passes on every starter, the README is updated and its examples are
 built before they're documented, and CI passes on Perl 5.10 to 5.40, the

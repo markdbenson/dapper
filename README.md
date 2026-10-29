@@ -75,6 +75,9 @@ purpose.
 * A built-in sitemap, Atom feed, SEO and structured data tags, and Markdown copies of pages with an `llms.txt` index for AI tools.
 * `dapper check` finds broken links and front matter mistakes; `dapper serve` rebuilds and reloads the browser as you edit.
 * An MCP server, so AI assistants can write, check and build the site, with your schemas as guardrails.
+* Starter themes for a blog, a portfolio, a small business and documentation, or any theme from a folder or git repository.
+* `AGENTS.md` in every project, so AI coding agents know its conventions from the start.
+* `dapper deploy` publishes to Amazon S3, GitHub Pages or anywhere, after checking the site.
 * Install from CPAN, as a single file, with Homebrew, or with Docker.
 
 The rest of this document shows you how to get your site up and running,
@@ -87,6 +90,7 @@ result to your favorite web host.
     * [Install](#install)
     * [Usage](#usage)
     * [Directory Structure](#directory-structure)
+* [Templates and themes](#templates-and-themes)
 * [Tutorial: Build a Blog](#tutorial-build-a-blog)
 * [Configuration](#configuration)
 * [Source](#source)
@@ -120,11 +124,15 @@ result to your favorite web host.
 * [Publishing for Search Engines and AI](#publishing-for-search-engines-and-ai)
     * [Sitemap](#sitemap)
     * [Feed](#feed)
+    * [Redirects](#redirects)
     * [SEO tags](#seo-tags)
     * [Markdown copies and llms.txt](#markdown-copies-and-llmstxt)
     * [Search](#search)
 * [AI Assistants (MCP)](#ai-assistants-mcp)
+    * [AGENTS.md](#agentsmd)
+    * [The MCP server](#the-mcp-server)
 * [Deployment](#deployment)
+    * [Deploying with dapper deploy](#deploying-with-dapper-deploy)
     * [Amazon S3](#amazon-s3)
     * [GitHub Pages](#github-pages)
 * [What Dapper Doesn't Do](#what-dapper-doesnt-do)
@@ -186,9 +194,18 @@ Then, create a new site, build it, and view it locally like so:
     $ dapper build
     $ dapper serve
 
-For a complete starter blog (layouts, a paginated home page, category and
-tag pages, a feed, a schema for posts and more), use
-`dapper init --template blog` instead of `dapper init`.
+To start from a complete site instead, pick a template:
+
+    $ dapper templates
+    blog       A blog: paginated home page, posts, category and tag pages, feed, a schema for posts
+    business   A small business: services, opening hours, contact details and news, from one data file
+    default    The smallest project: a project file, one layout and one page
+    docs       Documentation: a sidebar from a data file, previous and next links, code highlighting and search
+    portfolio  A portfolio: a grid of projects with images, and about and contact pages
+
+    $ dapper init --template business
+
+See [Templates and themes](#templates-and-themes).
 
 After that, browse to [http://localhost:8000](http://localhost:8000) to
 see your site.  To modify the content, look at `_source/index.md`. To
@@ -263,6 +280,17 @@ description of the resulting directory structure is available in the
     # ...or with a complete starter blog
     $ dapper init --template blog
 
+    # ...or a portfolio, a small business site, or documentation
+    $ dapper init --template business
+
+    # ...or a theme from a folder or a git repository
+    $ dapper init --template https://github.com/someone/dapper-theme.git
+
+    # List the built-in templates
+    $ dapper templates
+
+See [Templates and themes](#templates-and-themes) for what each one includes.
+
 ### Build
 
 After the site has been initialized, build it using the `dapper build`
@@ -335,6 +363,20 @@ assistants can read:
 
     $ dapper check --json
 
+### Deploy
+
+The `dapper deploy` command builds the site, checks it, and publishes it to
+Amazon S3, GitHub Pages, or wherever a command of your own sends it. See
+[Deploying with dapper deploy](#deploying-with-dapper-deploy).
+
+    $ dapper deploy --dry-run
+    $ dapper deploy
+
+### Agents
+
+The `dapper agents` command writes or updates `AGENTS.md`, which explains the
+project to AI coding agents. See [AI Assistants (MCP)](#ai-assistants-mcp).
+
 ### MCP
 
 The `dapper mcp` command runs a server that AI assistants can use to work on
@@ -355,8 +397,11 @@ Option                     | Description
 `-p`, `--port` *number*    | Port for `dapper serve` (default: `8000`)
 `-q`, `--quiet`            | Only print errors
 `-C`, `--directory` *dir* | Run in this directory instead of the current one
-`-t`, `--template` *name* | For `init`: the starter project, `default` or `blog`
+`-t`, `--template` *name* | For `init`: a built-in template (see `dapper templates`), a directory, or a git URL
 `--json`                   | For `check`: print the report as JSON
+`--dry-run`                | For `deploy`: show what would happen without publishing
+`--force`                  | For `deploy`: publish even if `dapper check` finds errors
+`--no-build`               | For `deploy`: publish the output directory as it is
 `-h`, `--help`             | Print usage
 `-v`, `--version`          | Print the version
 
@@ -504,6 +549,36 @@ output file is created:
 
     </body>
     </html>
+
+# Templates and themes
+
+`dapper init --template <name>` starts a project from a template. The
+built-in ones are complete, working sites you edit to make your own; each is
+responsive, accessible (with a skip link, landmarks and visible focus), has
+a dark mode, passes `dapper check`, and comes with a schema and notes in
+`AGENTS.md` so an AI assistant knows how to fill it in.
+
+Template    | What you get
+------------|----------------------------------------------------------------
+`default`   | The smallest project: a project file, one layout and one page
+`blog`      | A paginated home page, posts with tags, category and tag pages, a feed, a schema for posts, a menu from a data file, code highlighting and optional search
+`portfolio` | An introduction and a grid of projects with images; a page per project with its details; about and contact pages. Projects must have an image with alt text.
+`business`  | Services, opening hours and contact details, all from one data file (`_data/business.yml`), shown on every page and published as structured data for search engines; a notice banner for holiday hours; a news section
+`docs`      | Pages with a sidebar from `_data/nav.yml`, previous and next links in the same order, code highlighting in light and dark, and optional search
+
+A template can also be any directory or git repository laid out like a
+project, which is how themes are shared:
+
+    $ dapper init --template ./my-theme
+    $ dapper init --template https://github.com/someone/dapper-theme.git
+
+Dapper copies its files (but not `.git`, the output directory or `.dapper`).
+If the theme has an `AGENTS.md`, it is kept, and Dapper adds its guide to
+the project below it.
+
+To make a theme, build a site the way you like it, add a `_schema.yml` for
+each kind of page and notes for assistants in `AGENTS.md`, check it with
+`dapper check`, and publish the directory as a git repository.
 
 # Tutorial: Build a Blog
 
@@ -731,6 +806,8 @@ Setting       | Default                             | Meaning
 `search`      | `false`                             | Build a search index with Pagefind; see [Search](#search)
 `search_command` | `pagefind`                       | The command to run for search, e.g. `npx -y pagefind`
 `clean`       | `true`                              | Remove files that an earlier build wrote and this one did not
+`redirects`   | (none)                              | Old URLs and the new URLs they redirect to; see [Redirects](#redirects)
+`deploy`      | (none)                              | Where `dapper deploy` publishes; see [Deploying with dapper deploy](#deploying-with-dapper-deploy)
 
 Directories given on the command line (`-s`, `-o`, `-l`) take precedence
 over these settings.
@@ -2212,6 +2289,20 @@ Each entry has the post's title, link, dates, summary and full content. If
 a page in the source directory already writes the same file, it is used
 instead.
 
+## Redirects
+
+When a page moves, keep its old address working with a redirect:
+
+    redirects:
+      /old-page/: /new-page/
+      /2019/announcement.html: /news/announcement/
+
+in `_config.yml`, or the same pairs in `_data/redirects.yml` (which the MCP
+server's `rename_page` tool keeps up to date). Dapper writes a small page at
+each old address that sends browsers and search engines to the new one. If a
+page still exists at an old address, the page wins, with a warning, and
+`dapper check` reports redirects that lead nowhere.
+
 ## SEO tags
 
 Put `[% page.seo %]` in your layout's `<head>`:
@@ -2266,6 +2357,25 @@ Then add Pagefind's search box to a layout:
 
 # AI Assistants (MCP)
 
+Dapper gives AI assistants two ways in: a guide for coding agents, and an
+MCP server.
+
+## AGENTS.md
+
+`dapper init` writes `AGENTS.md`, a guide to the project for AI coding
+agents (Claude Code, Codex, Cursor and others) and for people. Dapper writes
+it from the project itself: the commands, where pages, layouts and data live,
+each layout (layouts can describe themselves with a `description` in their
+front matter), the rules in every `_schema.yml`, the categories and tags in
+use, and Dapper's own rules. It also writes a `CLAUDE.md` that points Claude
+Code at it.
+
+After adding layouts, schemas or settings, run `dapper agents` to bring it up
+to date. Dapper only rewrites the part between its `dapper:begin` and
+`dapper:end` lines; notes you add above or below them are kept.
+
+## The MCP server
+
 `dapper mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io)
 server, so that an AI assistant can read, write, check and build your site
 through Dapper. Dapper's rules act as guardrails: pages are only ever
@@ -2293,16 +2403,67 @@ Tool          | What it does
 `list_pages`  | Every page (or those in a `category` or with a `tag`), with source file, URL, title, date, categories and tags
 `read_page`   | A page's front matter and body
 `write_page`  | Create or replace a page from front matter and a body, after checking it against its schema
+`rename_page` | Move or rename a page; if its URL changes, add a redirect from the old one (refused if the page wouldn't match the schema of its new folder)
+`read_layout`, `write_layout` | Read a layout, or create or replace one (it is parsed first and not saved if it has an error)
 `build`       | Build the site
 `check`       | Find problems without touching the output directory
+
+It also offers prompts for common jobs (`new_site`, `write_post` and
+`audit_site`) and resources an assistant can read: `dapper://guide` (the same
+guide as `AGENTS.md`), `dapper://config` and `dapper://schemas`.
 
 Then ask, for example: "Write a post about our launch in the blog, check
 the site, and build it."
 
 # Deployment
 
-To deploy your content, you have a number of options. This section outlines
-a few of them.
+## Deploying with dapper deploy
+
+`dapper deploy` builds the site, runs `dapper check`, and publishes the
+output directory. It refuses to publish a site with errors (and lists them)
+unless you add `--force`. Tell it where to publish under `deploy` in
+`_config.yml`:
+
+    deploy:
+      s3:
+        bucket: example.com
+        region: us-east-1             # optional
+        profile: personal             # optional: an AWS CLI profile
+        cloudfront: E1A2B3C4D5E6F7    # optional: a distribution to refresh
+        cache_control: max-age=300    # optional
+
+or
+
+    deploy:
+      github_pages:
+        repo: git@github.com:me/me.github.io.git   # default: this repository's origin
+        branch: gh-pages                           # the default
+        cname: www.example.com                     # optional
+
+or any command of your own (`DAPPER_OUTPUT` holds the output directory):
+
+    deploy:
+      command: rsync -av --delete _output/ me@example.com:/var/www/site/
+
+* **Amazon S3** uses the [AWS CLI](https://aws.amazon.com/cli/)'s
+  `aws s3 sync --delete`, which uploads only what changed and removes what is
+  gone, then refreshes CloudFront if you name a distribution. Set up the
+  bucket for website hosting first (see [Amazon S3](#amazon-s3) below) and
+  run `aws configure`.
+* **GitHub Pages** commits the output to the branch, with a `.nojekyll`
+  file (and `CNAME` if set), and pushes it. The branch keeps its history,
+  and nothing is committed when nothing changed. In the repository's
+  settings, publish Pages from that branch.
+
+With one target, `dapper deploy` uses it; with several, name one
+(`dapper deploy s3`). `--dry-run` shows what would happen without publishing
+anything, and `--no-build` publishes the output directory as it is.
+
+Credentials are never stored in `_config.yml`: S3 uses the AWS CLI's own
+configuration, and GitHub Pages uses git's.
+
+The rest of this section shows how to set up hosting, and how to publish by
+hand.
 
 ## Amazon S3
 
@@ -2335,7 +2496,8 @@ It's possible to serve a static website using Amazon S3. Here's how.
     The `--delete` option removes files from the bucket that are no longer
     in `_output` (Dapper removes the output of source files you delete, so
     the two stay in step). If you upload files to the bucket independently
-    of Dapper, leave `--delete` off.
+    of Dapper, leave `--delete` off. `dapper deploy` does all of this in
+    one step.
 
 If you use Amazon Route 53 for DNS, create an alias A record for
 `mydomain.com` (and `www.mydomain.com`) that points at the bucket's website
@@ -2409,6 +2571,8 @@ Dapper is deliberately small. It does not have:
 * **Incremental builds.** Every build processes the whole site, which is
   fast for sites of a few hundred pages.
 
+The [roadmap](ROADMAP.md) has what's planned next.
+
 # Upgrading to 1.0
 
 Dapper 1.0 adds a lot, but changes one thing that can affect existing
@@ -2432,6 +2596,14 @@ And builds now write more files than before:
   wrote; see [Drafts and clean builds](#drafts-and-clean-builds)). The
   list starts with your first 1.0 build, so delete the output directory
   once for a fully clean start. Add `.dapper/` to your `.gitignore`.
+
+Two settings have new meanings: `redirects` in `_config.yml`, or a data
+file at `_data/redirects.yml`, makes redirect pages (see
+[Redirects](#redirects)), and `deploy` is read by `dapper deploy`. If your
+site already used either name for something else, rename it.
+
+To give an existing site an `AGENTS.md` for AI coding agents, run
+`dapper agents`.
 
 Run `dapper check` after upgrading; it finds broken links and other
 problems without touching the output directory.
@@ -2463,6 +2635,15 @@ as before, but check these:
 The full list is in the [Changes](Changes) file.
 
 # Troubleshooting
+
+**`parse error ... Missing variable on LOOP directive`** (or a similar
+message about a directive) in a layout you wrote. Dapper's templates are
+case-insensitive, so a variable named after a directive (`next`, `last`,
+`loop`, `block`, `wrapper` and so on) is read as that directive. Rename the
+variable (`later`, `count`).
+
+**`dapper check found ... error(s), so the site was not deployed`.** Fix
+what it lists, or deploy anyway with `dapper deploy --force`.
 
 **`[% ... %]` shows up as text on a page.** Since Dapper 1.0, page content
 isn't run as template code unless the page sets `template: true` (or the

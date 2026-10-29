@@ -4,7 +4,8 @@ Revision history for App-Dapper
         Dapper 1.0 makes page content safe by default, adds what a modern
         static site needs (schemas, data files, pagination, feeds,
         sitemaps, SEO tags), and makes sites easy for AI tools to read and
-        for AI assistants to work on. See "Upgrading to 1.0" in the README.
+        for AI assistants to work on. It adds starter themes and makes
+        publishing one command. See "Upgrading to 1.0" in the README.
 
         Changed: page content is no longer run as template code unless the
         page sets template: true. Layouts always are. Set
@@ -53,6 +54,35 @@ Revision history for App-Dapper
         Added: new ways to install: a single file that runs with any Perl
         5.10+ (attached to each GitHub release), a Docker image
         (ghcr.io/markdbenson/dapper) and a Homebrew formula.
+
+        Added: AGENTS.md. dapper init writes a guide to the project for AI
+        coding agents, generated from the project (commands, folders,
+        layouts, the rules in every schema, categories and tags in use),
+        and a CLAUDE.md that points Claude Code at it. dapper agents
+        updates it, keeping notes outside its markers. Layouts can
+        describe themselves with a description in their front matter.
+
+        Added: MCP prompts (new_site, write_post, audit_site), resources
+        (dapper://guide, dapper://config, dapper://schemas), and tools:
+        rename_page (adds a redirect from the old URL), read_layout and
+        write_layout (a layout is parsed before it is saved).
+
+        Added: redirects, from redirects in _config.yml or
+        _data/redirects.yml, written as small pages at the old URLs.
+
+        Added: three themes alongside blog: portfolio, business (services,
+        hours and contact details from one data file, with LocalBusiness
+        structured data) and docs (a sidebar from a data file, with
+        previous and next links). dapper init --template also takes a
+        directory or a git URL, and dapper templates lists the built-ins.
+
+        Added: dapper deploy, which builds, checks and publishes the site
+        to Amazon S3 (with the AWS CLI, and an optional CloudFront
+        invalidation), GitHub Pages (keeping the branch's history), or a
+        command of your own. It refuses to deploy a site with errors unless
+        --force is given; --dry-run shows what would happen.
+
+        Added: ROADMAP.md.
 
         Fixed: files with accented letters in their names were skipped or
         copied to the wrong name.

@@ -3,17 +3,23 @@ LICENSE
 MANIFEST			This list of files
 Makefile.PL
 README.md
+ROADMAP.md
 bin/dapper
 lib/App/Dapper.pm
+lib/App/Dapper/Agents.pm
 lib/App/Dapper/Check.pm
 lib/App/Dapper/Collections.pm
 lib/App/Dapper/Defaults.pm
+lib/App/Dapper/Deploy.pm
 lib/App/Dapper/Filters.pm
 lib/App/Dapper/Init.pm
 lib/App/Dapper/MCP.pm
 lib/App/Dapper/Markdown.pm
 lib/App/Dapper/Publish.pm
 lib/App/Dapper/Schema.pm
+lib/App/Dapper/Theme/Business.pm
+lib/App/Dapper/Theme/Docs.pm
+lib/App/Dapper/Theme/Portfolio.pm
 lib/App/Dapper/Utils.pm
 t/00-load.t
 t/01-pod.t
@@ -34,4 +40,7 @@ t/15-collections.t
 t/16-check.t
 t/17-output.t
 t/18-mcp.t
+t/19-agents.t
+t/20-redirects.t
+t/21-deploy.t
 t/lib/DapperTest.pm

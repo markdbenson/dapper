@@ -45,6 +45,10 @@ my $NO_BUILD = 0;
     # ...or with a complete starter blog
     $ dapper init --template blog
 
+    # ...or a portfolio, business or docs site, or a theme from git
+    $ dapper init --template business
+    $ dapper init --template https://github.com/someone/dapper-theme.git
+
     # List the starter templates
     $ dapper templates
 
@@ -64,6 +68,7 @@ my $NO_BUILD = 0;
     # Build, check and publish the site (to S3, GitHub Pages, or a command)
     $ dapper deploy
     $ dapper deploy --dry-run
+    $ dapper deploy s3    # with several targets, name one
 
     # Let AI assistants work on the site over MCP
     $ dapper -C /path/to/site mcp
