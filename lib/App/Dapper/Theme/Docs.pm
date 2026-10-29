@@ -65,6 +65,15 @@ url: https://example.com
 
 # Set to true to build a search index with Pagefind (https://pagefind.app).
 search: false
+
+# Where "dapper deploy" publishes the site. Uncomment "deploy:" and one
+# of the targets below. See "Deploying with dapper deploy" in the README.
+#deploy:
+#  s3:
+#    bucket: example.com
+#  github_pages:
+#    branch: gh-pages
+#  command: rsync -av --delete _output/ me@example.com:/var/www/site/
 FILE
 
         '_data/nav.yml' => <<'FILE',

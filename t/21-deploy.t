@@ -99,6 +99,30 @@ subtest 'GitHub Pages' => sub {
     $files = `git --git-dir='$remote' ls-tree -r --name-only gh-pages`;
     like($files, qr/^new\.html$/m, 'new page published');
     unlike($files, qr/^about\.html$/m, 'removed page removed');
+
+    make_site({ %site, '_config.yml' => "---\nname: x\ndeploy:\n  github_pages:\n    repo: $remote.missing\n" });
+    my $error;
+    {
+        open(my $stderr, '>&', \*STDERR);
+        open(STDERR, '>', File::Spec->devnull);
+        $error = eval { deploy(); 1 } ? '' : $@;
+        open(STDERR, '>&', $stderr);
+    }
+    like($error, qr/could not reach/, 'a repository that is not there');
+};
+
+subtest 'GitHub Pages where git has no name and email' => sub {
+    plan skip_all => 'git is not installed' unless $has_git;
+    my $remote = tempdir(CLEANUP => 1) . '/site.git';
+    system('git', 'init', '--quiet', '--bare', $remote) == 0 or plan skip_all => 'git init failed';
+    local $ENV{HOME} = tempdir(CLEANUP => 1);
+    local $ENV{GIT_CONFIG_NOSYSTEM} = 1;
+    local $ENV{GIT_CONFIG_GLOBAL} = File::Spec->devnull;
+    delete local @ENV{qw(GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL EMAIL)};
+
+    make_site({ %site, '_config.yml' => "---\nname: x\ndeploy:\n  github_pages:\n    repo: $remote\n" });
+    ok(deploy(), 'deployed');
+    is(`git --git-dir='$remote' log -1 --format=%an gh-pages`, "Dapper\n", 'committed as Dapper');
 };
 
 subtest 'check guards the deploy' => sub {

@@ -70,6 +70,15 @@ timezone: America/Chicago
 
 feed:
   category: news
+
+# Where "dapper deploy" publishes the site. Uncomment "deploy:" and one
+# of the targets below. See "Deploying with dapper deploy" in the README.
+#deploy:
+#  s3:
+#    bucket: example.com
+#  github_pages:
+#    branch: gh-pages
+#  command: rsync -av --delete _output/ me@example.com:/var/www/site/
 FILE
 
         '_data/business.yml' => <<'FILE',

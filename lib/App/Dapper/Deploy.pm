@@ -203,8 +203,17 @@ sub github_pages {
     my $work = tempdir(CLEANUP => 1) . '/site';
 
     # Start from the branch as it is, to keep its history; or a new branch
-    my $cloned = system('git', 'clone', '--quiet', '--depth', '1', '--branch', $branch, '--', $repo, $work) == 0;
-    if (not $cloned) {
+    open(my $heads, '-|', 'git', 'ls-remote', '--heads', '--', $repo, "refs/heads/$branch")
+        or die "error: could not run git: $!\n";
+    my $exists = do { local $/; <$heads> };
+    close $heads or die "error: could not reach $repo\n";
+
+    # A shallow clone of a local path makes git warn, so clone those in full
+    my @depth = -d $repo ? () : ('--depth', '1');
+    if (length $exists) {
+        run_command($dapper, 'git', 'clone', '--quiet', @depth, '--branch', $branch, '--', $repo, $work);
+    }
+    else {
         $dapper->_log("Starting a new $branch branch");
         run_command($dapper, 'git', 'init', '--quiet', $work);
         run_command($dapper, 'git', '-C', $work, 'checkout', '--quiet', '--orphan', $branch);
@@ -239,7 +248,10 @@ sub github_pages {
     }
 
     my $name = defined $dapper->{site}->{name} ? $dapper->{site}->{name} : 'the site';
-    run_command($dapper, 'git', '-C', $work, 'commit', '--quiet', '-m', "Deploy $name ($count file(s) changed)");
+    # Commit as Dapper where git has no name and email set (in a container, say)
+    my $email = `git -C '$work' config user.email`;
+    my @identity = length $email ? () : ('-c', 'user.name=Dapper', '-c', 'user.email=dapper@localhost');
+    run_command($dapper, 'git', '-C', $work, @identity, 'commit', '--quiet', '-m', "Deploy $name ($count file(s) changed)");
     run_command($dapper, 'git', '-C', $work, 'push', '--quiet', 'origin', "HEAD:$branch");
 
     $dapper->_log("Deployed $count changed file(s) to $branch of $repo");

@@ -87,3 +87,4 @@ jobs:
           docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/site":/site dapper:test check
           docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/site":/site dapper:test -q build
           test -f site/_output/index.html
+          docker run --rm --entrypoint git dapper:test --version

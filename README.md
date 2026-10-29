@@ -187,6 +187,11 @@ Other ways to install, if you'd rather not use `cpanm`:
       $ docker run --rm -v "$PWD":/site ghcr.io/markdbenson/dapper build
       $ docker run --rm -v "$PWD":/site -p 8000:8000 ghcr.io/markdbenson/dapper serve
 
+  The image includes git, so themes from a git URL and `dapper deploy` to
+  GitHub Pages work (mount your SSH keys, or use an HTTPS URL with a token).
+  It doesn't include the AWS CLI, so deploy to Amazon S3 from your own
+  machine.
+
 Then, create a new site, build it, and view it locally like so:
 
     $ mkdir new-site && cd new-site
@@ -2422,7 +2427,7 @@ the site, and build it."
 `dapper deploy` builds the site, runs `dapper check`, and publishes the
 output directory. It refuses to publish a site with errors (and lists them)
 unless you add `--force`. Tell it where to publish under `deploy` in
-`_config.yml`:
+`_config.yml` (every starter has a commented-out example to fill in):
 
     deploy:
       s3:
