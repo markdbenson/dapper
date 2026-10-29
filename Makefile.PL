@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
-WriteMakefile(
+my %WriteMakefileArgs = (
     NAME             => 'App::Dapper',
     AUTHOR           => q{Mark Benson <mark@jayber.org>},
     VERSION_FROM     => 'lib/App/Dapper.pm',
@@ -54,14 +54,19 @@ WriteMakefile(
                 web => 'https://github.com/markdbenson/dapper/issues',
             },
         },
-        prereqs => {
-            develop => {
-                requires => {
-                    'Test::Pod' => '1.22',
-                },
-            },
-        },
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'App-Dapper-* distcheck.log' },
 );
+
+# Older versions of ExtUtils::MakeMaker (such as those bundled with Perl 5.10
+# to 5.16) do not understand some of the arguments above.
+unless (eval { ExtUtils::MakeMaker->VERSION('6.64') }) {
+    my $test_requires = delete $WriteMakefileArgs{TEST_REQUIRES};
+    @{ $WriteMakefileArgs{PREREQ_PM} }{ keys %$test_requires } = values %$test_requires;
+}
+delete $WriteMakefileArgs{CONFIGURE_REQUIRES} unless eval { ExtUtils::MakeMaker->VERSION('6.52') };
+delete $WriteMakefileArgs{MIN_PERL_VERSION}   unless eval { ExtUtils::MakeMaker->VERSION('6.48') };
+delete $WriteMakefileArgs{META_MERGE}         unless eval { ExtUtils::MakeMaker->VERSION('6.46') };
+
+WriteMakefile(%WriteMakefileArgs);
