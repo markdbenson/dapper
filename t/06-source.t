@@ -103,14 +103,52 @@ subtest 'markdown, excerpts and unicode' => sub {
     is(slurp('_output/index.html'), 'Café|<p>First paragraph — with ünïcode.</p>|cafe', 'unicode survives');
 };
 
-subtest 'template statements in source files are rendered' => sub {
+subtest 'content is not run as a template by default' => sub {
     make_site({
         '_config.yml'      => "---\nname: Site\nfooter: \"[% site.name %] footer\"\n",
+        '_source/index.md' => "---\ntitle: Home\n---\nIn [% site.name %] [% PERL %]print 1[% END %]\n",
+        '_layout/index.html' => "[% page.content %]|[% site.footer %]|[% site.name %]",
+    });
+    quiet_build();
+    is(slurp('_output/index.html'), "<p>In [% site.name %] [% PERL %]print 1[% END %]</p>\n|[% site.name %] footer|Site",
+        'content and config values are left as text; the layout is still a template');
+};
+
+subtest 'a page can opt in with template: true' => sub {
+    make_site({
+        '_source/index.html' => "---\ntitle: Home\ntemplate: true\n---\n[% FOR p IN site.pages %][% p.title %];[% END %]",
+        '_source/other.md'   => "---\ntitle: Other\n---\nIn [% site.name %]\n",
+        '_layout/index.html' => "[% page.content %]",
+    });
+    quiet_build();
+    is(slurp('_output/index.html'), 'Home;Other;', 'opted-in content is rendered');
+    is(slurp('_output/other.html'), "<p>In [% site.name %]</p>\n", 'other pages are not');
+};
+
+subtest 'templates_in_content restores the pre-1.0 behaviour' => sub {
+    make_site({
+        '_config.yml'      => "---\nname: Site\ntemplates_in_content: true\nfooter: \"[% site.name %] footer\"\n",
         '_source/index.md' => "---\ntitle: Home\n---\nIn [% site.name %]\n",
         '_layout/index.html' => "[% page.content %][% site.footer %]",
     });
     quiet_build();
     is(slurp('_output/index.html'), "<p>In Site</p>\nSite footer", 'source and config templates rendered');
+};
+
+subtest 'template errors in opted-in content name the file' => sub {
+    make_site({ '_source/a.md' => "---\ntemplate: true\n---\n[% IF x %]\n" });
+    eval { quiet_build() };
+    like($@, qr{could not process the content of _source/a.md}, 'error names the file');
+};
+
+subtest 'fenced code blocks' => sub {
+    make_site({
+        '_source/index.md'   => "---\ntitle: x\n---\nText\n\n```perl\nmy \$x = 1 < 2;\n```\n",
+        '_layout/index.html' => "[% page.content %]",
+    });
+    quiet_build();
+    like(slurp('_output/index.html'), qr{<pre><code class="language-perl">my \$x = 1 &lt; 2;\n</code></pre>},
+        'fenced block with a language class');
 };
 
 done_testing();

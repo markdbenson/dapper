@@ -247,6 +247,7 @@ Takes a source path (a file or directory), a destination path, and an
 optional list of absolute paths to skip. Copies the source to the
 destination, recursing into directories and creating them as needed. No shell
 is involved, so file names with spaces or special characters are safe.
+Returns the list of files written.
 
 =cut
 
@@ -257,11 +258,12 @@ sub copy_recursive {
 
     if (-f $source) {
         _copy_file($source, $destination);
-        return;
+        return ($destination);
     }
 
     die "error: \"$source\" is not a file or directory\n" unless -d $source;
 
+    my @copied;
     File::Find::find({
         no_chdir => 1,
         wanted   => sub {
@@ -273,9 +275,11 @@ sub copy_recursive {
             my $relative = File::Spec->abs2rel($path, $source);
             my $target = $relative eq '.' ? $destination : catfile($destination, $relative);
             if (-d $path) { make_path($target) unless -d $target; }
-            elsif (-f $path) { _copy_file($path, $target); }
+            elsif (-f $path) { _copy_file($path, $target); push @copied, $target; }
         },
     }, $source);
+
+    return @copied;
 }
 
 sub _copy_file {

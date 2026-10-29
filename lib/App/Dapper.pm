@@ -19,7 +19,7 @@ use Exporter qw(import);
 use Template::Alloy;
 use JSON ();
 
-use Text::MultiMarkdown 'markdown';
+use App::Dapper::Markdown;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -426,11 +426,15 @@ A Dapper object may be built any number of times; each build starts fresh.
 sub build {
     my($self) = @_;
 
+    $self->{problems} = [];
+    $self->{written} = {};
+
     $self->parse();
     $self->transform();
     $self->render();
 
     $self->_log("Project built.");
+    return $self;
 }
 
 # sub parse - Parse the source directory, config file, and templates.
@@ -478,43 +482,116 @@ sub render {
     });
 
     for my $page (@{$self->{site}->{pages}}) {
-
-        if (not $page->{layout}) {
-            $page->{layout} = "index";
-        }
-
-        my $layout = $self->{layout_content}->{$page->{layout}};
-        die "error: $page->{source} uses the layout \"$page->{layout}\", but there is no such file in $self->{layout}\n"
-            unless defined $layout;
-
-        my %tags = ();
-        $tags{site} = $self->{site};
-        $tags{page} = $page;
-
-        my $destination1;
-
-        $tt->process(\$layout, \%tags, \$destination1)
-            || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
-
-        # Parse and render once more to make sure that any template statements
-        # in the source file (and in site variables) also get rendered
-        my $destination;
-
-        $tt->process(\$destination1, \%tags, \$destination)
-            || die "error: could not process $page->{source} with layout $page->{layout} (2nd pass): " . $tt->error() . "\n";
-
-        App::Dapper::Utils::write_file($page->{filename}, $destination);
-        $self->_log("Wrote $page->{filename}");
+        $self->attempt($page->{source}, sub { $self->render_page($tt, $page) });
     }
 
     # copy source files that have no front matter (images, etc.) as they are
     for my $file (@{$self->{static_files}}) {
-        App::Dapper::Utils::copy_recursive($file->{source}, $file->{output});
+        $self->record_written(App::Dapper::Utils::copy_recursive($file->{source}, $file->{output}));
         $self->_log("Copied $file->{source}");
     }
 
     # copy additional files and directories
     $self->copy(".", $self->{output});
+}
+
+# sub render_page - Render one page with its layout and write it to disk.
+#
+# Layouts are always processed as templates. The page's content is processed
+# as a template only if the page sets "template: true". With
+# "templates_in_content: true" in the project file, Dapper instead works as it
+# did before 1.0: the layout is rendered, and then the result is rendered a
+# second time, so that template code in content and in site variables runs.
+
+sub render_page {
+    my ($self, $tt, $page) = @_;
+
+    $page->{layout} = "index" unless $page->{layout};
+
+    my $layout = $self->{layout_content}->{$page->{layout}};
+    die "error: $page->{source} uses the layout \"$page->{layout}\", but there is no such file in $self->{layout}\n"
+        unless defined $layout;
+
+    my %vars = (
+        site      => $self->{site},
+        page      => $page,
+        paginator => $page->{paginator},
+    );
+
+    my $output;
+
+    if ($self->{site}->{templates_in_content}) {
+        my $first;
+        $tt->process(\$layout, \%vars, \$first)
+            || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
+        $tt->process(\$first, \%vars, \$output)
+            || die "error: could not process $page->{source} with layout $page->{layout} (2nd pass): " . $tt->error() . "\n";
+    }
+    else {
+        if ($page->{template}) {
+            my $content;
+            $tt->process(\$page->{content}, \%vars, \$content)
+                || die "error: could not process the content of $page->{source}: " . $tt->error() . "\n";
+            $page->{content} = $content;
+        }
+        $tt->process(\$layout, \%vars, \$output)
+            || die "error: could not process $page->{source} with layout $page->{layout}: " . $tt->error() . "\n";
+    }
+
+    $self->write_output($page->{filename}, $output);
+    $self->_log("Wrote $page->{filename}");
+}
+
+# sub write_output - Write a file to the output directory and remember that
+# Dapper wrote it.
+
+sub write_output {
+    my ($self, $filename, $content) = @_;
+
+    App::Dapper::Utils::write_file($filename, $content);
+    $self->record_written($filename);
+}
+
+# sub record_written - Remember files written to the output directory, so that
+# files left over from earlier builds can be found.
+
+sub record_written {
+    my ($self, @files) = @_;
+
+    for my $file (@files) {
+        my $relative = File::Spec->abs2rel($file, $self->{output});
+        $self->{written}->{ join('/', File::Spec->splitdir($relative)) } = 1;
+    }
+}
+
+# sub attempt - Run a step of the build for a file. Normally an error stops the
+# build. When collecting problems (as "dapper check" does), the error is
+# recorded and the build carries on.
+
+sub attempt {
+    my ($self, $file, $code) = @_;
+
+    return $code->() unless $self->{collect};
+
+    eval { $code->(); 1 } or $self->problem('error', $file, $@);
+}
+
+# sub problem - Record a problem found during the build. Errors stop the build
+# unless problems are being collected; warnings are printed.
+
+sub problem {
+    my ($self, $severity, $file, $message) = @_;
+
+    $message =~ s/^(?:error|warning): //;
+    $message =~ s/\s+\z//;
+
+    if ($self->{collect}) {
+        push @{$self->{problems}}, { severity => $severity, file => $file, message => $message };
+        return;
+    }
+
+    die "error: $message\n" if $severity eq 'error';
+    warn "warning: $message\n";
 }
 
 =head2 serve
@@ -853,7 +930,8 @@ sub build_inventory {
     $page{dirname} = $dirname;
 
     if ($page{source_file_extension} eq ".md") {
-        $page{content} = markdown($page{content});
+        $page{markdown} = $page{content};
+        $page{content} = App::Dapper::Markdown::to_html($page{content});
 
         # Save first paragraph of content as excerpt
         $page{excerpt} = $1 if $page{content} =~ /(<p>.*?<\/p>)/s;
@@ -924,7 +1002,7 @@ sub copy {
         my $abs = abs_path($path);
         next if defined $abs and $skip{$abs};
 
-        App::Dapper::Utils::copy_recursive($path, catfile($output, $file), $self->{output});
+        $self->record_written(App::Dapper::Utils::copy_recursive($path, catfile($output, $file), $self->{output}));
         $self->_log("Copied $path");
     }
 }
