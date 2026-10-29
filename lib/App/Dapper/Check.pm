@@ -168,6 +168,10 @@ sub links {
         next unless $relative =~ /\.html?$/i;
         my $file = catfile($output, $relative);
         my $html = App::Dapper::Utils::read_file($file);
+
+        # Links inside comments (including old IE conditional comments) are never
+        # followed by a browser
+        $html =~ s/<!--.*?-->//gs;
         my $page_dir = '/' . $relative;
         $page_dir =~ s{[^/]*$}{};
 

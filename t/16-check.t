@@ -31,7 +31,7 @@ subtest 'a clean site' => sub {
 subtest 'every kind of problem, all at once' => sub {
     make_site({
         '_source/_schema.yml'  => "required: [title]\n",
-        '_source/a.md'         => "---\ntitle: A\n---\n[gone](/gone/) ![pic](missing.png)\n",
+        '_source/a.md'         => "---\ntitle: A\n---\n[gone](/gone/) ![pic](missing.png)\n<!-- <a href=\"/commented-out/\">x</a> -->\n",
         '_source/b.md'         => "---\ndescription: no title\n---\nx\n",
         '_source/c.md'         => "---\ntitle: C\nlayout: nope\n---\nx\n",
         '_source/d.md'         => "---\ntitle: [broken\n---\nx\n",
