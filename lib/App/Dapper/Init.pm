@@ -13,10 +13,9 @@ file, a layout template, and a starter post.
 =cut
 
 use utf8;
-use open ':std', ':encoding(UTF-8)';
-use 5.8.0;
+use 5.010;
 use strict;
-use warnings FATAL => 'all';
+use warnings;
 
 use App::Dapper::Utils;
 
@@ -33,11 +32,11 @@ SOURCE_INDEX_CONTENT
 
 my $templates_index_name = "index.html";
 my $templates_index_content = <<'TEMPLATES_INDEX_CONTENT';
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>[% page.title %]</title>
-  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 </head>
 
 <body>
@@ -59,12 +58,17 @@ PROJ_FILE_TEMPLATE
 =head2 init
 
 Initialize a Dapper project. This method creates a config file, source and template directories.
-After calling this method, the project may be built.
+After calling this method, the project may be built. Nothing is written if any
+of the files it would create already exist.
 
 =cut
 
 sub init {
     my ($source, $output, $layout, $config) = @_;
+
+    my @files = ($config, "$source/$source_index_name", "$layout/$templates_index_name");
+    my @existing = grep { -e $_ } @files;
+    die "error: refusing to initialize, these files already exist: @existing\n" if @existing;
 
     App::Dapper::Utils::create_file($config, $proj_file_template_content);
 

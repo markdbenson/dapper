@@ -1,19 +1,29 @@
-use 5.8.0;
+use 5.010;
 use strict;
-use Test;
-
-BEGIN { plan tests => 5 }
+use warnings;
+use Test::More;
 
 use App::Dapper;
 
-print "# I'm testing App::Dapper->new()\n";
-
 my $d = App::Dapper->new("t/_source", "t/_output", "t/_layout", "t/_config.yml");
-ok($d->{source}, "t/_source", "Test default source directory");
-ok($d->{layout}, "t/_layout", "Test default layout directory");
-ok($d->{output}, "t/_output", "Test default output director");
-ok($d->{config}, "t/_config.yml", "Test defult config file name");
-ok(1);
+is($d->{source}, "t/_source", "explicit source directory");
+is($d->{layout}, "t/_layout", "explicit layout directory");
+is($d->{output}, "t/_output", "explicit output directory");
+is($d->{config}, "t/_config.yml", "explicit config file name");
 
-#$d->init();
+my $defaults = App::Dapper->new();
+is($defaults->{source}, "_source", "default source directory");
+is($defaults->{layout}, "_layout", "default layout directory");
+is($defaults->{output}, "_output", "default output directory");
+is($defaults->{config}, "_config.yml", "default config file name");
+isa_ok($defaults->{site}->{time}, 'DateTime', 'site.time');
 
+can_ok('App::Dapper', qw(new init build serve watch snapshot));
+
+# Every subroutine in the module must be compiled code, not swallowed by POD
+my $source = do { local $/; open my $fh, '<', $INC{'App/Dapper.pm'} or die $!; <$fh> };
+my @declared = $source =~ /^sub\s+(\w+)/mg;
+my @missing = grep { !App::Dapper->can($_) } @declared;
+is_deeply(\@missing, [], 'every sub in App::Dapper is defined');
+
+done_testing();

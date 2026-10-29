@@ -1,8 +1,11 @@
 # Dapper
 
+[![test](https://github.com/markdbenson/dapper/actions/workflows/test.yml/badge.svg)](https://github.com/markdbenson/dapper/actions/workflows/test.yml)
+[![CPAN](https://img.shields.io/cpan/v/App-Dapper.svg)](https://metacpan.org/dist/App-Dapper)
+
 A publishing tool for static websites
 
-[Distributed as a Perl module](http://search.cpan.org/~mdb/App-Dapper/),
+[Distributed as a Perl module](https://metacpan.org/dist/App-Dapper),
 Dapper comes with a command-line application called `dapper` which you
 can use to create static websites.
 
@@ -17,9 +20,9 @@ Dapper has three goals:
    want.
 
 2. **Flexible**. Content is written in
-   [Markdown](http://search.cpan.org/~bobtfish/Text-MultiMarkdown/), and
+   [Markdown](https://metacpan.org/pod/Text::MultiMarkdown), and
    templates are written using the TT3 mini-language from
-   [Template::Alloy](http://search.cpan.org/~abw/Template-Toolkit/) for 
+   [Template::Alloy](https://metacpan.org/pod/Template::Alloy) for 
    maximum flexibility.
 
 3. **Pragmatic**. The easy things are easy and the hard things are
@@ -57,8 +60,8 @@ of static websites that each had their own look and feel, but shared
 content. Since then, Dapper has been used to create websites for speakers,
 artists, authors, illusionists, web designers, piano tuners,
 photographers, entertainment agencies, and API documentation for
-industrial sensing equipment. In addition, it is the tool that powers
-[markbenson.io](http://markbenson.io/).
+industrial sensing equipment. For many years it was also the tool that
+powered the author's personal website.
 
 In 2014, Dapper was submitted as a Perl module (App::Dapper) to
 [CPAN](http://cpan.org/) under the MIT license for anyone to use for any
@@ -75,6 +78,51 @@ The rest of this document shows you how to get your site up and running,
 how to manage the content and the way it looks, and how to deploy the
 result to your favorite web host.
 
+**Contents**
+
+* [Getting Started](#getting-started)
+    * [Install](#install)
+    * [Usage](#usage)
+    * [Directory Structure](#directory-structure)
+* [Tutorial: Build a Blog](#tutorial-build-a-blog)
+* [Configuration](#configuration)
+* [Source](#source)
+    * [Source file types](#source-file-types)
+    * [Assets](#assets)
+    * [Drafts and clean builds](#drafts-and-clean-builds)
+    * [Headings](#headings)
+    * [Text](#text)
+    * [Lists](#lists)
+    * [Tables](#tables)
+    * [Images](#images)
+    * [Footnotes](#footnotes)
+* [Layout](#layout)
+    * [Variables](#variables)
+    * [Comments](#comments)
+    * [Filters](#filters)
+    * [Conditionals](#conditionals)
+    * [Iteration](#iteration)
+    * [Blocks](#blocks)
+    * [Perl code](#perl-code)
+    * [Includes](#includes)
+    * [Macros](#macros)
+    * [Plugins](#plugins)
+    * [Chomping](#chomping)
+    * [Dumping](#dumping)
+* [Deployment](#deployment)
+    * [Amazon S3](#amazon-s3)
+    * [GitHub Pages](#github-pages)
+* [What Dapper Doesn't Do](#what-dapper-doesnt-do)
+* [Upgrading from 0.21](#upgrading-from-021)
+* [Troubleshooting](#troubleshooting)
+* [Further Reading](#further-reading)
+* [Appendix A: Extending](#appendix-a-extending)
+* [Appendix B: Debugging](#appendix-b-debugging)
+* [Appendix C: Internals](#appendix-c-internals)
+* [Appendix D: Contributing](#appendix-d-contributing)
+* [Author](#author)
+* [License and Copyright](#license-and-copyright)
+
 # Getting Started
 
 The following sections show you how to install, upgrade, and downgrade the
@@ -82,6 +130,17 @@ version of Dapper you have, as well as how to use the `dapper` command-
 line utility and work with the directory structure it depends on.
 
 ## Install
+
+Dapper needs Perl 5.10 or newer. Check with `perl -v`. It is installed
+with `cpanm`; if you don't have it, install it first:
+
+    $ curl -L https://cpanmin.us | perl - App::cpanminus
+
+On macOS, the Perl that comes with the system is best left alone. Rather
+than installing modules into it with `sudo`, install your own Perl with
+[Homebrew](https://brew.sh/) (`brew install perl`) or
+[perlbrew](https://perlbrew.pl/), or install modules into your home
+directory with [local::lib](https://metacpan.org/pod/local::lib).
 
 Install Dapper in seconds:
 
@@ -109,12 +168,11 @@ You can compare this with the latest version from CPAN like this:
     $ cpan -D App::Dapper
 
     ...
-    M/MD/MDB/App-Dapper-0.13.tar.gz
-    /Library/Perl/5.16/App/Dapper.pm
-    Installed: 0.12
-    CPAN:      0.13  Not up to date
+    M/MD/MDB/App-Dapper-0.22.tar.gz
+    /Library/Perl/5.34/App/Dapper.pm
+    Installed: 0.21
+    CPAN:      0.22  Not up to date
     Mark Benson (MDB)
-    mark@markbenson.io
 
 In this example, you can see there is a newer version available. Upgrade
 like this:
@@ -125,7 +183,7 @@ Stable releases are available on CPAN, but development happens at
 [Github](https://github.com/markdbenson/dapper). If you like living on the
 edge, install from the latest development tip like this:
 
-    $ cpanm git://github.com/markdbenson/dapper.git
+    $ cpanm https://github.com/markdbenson/dapper.git
 
 A list of recent commits can also be
 [viewed on Github](https://github.com/markdbenson/dapper/commits/master).
@@ -186,12 +244,16 @@ using *Ctrl-C*.
     $ dapper watch
 
 Specifically, the dapper command watches all files in the current
-directory and all subdirectories and files except:
+directory and all subdirectories, including the project file
+(`_config.yml`), and notices files that are added or removed. It does not
+watch:
 
-* Files that begin with a period (.).
-* Files that begin with an underscore (_).
-* Files in the output directory (`_output`) or any subfolder of the output 
-  directory.
+* Files and directories that begin with a period (.), such as `.git`.
+* The output directory (`_output`, or whatever `output` is set to) and
+  everything in it.
+
+If a rebuild fails (for instance, because of a typo in a layout), the
+error is printed and Dapper keeps watching.
 
 ### Serve
 
@@ -203,17 +265,34 @@ serve` command as a combination of `build`, `watch`, and `serve`.
     # Serve the site locally at http://localhost:8000
     $ dapper serve
 
-If you want to use a different port number (e.g. 9000), specifiy it using
+If you want to use a different port number (e.g. 9000), specify it using
 the *-p* option:
 
     # Serve the site locally at http://localhost:9000
     $ dapper -p 9000 serve
 
+### Options
+
+Every command accepts these options. Directories given on the command line
+take precedence over the ones in `_config.yml`, which take precedence over
+the defaults.
+
+Option                     | Description
+---------------------------|------------------------------------------------------
+`-s`, `--source` *dir*     | Source directory (default: `source` in `_config.yml`, or `_source`)
+`-o`, `--output` *dir*     | Output directory (default: `output` in `_config.yml`, or `_output`)
+`-l`, `--layout` *dir*     | Layout directory (default: `layout` in `_config.yml`, or `_layout`)
+`-c`, `--config` *file*    | Project file (default: `_config.yml`)
+`-p`, `--port` *number*    | Port for `dapper serve` (default: `8000`)
+`-q`, `--quiet`            | Only print errors
+`-h`, `--help`             | Print usage
+`-v`, `--version`          | Print the version
+
 ### Help
 
 To get more information about command-line options available, the current
 version of Dapper that you have installed on your system, or further
-documentation available, see the followig:
+documentation available, see the following:
 
     # Get help on usage and switches
     $ dapper -h
@@ -275,7 +354,7 @@ A sample markdown file is available in the `_source` directory. Contents:
 
 There are a few things to note about this file:
 
-1. There is a YAML configuration block at the start of the file.
+1. There is a YAML configuration block (the "front matter") at the start of the file.
 
 2. The *layout* configuration specifies which layout to use.
 
@@ -285,8 +364,8 @@ There are a few things to note about this file:
 
 5. All of the configurations may be used in the corresponding layout file.
 
-    <!-- Example use of "name" in a layout file -->
-    [% page.name %]
+    <!-- Example use of "title" in a layout file -->
+    <h1>[% page.title %]</h1>
 
 **_layout/index.html**
 
@@ -294,11 +373,11 @@ Layout files are processed using the TT3 mini-language from the Template::Alloy
 template system. The initial layout file that is given after you run the `dapper 
 init` command, is this:
 
-    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="utf-8">
       <title>[% page.title %]</title>
-      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
     </head>
 
     <body>
@@ -312,9 +391,9 @@ The main content of the text file that is being rendered with this template
 is available using `[% page.content %]`.
 
 Definitions specified in the `_config.yml` file can be referenced under the
-"site" namespace (e.g. `[% site.name %]`. Definitions specified in the YAML
+"site" namespace (e.g. `[% site.name %]`). Definitions specified in the YAML
 portion of text files can be referenced under the "page" namespace (e.g.
-`[% page.title %]`.
+`[% page.title %]`).
 
 In that same directory, you may then build the site using the `dapper
 build` command, which will combine the source files and the layout files
@@ -340,11 +419,11 @@ The output file that is created is a mix of the input file and the layout
 that is specified by the input file. For the default site, the following
 output file is created:
 
-    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+    <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="utf-8">
       <title>Welcome</title>
-      <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
     </head>
 
     <body>
@@ -353,6 +432,178 @@ output file is created:
 
     </body>
     </html>
+
+# Tutorial: Build a Blog
+
+This walkthrough builds a small blog with a home page that lists the latest
+posts, one page per post, a stylesheet and an Atom feed. Every file is
+shown in full, so you can copy them as they are.
+
+When it's done, the project looks like this:
+
+    _config.yml
+    _layout/
+        index.html      The page wrapper used by every page
+        post.html       A post, wrapped in index.html
+        raw.html        No wrapper at all (for the feed)
+    _source/
+        index.html      The home page: a list of posts
+        feed.xml        The Atom feed
+        blog/
+            hello-world.md
+            second-post.md
+    css/
+        site.css        Copied to the output as it is
+
+**1. The project file.** `url` is used to build absolute links in the
+feed; leave off the trailing slash. `timezone` is the time zone your post
+dates are written in.
+
+    # Dapper configuration file
+    ---
+    name: My Blog
+    url: https://example.com
+    author: Jane Doe
+    timezone: America/Chicago
+
+**2. The main layout**, `_layout/index.html`. Pages without a `layout`
+setting use this one.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>[% page.title | html %] - [% site.name | html %]</title>
+  <link rel="stylesheet" href="/css/site.css">
+  <link rel="alternate" type="application/atom+xml" href="/feed.xml">
+</head>
+<body>
+  <header><a href="/">[% site.name | html %]</a></header>
+  <main>
+[% page.content %]
+  </main>
+  <footer>&copy; [% site.time.year %] [% site.author | html %]</footer>
+</body>
+</html>
+```
+
+**3. A post layout**, `_layout/post.html`. Its front matter says to wrap
+it in the `index` layout, so a post gets the header and footer too.
+
+```html
+---
+layout: index
+---
+<article>
+  <h1>[% page.title | html %]</h1>
+  <p class="date">[% page.date.strftime('%d %B %Y') %]</p>
+  [% page.content %]
+</article>
+```
+
+**4. An empty layout**, `_layout/raw.html`, for pages (like the feed) that
+must not be wrapped in HTML:
+
+    [% page.content %]
+
+**5. Posts**, in `_source/blog/`. The `categories: blog` setting puts each
+post in `site.categories.blog`, and also means the post is written to the
+path described by `urlpattern` (`/:category/:year/:month/:slug/` by
+default), so this one becomes `/blog/2026/10/hello-world/`.
+
+```
+---
+title: Hello World
+layout: post
+categories: blog
+date: 2026-10-01T09:00:00
+---
+
+This is my first post. This paragraph becomes the excerpt.
+
+The rest of the post goes here.
+```
+
+Add a second post, `_source/blog/second-post.md`, the same way with a
+later date.
+
+**6. The home page**, `_source/index.html`. It is an `.html` file rather
+than `.md` so that Markdown doesn't touch the HTML and template directives
+in it (see [Source](#source)). `site.categories.blog` is sorted oldest
+first, so `.reverse` lists the newest post first.
+
+```html
+---
+title: Home
+---
+<h1>Recent posts</h1>
+[% FOR post IN site.categories.blog.reverse %]
+<article>
+  <h2><a href="[% post.url %]">[% post.title | html %]</a></h2>
+  <p class="date">[% post.date.strftime('%d %B %Y') %]</p>
+  [% post.excerpt %]
+  <p><a href="[% post.url %]">Read more</a></p>
+</article>
+[% END %]
+```
+
+To show only the five newest posts, stop the loop early by starting its
+body with `[% LAST IF loop.count > 5 %]`:
+
+    [% FOR post IN site.categories.blog.reverse %][% LAST IF loop.count > 5 %]
+
+**7. The feed**, `_source/feed.xml`. `extension: .xml` keeps the output
+file name `feed.xml` (the default extension is `.html`), and the `raw`
+layout keeps it from being wrapped in HTML. `xml_escape` makes titles and
+content safe inside XML, and `xmlschema` writes dates the way Atom expects.
+
+```xml
+---
+layout: raw
+extension: .xml
+---
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>[% site.name | xml_escape %]</title>
+  <link href="[% site.url %]/"/>
+  <link rel="self" href="[% site.url %]/feed.xml"/>
+  <id>[% site.url %]/</id>
+  <updated>[% site.time.xmlschema %]</updated>
+  <author><name>[% site.author | xml_escape %]</name></author>
+[% FOR post IN site.categories.blog.reverse %]
+  <entry>
+    <title>[% post.title | xml_escape %]</title>
+    <link href="[% site.url %][% post.url %]"/>
+    <id>[% site.url %][% post.url %]</id>
+    <updated>[% post.date.xmlschema %]</updated>
+    <content type="html">[% post.content | xml_escape %]</content>
+  </entry>
+[% END %]
+</feed>
+```
+
+**8. A stylesheet**, `css/site.css`. Directories at the top of the project
+are copied to the output as they are (see [Assets](#assets)), so this is
+served at `/css/site.css`.
+
+    body { font-family: sans-serif; max-width: 40em; margin: auto; }
+
+**9. Build and look.**
+
+    $ dapper serve
+
+Browse to http://localhost:8000. The output directory now contains:
+
+    _output/
+        index.html
+        feed.xml
+        css/site.css
+        blog/2026/10/hello-world/index.html
+        blog/2026/10/a-second-post/index.html
+
+Edit any file while `dapper serve` is running and the site is rebuilt;
+reload the browser to see the change.
 
 # Configuration
 
@@ -365,9 +616,9 @@ templates (`_layout/`).
 Variables specified in `_config.yml` are done using YAML. Here is the
 default configuration file created after a `dapper init` command:
 
-    # Dapper configuration file.
+    # Dapper configuration file
     ---
-    name: My Site
+    name : My Site
 
 Note that lines beginning with `#` are comments. Lines with `---` mark the
 beginning/end of a YAML "document". What follows are `<key>:<value>`
@@ -375,23 +626,36 @@ pairs or arrays, arranged hierarchically:
 
     # Dapper config file
     ---
-    name: Mark Benson Portfolio
-    url: http://markbenson.io/
-    source : _source/
-    output : _output/
-    layout : _layout/
+    name: My Portfolio
+    url: https://example.com/
+    source : _source
+    output : _output
+    layout : _layout
     links :
-        Preface : /preface/
-        Amazon : http://amazon.com/author/markbenson
-        Github : http://github.com/markdbenson
-        LinkedIn : http://linkedin.com/in/markbenson
-        Twitter : https://twitter.com/markbenson
+        About : /about/
+        Blog : /blog/
+        GitHub : https://github.com/markdbenson
     ignore :
         - ^\.
         - ^_
         - ^design$
         - ^README.md$
         - ^Makefile$
+
+A few settings change the way Dapper behaves:
+
+Setting       | Default                             | Meaning
+--------------|-------------------------------------|---------------------------------------------
+`source`      | `_source`                           | Directory of source files
+`output`      | `_output`                           | Directory the site is written to
+`layout`      | `_layout`                           | Directory of layout templates
+`urlpattern`  | `/:category/:year/:month/:slug/`    | URL (and output path) of pages with categories; see [Source](#source)
+`extension`   | `.html`                             | Extension of output files
+`ignore`      | `^\.`, `^_`, `^dapper$`             | Regular expressions for top-level files that are not copied to the output
+`timezone`    | your computer's time zone         | Time zone of dates written without one, e.g. `America/Chicago`. A page may set its own `timezone`.
+
+Directories given on the command line (`-s`, `-o`, `-l`) take precedence
+over these settings.
 
 Any variable specified in `_config.yml` can be used in a template. In the
 example above, name can be used like this:
@@ -431,9 +695,10 @@ Writing with Markdown allows you to separate the content and structure of
 your document from the formatting which allows you to focus on the actual
 writing.
 
-All source files must contain [YAML](http://yaml.org/) at the beginning.
-The YAML at the beginning of the source files is denoted by leading
-and trailing lines that each contain a sequence of three dashes. Example:
+Source files that are pages start with [YAML](http://yaml.org/) "front
+matter". The front matter is denoted by leading and trailing lines that
+each contain a sequence of three dashes, and must begin on the very first
+line of the file. Example:
 
 ```
 ---
@@ -448,6 +713,10 @@ The variables specified as YAML are available under the `page` namespace
 in layouts. The body of the page (`Here is the text of
 the post.`) in the above example, is available as `content` in Template
 Toolkit templates.
+
+Files in the source directory that do *not* start with front matter, such
+as images, PDFs, zip files or plain text, are copied to the same place in
+the output directory exactly as they are.
 
 Variable definitions in source files that carry special meaning are as
 follows:
@@ -484,7 +753,40 @@ follows:
       modification timestamp.
     - `:slug` - The title of the page with all non-ASCII characters
       removed, all non-word characters removed, all spaces converted to
-      hyphens (`-`), and converted to lowercase.
+      hyphens (`-`), and converted to lowercase. If the page has no
+      title, the source file name is used.
+
+  Tokens without a value (for instance `:category` on a page with no
+  categories) are removed along with their slash.
+
+  **Where the page is written.** Pages that have `categories`, or their
+  own `urlpattern` in their front matter, are written to the path their
+  URL describes. A URL that ends in `/` is written as `index.html` (or
+  `index` plus the page's `extension`) inside that directory. For
+  example, `_source/posts/0001.md` with:
+
+      ---
+      title: Foo Bar Baz
+      date: 2015-08-01T10:00:00
+      urlpattern: /:year/:month/:slug.html
+      ---
+
+  is written to `_output/2015/08/foo-bar-baz.html`, and `page.url` is
+  `/2015/08/foo-bar-baz.html`. All other pages keep the path of their
+  source file (`_source/about/index.md` becomes `_output/about/index.html`
+  with a `page.url` of `/about/`).
+
+* `categories: blog` puts the page in `site.categories.blog`. A list
+  (`categories: [news, blog]`) puts it in each; the first is used for
+  `:category`.
+
+* `date: 2014-05-02T10:30:00` sets the page's date. ISO 8601 date-times
+  (optionally with a time zone, e.g. `2014-05-02T10:30:00-05:00`), the
+  older `2014-05-02 10:30:00` format and plain dates (`2014-05-02`) are
+  accepted. Without a `date`, the file's modification time is used.
+
+* `layout: post` selects `_layout/post.html`. Without a `layout`,
+  `_layout/index.html` is used.
 
 Here is an example that shows a few different types of YAML definitions
 at the beginning of a source file and how to use those definitions in
@@ -522,25 +824,23 @@ fruits:
 </ul>
 ```
 
-Note that Dapper renders templates twice for each source file in the project. The 
-first time, the source file itself is rendered wherby all directives are 
-processed.
+Note that Dapper renders templates twice for each page. The first pass
+renders the layout, which places the page content (`[% page.content %]`)
+into it. The second pass renders the result again, so template directives
+written in the source file itself, and in `_config.yml` values, are
+processed too.
 
-After Dapper combines the source file with the template file, Dapper
-renders the template directives a second time. The only difference 
-between the variables available to source files versus the variables available to 
-layout files are that `[% page.content %]` is only available in layout files to 
-prevent circular references.
-
-This double-rendering behavior of Dapper allows you to speciify layout 
-directives in the source file in addition to the layout file, and gives you some
-extra flexibility. More information is available in [Appendix C:
+This double-rendering behavior allows you to use template directives in
+source files as well as in layouts, which gives you some extra flexibility.
+It also means that any `[% ... %]` text in a source file is run as a
+template, so only build content you trust, especially with `EVAL_PERL`
+enabled (see [Perl code](#perl-code)). More information is available in [Appendix C:
 Internals](#appendix-c-internals).
 
 Dapper depends on
 [MultiMarkdown](http://fletcherpenney.net/multimarkdown/). Or, more
 specifically, the Perl module implementation of MultiMarkdown ([Text::
-MultiMarkdown](http://search.cpan.org/~bobtfish/Text-MultiMarkdown/).
+MultiMarkdown](https://metacpan.org/pod/Text::MultiMarkdown).
 
 MultiMarkdown is based on the traditional definition of Markdown by
 John Gruber of [Daring Fireball](http://daringfireball.net), but adds
@@ -551,6 +851,63 @@ headings, text, lists, footnotes, tables, and images. There are more
 features of the MultiMarkdown engine that Dapper uses. See the
 [MultiMarkdown documentation](http://fletcher.github.io/MultiMarkdown-4/)
 on CPAN for details.
+
+## Source file types
+
+What happens to a file in the source directory depends on whether it starts
+with front matter and on its extension:
+
+* **`.md` files with front matter** are pages. The body is converted from
+  Markdown to HTML, then combined with the layout.
+* **Other files with front matter** (`.html`, `.xml`, `.txt`, ...) are
+  pages too, but the body is used as it is, without Markdown. Use these for
+  pages that are mostly HTML or template directives, such as a list of
+  posts, or for non-HTML output such as a feed. Set `extension` in the
+  front matter (e.g. `extension: .xml`) to choose the output file name's
+  extension; otherwise it is `.html`.
+* **Files without front matter** are copied to the same place in the output
+  directory, untouched.
+
+Markdown runs before the template directives are processed, so template
+directives in a `.md` file are fine inline, but a block of HTML and
+directives (a loop that builds a list of links, say) is best kept in an
+`.html` source file, where Markdown can't rewrap it in `<p>` tags.
+
+Every file and directory in the source directory is processed except those
+whose names start with a period. Directories starting with an underscore
+are *not* skipped inside the source directory.
+
+## Assets
+
+Stylesheets, scripts, images and other files can live in either of two
+places:
+
+* **In the project directory**, next to `_source` (e.g. `css/`, `js/`,
+  `images/`). Every top-level file and directory is copied to the output as
+  it is, except those matching the `ignore` patterns in `_config.yml` (by
+  default: names starting with `.` or `_`). Add patterns for anything you
+  don't want published, like `README.md`, `Makefile` or a `design`
+  directory.
+* **In the source directory**, alongside the pages. Files there without
+  front matter are copied as they are, which keeps an article's images next
+  to its text.
+
+Link to assets with absolute paths (`/css/site.css`) so the links work from
+pages at any depth.
+
+## Drafts and clean builds
+
+Dapper has no draft setting: every page in the source directory is
+published. Keep work in progress outside the source directory (for
+instance in a top-level `_drafts` directory, which the default `ignore`
+patterns keep out of the output) and move it into `_source` when it's
+ready.
+
+Dapper never deletes anything from the output directory. If you rename or
+remove a source file, its old output stays behind until you delete it. For
+a clean build:
+
+    $ rm -rf _output && dapper build
 
 ## Headings
 
@@ -588,14 +945,14 @@ This text is also `__bold__.`           | This text is also **bold**.
 This text is `*italicized*.`            | This text is *italicized*.
 This text is also `_italicized_.`       | This text is also _italicized_.
 `` `This is some code.` ``              | `This is some code.`
-Link to `[Mark Benson Portfolio](http://markbenson.io).` | Link to [Mark Benson Portfolio](http://markbenson.io/).
-Link to `[Mark Benson Portfolio][ln1].`         | Link to [Mark Benson][ln1].
-Link to `<http://markbenson.io>.`       | Link to http://markbenson.io.
+Link to `[Example](https://example.com).` | Link to [Example](https://example.com/).
+Link to `[Example][ln1].`               | Link to [Example][ln1].
+Link to `<https://example.com>.`        | Link to https://example.com.
 `> This is the first level of quoting.` | The first level of quoting.
 `>> This is a nested blockquote.`       | A nested blockquote.
 
-`[ln1]: http://markbenson.io "Mark Benson Portfolio"`
-[ln1]: http://markbenson.io "Mark Benson Portfolio"
+`[ln1]: https://example.com "Example"`
+[ln1]: https://example.com "Example"
 
 Code is placed in `backticks` (see [above](#text)), or as a "fenced code block" 
 by surrounding an entire block of text with three backticks in a row.
@@ -625,7 +982,7 @@ via indentation.
 ```
 
 Numbered lists are prefixed by numbers. The order of the numbers doesn't
-matter -- just that they are numbers. Exmaple:
+matter -- just that they are numbers. Example:
 
 ```
 1. One
@@ -697,7 +1054,7 @@ This is an example of an inline footnote.[^This is the *actual* footnote.]
 
 Layout templates in Dapper are based on a superset of the [Template
 Toolkit](http://template-toolkit.org/) v3 (TT3) mini language as implemented by
-[Template::Alloy](http://search.cpan.org/~rhandom/Template-Alloy/). 
+[Template::Alloy](https://metacpan.org/pod/Template::Alloy). 
 Although both Dapper and Template::Alloy are both written in Perl, you do 
 not need to know Perl in order to use them.
 
@@ -744,10 +1101,62 @@ an example of printing the contents of `page.title`:
 ```
 
 In Dapper, there are two top-level variables (think of them as namespaces),
-which are `site` and `page`. All `site` variables are defined in
-`_config.yml`, and are available in layouts as `[% site.* %]`. All page
-variables (defined at the beginning of source files) are available in
-layouts as `[% page.* %]`.
+which are `site` and `page`. Everything defined in `_config.yml` is
+available in layouts as `[% site.* %]`, and everything defined in the front
+matter of a source file is available as `[% page.* %]`. Dapper adds the
+following variables of its own.
+
+**Site variables**
+
+Variable           | Description
+-------------------|-----------------------------------------------------------
+`site.pages`       | A list of every page, in source path order. Each item has all of the `page.*` variables below.
+`site.categories`  | A hash of category name to a list of its pages, oldest first, e.g. `[% FOR post IN site.categories.blog.reverse %]`.
+`site.time`        | The time the build started (a date; see [Dates](#dates)).
+`site.source`      | The source directory being used.
+`site.output`      | The output directory being used.
+`site.layout`      | The layout directory being used.
+`site.urlpattern`  | The default URL pattern (`/:category/:year/:month/:slug/`).
+`site.extension`   | The default output extension (`.html`).
+`site.ignore`      | The list of patterns for top-level files that are not copied to the output.
+
+**Page variables**
+
+Variable                      | Description
+------------------------------|------------------------------------------------
+`page.content`                | The body of the page, rendered from Markdown for `.md` files.
+`page.excerpt`                | The first paragraph of a Markdown page (`<p>...</p>`).
+`page.title`, `page.layout`, ...| Anything in the page's front matter.
+`page.url`                    | The page's URL relative to the site root, e.g. `/blog/2015/08/my-post/`.
+`page.slug`                   | The title, slugified (or the file name if there is no title).
+`page.id`                     | A number unique to the page within a build, in source path order.
+`page.date`                   | The page's date: its `date` setting, or the file's modification time.
+`page.timezone`               | The time zone of `page.date` (from the page, the site, or your computer).
+`page.year`, `page.month`, `page.day`, `page.hour`, `page.minute`, `page.second` | Parts of `page.date`, zero padded (e.g. `08`).
+`page.categories`             | The page's categories, as written in its front matter.
+`page.extension`              | The output extension for the page.
+`page.filename`               | The output file the page is written to.
+`page.dirname`                | The directory of `page.filename`.
+`page.source`                 | The source file the page came from.
+`page.source_file_extension`  | The source file's extension, e.g. `.md`.
+
+### Dates
+
+`page.date` and `site.time` are [DateTime](https://metacpan.org/pod/DateTime)
+objects, so you can call DateTime methods on them, and they print as
+`2014-05-02T10:30:00`. A date written without a time zone (`2014-05-02T10:30:00`)
+is taken to be in the page's `timezone`, the site's `timezone`, or your
+computer's time zone, in that order. They also have an `xmlschema` method that includes
+the time zone, which is what Atom feeds need:
+
+```
+<updated>[% page.date.xmlschema %]</updated>
+<p>Posted [% page.date.strftime('%B %e, %Y') %]</p>
+```
+
+Note that Dapper's filters (the ones marked [DSF] below) only apply to
+text; given a date object they print nothing. So use
+`[% page.date.xmlschema %]` rather than `[% page.date | date_to_xmlschema %]`.
 
 Example `_config.yml`:
 
@@ -825,14 +1234,14 @@ Result:
 And associative arrays (hashes):
 
 ```
-[% link = {name => 'Mark Benson Portfolio', 'url' => 'http://markbenson.io/'} %]
+[% link = {name => 'My Portfolio', 'url' => 'https://example.com/'} %]
 <a href="[% link.url %]">[% link.name %]</a>
 ```
 
 Result:
 
 ```
-<a href="http://markbenson.io/">Mark Benson Portfolio</a>
+<a href="https://example.com/">My Portfolio</a>
 ```
 
 *Literals*
@@ -869,7 +1278,7 @@ Examples:
 ```
 
 For a full listing of operators, see
-[Template::Alloy::Operator](http://search.cpan.org/~rhandom/Template-Alloy/lib/Template/Alloy/Operator.pm).
+[Template::Alloy::Operator](https://metacpan.org/pod/Template::Alloy::Operator).
 
 ## Comments
 
@@ -913,7 +1322,7 @@ Filter               | Description
 `chunk(n)`           | Split string up into a list of chunks of text n chars wide.
 `collapse`           | Strip leading and trailing whitespace and collapse all other space to one space.
 `cos`                | Returns the cosine of the item.
-`date_to_xmlschema`  | [DSF] Convert a date to an XML-formatted version of the date that also includes the timezone
+`date_to_xmlschema`  | [DSF] Convert a date string to an XML Schema date that also includes the timezone. For `page.date` and `site.time` use `.xmlschema` instead (see [Dates](#dates))
 `defined`            | Always true - because the undef sub translates all undefs to ''.
 `eval`               | Process the string as though it was a template.
 `evaltt`             | Same as the eval filter.
@@ -926,7 +1335,6 @@ Filter               | Description
 `indent(n)`          | Indent by `n` spaces if an integer is passed (default is 4), or string if string is passed.
 `int`                | Return the integer portion of the value (0 if none).
 `json(1)`            | Returns a JSON encoded representation. Returns a pretty JSON encoded representation if `1` is passed.
-`json`               | [DSF] Convert an object or string to a JSON representation
 `lc`                 | Same as the lower vmethod. Returns the lowercased version of the item.
 `lcfirst`            | Lowercase the leading letter.
 `length`             | Return the length of the string.
@@ -941,12 +1349,12 @@ Filter               | Description
 `remove(p)`          | Same as replace, but is global and replaces the regular expression `p` with nothing.
 `repeat(n, s)`       | Repeat the item `n` times, separated with `s`. `s` is optional.
 `replace(p, q)`      | Globally replace all `p` with `q`. `p` and `q` may be strings or regular expressions. An optional third argument of `0` may be passed to turn off global replacement.
-`replace_last`       | [DSF] Replace the last occurrance of a string with another string
+`replace_last(a, b)` | [DSF] Replace the last occurrence of the string `a` with `b`
 `return`             | Returns the item from the inner most block, macro, or file. Similar to the `return` directive.
 `search(s)`          | Tests if the given pattern is in the string.
 `sin`                | Returns the sine of the item.
 `size`               | Always returns 1 for text variables.
-`smart`              | [DSF] Replace dashes with mdashes and ndashes
+`smart`              | [DSF] Replace `---` with an em dash and `--` with an en dash
 `split(s, n)`        | Splits the item on regular expression `s` and returns an array with the chunks. If `n` is passed, processing stops after the first `n` chunks.
 `sprintf(p, q, ...)` | Uses the pattern stored in self, and passes it to sprintf with the passed arguments. Opposite from the fmt vmethod.
 `sqrt`               | Returns the square root of the number.
@@ -1201,7 +1609,7 @@ Anonymous `block` definitions can be used for capturing chunks of text:
 ## Perl code
 
 You can execute perl code inside templates as of v0.19. In order to enable it,
-make sure that `EVAL_PERL` is defined in your environmeht. For instance:
+make sure that `EVAL_PERL` is defined in your environment. For instance:
 
     $ export EVAL_PERL=true
 
@@ -1234,7 +1642,12 @@ than just calling `print`.
 ## Includes
 
 An `include` directive parses the contents of a file or `block` and inserts them
-into the template. Variables that are defined or modified within the included
+into the template. File names are relative to the layout directory
+(`_layout`), so shared pieces such as a header or footer can live there
+next to the layouts (e.g. `_layout/include-footer.html`, included with
+`[% include "include-footer.html" %]`). Every file in the layout directory
+can also be used as a layout, so give partials a name that makes their
+purpose clear. Variables that are defined or modified within the included
 bits are discarded after the include occurs. Example:
 
     [% include "path/to/template.html" %]
@@ -1515,88 +1928,71 @@ a few of them.
 
 It's possible to serve a static website using Amazon S3. Here's how.
 
-1. Go to Amazon's AWS Console and create 2 buckets: 'www.mydomain.com' and
-   'mydomain.com'. Content will be loaded into the 'mydomain.com' bucket and
-   'www.mydomain.com' will just point to it.
+1. In the AWS Console, create a bucket named after your domain (e.g.
+   `mydomain.com`). Under 'Properties', enable 'Static website hosting' and
+   set the 'Index document' to `index.html`.
 
-2. Under the properties for the 'www.mydomain.com' bucket, choose 'redirect
-   all requests to another host name' under 'Static Web Hosting'.
+2. New buckets block public access by default. To serve a website directly
+   from the bucket, turn off 'Block public access' for it and add a bucket
+   policy that allows `s3:GetObject` for everyone. Alternatively, keep the
+   bucket private and put Amazon CloudFront in front of it, which also gives
+   you HTTPS.
 
-3. Under properties for 'mysite.com', choose 'enable website hosting' under
-   'Static Web Hosting', and set 'Index Document' to 'index.html'.
+3. Optionally, create a second bucket named `www.mydomain.com` and set its
+   static website hosting to 'Redirect requests' to `mydomain.com`.
 
-4. Install [s3cmd](http://s3tools.org/s3cmd). On Mac OSX, using
-   [Homebrew](http://brew.sh/), install like this:
+4. Install and configure the [AWS CLI](https://aws.amazon.com/cli/) with
+   your credentials:
 
-       $ pip install s3cmd
+       $ aws configure
 
-5. Configure `s3cmd` with your Amazon credentials (AWS access key, secret
-   key):
-
-       $ s3cmd --configure
-
-6. Now any time you want to rebuild your content and push it to s3, it's a
+5. Now any time you want to rebuild your content and push it to S3, it's a
    simple call to:
 
-       $ s3cmd sync _output/ s3://mydomain.com --reduced-redundancy --acl-public --delete-removed
+       $ dapper build
+       $ aws s3 sync _output/ s3://mydomain.com --delete
 
-    A few notes about the options. First, `--reduced-redundancy` tells
-    Amazon that your website content is non-critical and easily
-    reproducible if there is a problem. It means your charges from Amazon
-    will be less and is a good option for most static sites.
+    The `--delete` option removes files from the bucket that are no longer
+    in `_output`. Note that Dapper does not remove files from `_output`
+    when you delete a source file, so delete the `_output` directory before
+    building if you want the bucket to match your source exactly. If you
+    upload files to the bucket independently of Dapper, leave `--delete`
+    off.
 
-    Second, the `--acl-public` option makes everything in the bucket
-    public, which is what we want for a static website. We want the world
-    to have read access to the contents of the bucket, and `--acl-public`
-    accomplishes this.
-
-    Third, the `--delete-removed` option tells `s3cmd` to delete files in
-    the bucket that are not stored locally. This cleans things up so that
-    you don't have lots of extra crap sitting in your bucket that isn't
-    being used, but is costing you money. If you upload image files
-    independently of Dapper or `s3cmd`, you may want to not use this option.
-
-An optional step is to route traffic to your website through Amazon's Route 53. 
-To do this, follow these steps:
-
-1. Create 2 A records, one for 'mydomain.com' and one for 'www.mydomain.
-   com'.
-
-2. For each A record, set 'Alias' to yes, and set 'Alias Target' to the S3
-   bucket with the same name.
+If you use Amazon Route 53 for DNS, create an alias A record for
+`mydomain.com` (and `www.mydomain.com`) that points at the bucket's website
+endpoint, or at your CloudFront distribution.
 
 To make it easy to publish to Amazon S3, one option is to create a Makefile
-that encodes the publishing instructions. Here is a Makefile that I use for
-[Mark Benson Portfolio](http://markbenson.io/):
+that encodes the publishing instructions. For example:
 
-    BASEDIR=$(CURDIR)
-    INPUTDIR=$(BASEDIR)/_source
-    OUTPUTDIR=$(BASEDIR)/_output
-
-    S3_BUCKET=markbenson.io
+    S3_BUCKET=mydomain.com
 
     build:
     	dapper build
 
-    serve: build
+    clean:
+    	rm -rf _output
+
+    serve:
     	dapper serve
 
-    publish: build
-    	s3cmd sync $(OUTPUTDIR)/ s3://$(S3_BUCKET) --reduced-redundancy --acl-public --delete-removed
+    publish: clean build
+    	aws s3 sync _output/ s3://$(S3_BUCKET) --delete
 
     watch:
     	dapper watch
 
-    .PHONY: build serve publish watch
+    .PHONY: build clean serve publish watch
 
-## Github Pages
+## GitHub Pages
 
-Github Pages is a free service that allows you to publish a static website for
+GitHub Pages is a free service that allows you to publish a static website for
 free. By pushing your changes to a git repository, your website will be
 automatically available on github.io. Here are the steps:
 
-1. First, if you don’t have an account already, you should sign up for a [Github 
-   account](http://github.com/).
+1. First, if you don’t have an account already, you should sign up for a [GitHub
+   account](https://github.com/).
 
 2. Next, create a new repository named `<username>.github.io` where you should 
    replace `<username>` with your actual Github username.
@@ -1605,20 +2001,122 @@ automatically available on github.io. Here are the steps:
    repo. Steps:
 
        $ cd _output
-       $ git init
+       $ touch .nojekyll
+       $ git init -b main
        $ git remote add origin https://github.com/<username>/<username>.github.io.git
-       $ git add *
-       $ git commit -m"Initial revision"
-       $ git push
+       $ git add -A
+       $ git commit -m "Initial revision"
+       $ git push -u origin main
 
-4. Wait a few minutes. Then, find your new website on github.io at the following 
-   address: `http://<username>.github.io`.
+   The empty `.nojekyll` file tells GitHub Pages to publish the files as
+   they are, rather than running them through Jekyll (which would skip
+   files and directories that start with an underscore).
+
+4. In the repository's Settings, under Pages, make sure the site is
+   published from the `main` branch. Wait a few minutes, then find your new
+   website at `https://<username>.github.io`.
+
+# What Dapper Doesn't Do
+
+Dapper is deliberately small. It does not have:
+
+* **Pagination.** A listing page shows everything you loop over; use
+  `[% LAST IF loop.count > 10 %]` to limit it.
+* **Tag or archive pages generated for you.** `site.categories` gives you
+  the pages in each category, but each listing page is a source file you
+  write (one per category, or one page that loops over them all).
+* **Drafts or scheduled posts.** See [Drafts and clean
+  builds](#drafts-and-clean-builds).
+* **Cleaning the output directory.** Old files stay until you delete them.
+* **Asset processing** (Sass, minification, bundling). Run those tools
+  separately and let Dapper copy their output.
+* **Incremental builds.** Every build processes the whole site, which is
+  fast for sites of a few hundred pages.
+
+# Upgrading from 0.21
+
+Version 0.22 fixes a number of long-standing bugs. Most sites build exactly
+as before, but check these:
+
+* **Directories in `_config.yml` are now used.** If your project file sets
+  `source`, `output` or `layout`, Dapper now uses them for every command
+  (before, they were mostly ignored). Command-line options still win.
+* **Pages with their own `urlpattern` are written to their URL's path**,
+  not to a path based on the source file name.
+* **`page.id` follows sorted file order**, so the numbers may differ from
+  0.21. If a feed uses `page.id` in entry IDs, readers may show those
+  entries again once; `page.url` makes a more stable ID.
+* **Front matter must begin on the first line** and end with a line
+  containing only `---`. Files that don't start with front matter are now
+  copied as they are, instead of stopping the build.
+* **Dates without a time zone** are now in your site's `timezone` (or your
+  computer's), instead of being treated as UTC by `xmlschema`.
+* **Filters don't apply to dates.** If a layout used
+  `[% page.date | date_to_xmlschema %]`, it printed nothing; use
+  `[% page.date.xmlschema %]`.
+* **`dapper` exits with an error** for unknown commands and options, and
+  when a build fails, which matters if you run it from scripts or `make`.
+
+The full list is in the [Changes](Changes) file.
+
+# Troubleshooting
+
+**`could not find the project file "_config.yml"`.** Run `dapper` in the
+directory that contains `_config.yml`, point to it with `-c`, or create a
+new project with `dapper init`.
+
+**`could not parse front matter in "..."`.** The YAML at the top of that
+file is invalid. The most common cause is a colon inside a value; put the
+value in quotes: `title: "Dapper: A Story"`.
+
+**`"..." has front matter that is never closed`.** Add a line containing
+only `---` after the front matter.
+
+**`... uses the layout "post", but there is no such file in _layout`.**
+Create `_layout/post.html`, or fix the `layout` setting in that file.
+
+**`layout "..." is part of a loop of layouts`.** Two or more layouts name
+each other in their `layout` settings. One of them must not have a parent.
+
+**`could not understand the date "..."`.** Write dates as
+`2014-05-02T10:30:00`, `2014-05-02 10:30:00` or `2014-05-02`.
+
+**`unknown time zone "..."`.** Use a name from the
+[tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones),
+such as `Europe/London` or `America/New_York`.
+
+**`could not process ... with layout ...: parse error`.** There is a
+mistake in a template directive, either in the layout or in the source file
+(since source files are processed as templates too). The message gives the
+line and what was expected, e.g. `Missing END directive`.
+
+**`could not start the webserver on port 8000`.** Something else is using
+the port. Stop it, or pick another port: `dapper -p 9000 serve`.
+
+**Markdown wraps my HTML or template loop in `<p>` tags.** Move that page to
+an `.html` source file, which is not run through Markdown. See [Source file
+types](#source-file-types).
+
+**A filter prints nothing.** Dapper's filters only work on text. For dates
+use their methods (`[% page.date.xmlschema %]`,
+`[% page.date.strftime('%Y') %]`), and for hashes and lists use the
+built-in methods (`[% page.json(1) %]`).
+
+**A page I deleted is still on the site.** Dapper doesn't remove old output;
+delete the output directory and build again.
+
+**Accented characters look garbled.** Save source files, layouts and
+`_config.yml` as UTF-8. Dapper reads and writes UTF-8 and declares it in the
+starter layout (`<meta charset="utf-8">`).
+
+To see every variable available to a page, use the debug page in [Appendix
+B](#appendix-b-debugging).
 
 # Further Reading
 
 You can look for more information here:
 
-* [CPAN](http://search.cpan.org/dist/App-Dapper/)
+* [MetaCPAN](https://metacpan.org/dist/App-Dapper)
 
 * [Github](https://github.com/markdbenson/dapper)
 
@@ -1626,7 +2124,7 @@ You can look for more information here:
 
 * [Historical Releases on BackPAN](http://backpan.perl.org/authors/id/M/MD/MDB/)
 
-* [Continuous Integration Status](https://travis-ci.org/markdbenson/dapper)
+* [Continuous Integration Status](https://github.com/markdbenson/dapper/actions)
 
 # Appendix A: Extending
 
@@ -1653,53 +2151,39 @@ perldoc command.
 
 # Appendix B: Debugging
 
-With templating, it's easy to outsmart yourself and forget what variables are 
-assigned to which collection and how that collection should be used in a 
-template. Here is a way to debug that makes use of the `json` template filter 
-built in to Dapper. The resulting page that we'll create displays all of the 
-varialbes that are available for you to use.  
+With templating, it's easy to outsmart yourself and forget what variables are
+assigned to which collection and how that collection should be used in a
+template. Here is a way to debug that uses the template engine's built-in
+`json` method to display all of the variables that are available for you to
+use.
 
 First, create a debug page in your `_source` directory:
 
-    $ echo "" > _source/debug/index.html
+    $ mkdir -p _source/debug
+    $ touch _source/debug/index.html
 
 Then, edit the file and fill it with this content:
 
 ```html
 ---
-name: Debug
+title: Debug
 layout: plain
 ---
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta charset="utf-8">
 <title>Dapper Debug</title>
-<style type="text/css" media="screen">
-    #editor {
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        left: 0;
-    }
-</style>
 </head>
 <body>
 
-<div id="editor">[% dump site | json(1)%]</div>
+<h1>site</h1>
+<pre>[% site.json(1) | html %]</pre>
 
-<script src="//cdnjs.cloudflare.com/ajax/libs/ace/1.1.3/ace.js"
-    type="text/javascript" charset="utf-8"></script>
-<script>
-    var editor = ace.edit("editor");
-    editor.setTheme("ace/theme/text_mate");
-    editor.getSession().setMode("ace/mode/json");
-    editor.setReadOnly(true);
-    window.setTimeout(function() {
-        editor.getSession().foldAll(2,editor.session.getLength());
-    }, 100);
-</script>
+<h1>page</h1>
+<pre>[% page.json(1) | html %]</pre>
+
 </body>
 </html>
 ```
@@ -1708,11 +2192,16 @@ Create a plain layout template:
 
     $ echo "[% page.content %]" > _layout/plain.html
 
-Then, build your site and view the content locally at http://localhost:8000/debug/
+Then, build your site and view the content locally at
+http://localhost:8000/debug/
+
+Dates (`page.date`, `site.time`) are objects, so they show as `null` in the
+JSON; print them directly (`[% page.date %]`) to see their values. The
+`| html` filter escapes the JSON so the browser shows it as text.
 
 # Appendix C: Internals
 
-There are two importatn aspects of Dapper internals that are important
+There are two important aspects of Dapper internals that are important
 to understand. The first is that source files are rendered using the
 templating system once, and then again after being combined with
 a layout. This means that layout variables and directives can be used in source
@@ -1723,8 +2212,11 @@ after all of the source files are rendered to output, Dapper does a
 copy operation which copies things like binary files, images, or other
 files that need to be transferred into the output directory but do not
 need to be processed by Markdown or the templating system. The rules for what to 
-copy are simple: everything is copied except for those things that match the
-site.ignore list. By default, the following ignore list is used:
+copy are simple: every top-level file and directory is copied except for
+those that match the site.ignore list. The source, layout and output
+directories and the project file are never copied. Copying is done by Dapper
+itself, not the shell, so file names with spaces or special characters are
+fine. By default, the following ignore list is used:
 
 ```
 ignore :
@@ -1744,15 +2236,32 @@ ignore :
     - ^design$
 ```
 
-# Appendix D: Meta
+# Appendix D: Contributing
 
-Dapper development environment:
-* perlbrew on osx to isolate and test against different versions of Perl
+Bug reports and pull requests are welcome at
+[GitHub](https://github.com/markdbenson/dapper/issues). When reporting a
+bug, include the output of `dapper -v`, `perl -v`, and the smallest
+`_config.yml`, source file and layout that show the problem.
+
+To work on Dapper itself:
+
+    $ git clone https://github.com/markdbenson/dapper.git
+    $ cd dapper
+    $ cpanm --installdeps .
+    $ prove -l t
+
+* `bin/dapper` runs the working copy directly, so you can try changes on a
+  real site: `perl ~/dapper/bin/dapper build`.
+* Tests live in `t/`; `t/lib/DapperTest.pm` has helpers for building
+  throwaway sites in a temporary directory. Please add a test with any fix.
+* Set `RELEASE_TESTING=1` to also check the POD.
+* GitHub Actions runs the tests on every push and pull request on Perl 5.10
+  through 5.40.
 
 # Author
 
 Dapper was written by Mark Benson
-[mark@markbenson.io](mailto:mark@markbenson.io).
+[mark@jayber.org](mailto:mark@jayber.org).
 
 # License and Copyright
 

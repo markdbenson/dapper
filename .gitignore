@@ -14,6 +14,6 @@ inc/
 nytprof.out
 pod2htm*.tmp
 pm_to_blib
-Text-Dapper-*
-Text-Dapper-*.tar.gz
 *.gz
+App-Dapper-*
+MANIFEST.bak

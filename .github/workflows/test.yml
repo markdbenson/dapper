@@ -1,0 +1,52 @@
+name: test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: perl ${{ matrix.perl }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        perl: ["5.10", "5.16", "5.22", "5.28", "5.34", "5.40"]
+        include:
+          - os: macos-latest
+            perl: "5.40"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+      - name: Install dependencies
+        # A checkout has no META.json, so cpanm cannot see configure_requires;
+        # upgrade MakeMaker first (Perl 5.10 ships one that writes no MYMETA).
+        run: |
+          cpanm --notest ExtUtils::MakeMaker
+          cpanm --notest --installdeps .
+      - name: Run tests
+        run: prove -lv t
+
+  release:
+    name: release checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: "5.40"
+      - name: Install dependencies
+        run: cpanm --notest --installdeps . && cpanm --notest Test::Pod
+      - name: Build and test the distribution
+        env:
+          RELEASE_TESTING: 1
+        run: |
+          perl Makefile.PL
+          make distcheck 2>&1 | tee distcheck.log
+          ! grep -q "^Not in MANIFEST" distcheck.log
+          make disttest

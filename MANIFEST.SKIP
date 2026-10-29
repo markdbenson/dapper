@@ -1,0 +1,14 @@
+^\.git
+^\.github/
+^\.gitignore$
+^MANIFEST\.SKIP$
+^MANIFEST\.bak$
+^Makefile$
+^Makefile\.old$
+^MYMETA\.
+^blib/
+^pm_to_blib$
+^App-Dapper-
+^distcheck\.log$
+^cover_db/
+\.DS_Store$
