@@ -67,6 +67,7 @@ unless (eval { ExtUtils::MakeMaker->VERSION('6.64') }) {
 }
 delete $WriteMakefileArgs{CONFIGURE_REQUIRES} unless eval { ExtUtils::MakeMaker->VERSION('6.52') };
 delete $WriteMakefileArgs{MIN_PERL_VERSION}   unless eval { ExtUtils::MakeMaker->VERSION('6.48') };
-delete $WriteMakefileArgs{META_MERGE}         unless eval { ExtUtils::MakeMaker->VERSION('6.46') };
+# Before 6.68, a meta-spec 2 META_MERGE replaces the prerequisites in MYMETA.
+delete $WriteMakefileArgs{META_MERGE}         unless eval { ExtUtils::MakeMaker->VERSION('6.68') };
 
 WriteMakefile(%WriteMakefileArgs);
