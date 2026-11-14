@@ -1,6 +1,6 @@
 Revision history for App-Dapper
 
-1.00    2026-10-29
+1.00    2026-11-13
         Dapper 1.0 makes page content safe by default, adds what a modern
         static site needs (schemas, data files, pagination, feeds,
         sitemaps, SEO tags), and makes sites easy for AI tools to read and

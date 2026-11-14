@@ -5,11 +5,14 @@
 
 A publishing tool for static websites
 
-[Distributed as a Perl module](https://metacpan.org/dist/App-Dapper),
-Dapper comes with a command-line application called `dapper` which you
-can use to create static websites.
+Dapper is a command-line application called `dapper` which you can use
+to create static websites. Install it whichever way suits you:
 
-    $ cpanm App::Dapper # Install
+    $ brew install markdbenson/tap/dapper    # Homebrew, on macOS or Linux
+    $ cpanm App::Dapper                      # CPAN, if you use Perl
+
+or run it with [Docker](#install), with nothing else installed. Then:
+
     $ dapper init       # Initialize current directory with new site
     $ dapper serve      # Build and serve locally at http://localhost:8000
 

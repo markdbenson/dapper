@@ -10,6 +10,11 @@ RUN cpanm --notest --installdeps . \
  && perl Makefile.PL && make && make install
 
 FROM perl:5.40-slim
+LABEL org.opencontainers.image.title="Dapper" \
+      org.opencontainers.image.description="Static site generator: Markdown in, plain HTML out" \
+      org.opencontainers.image.source="https://github.com/markdbenson/dapper" \
+      org.opencontainers.image.documentation="https://github.com/markdbenson/dapper#readme" \
+      org.opencontainers.image.licenses="MIT"
 # git, for themes from a git URL and for dapper deploy to GitHub Pages
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git openssh-client ca-certificates \

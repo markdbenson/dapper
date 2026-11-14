@@ -1,9 +1,10 @@
 name: release
 
 # Runs when a version tag (v1.00, ...) is pushed. Builds the single-file
-# dapper and attaches it to a GitHub release, and publishes the Docker image
-# to the GitHub Container Registry (ghcr.io/markdbenson/dapper). The CPAN
-# upload stays manual (see the README).
+# dapper and attaches it to a GitHub release (with that version's entry in
+# Changes as the notes), publishes the Docker image to the GitHub Container
+# Registry (ghcr.io/markdbenson/dapper), and updates the Homebrew formula in
+# markdbenson/homebrew-tap. The CPAN upload stays manual (see RELEASING.md).
 
 on:
   push:
@@ -27,11 +28,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The notes are this version's entry in Changes, and how to install it
+          perl packaging/release-notes.pl "${GITHUB_REF_NAME#v}" > notes.md
           cd dist
           shasum -a 256 dapper > dapper.sha256
           gh release create "$GITHUB_REF_NAME" dapper dapper.sha256 \
-            --title "Dapper ${GITHUB_REF_NAME#v}" \
-            --notes "See [Changes](https://github.com/markdbenson/dapper/blob/master/Changes). Install the single file with: curl -fsSLo dapper https://github.com/markdbenson/dapper/releases/download/$GITHUB_REF_NAME/dapper && chmod +x dapper"
+            --title "Dapper ${GITHUB_REF_NAME#v}" --notes-file ../notes.md
 
   docker:
     runs-on: ubuntu-latest
@@ -49,6 +51,35 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           image="ghcr.io/markdbenson/dapper"
-          docker build -t "$image:$version" -t "$image:latest" .
+          docker build --label "org.opencontainers.image.version=$version" -t "$image:$version" -t "$image:latest" .
           docker push "$image:$version"
           docker push "$image:latest"
+
+  homebrew:
+    # Updates Formula/dapper.rb in markdbenson/homebrew-tap to this version.
+    # Pushing there needs a token in the HOMEBREW_TAP_TOKEN secret (see
+    # RELEASING.md); without it, this job says so and does nothing.
+    needs: single-file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update the formula
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not set, so the Homebrew tap was not updated. See RELEASING.md."
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          git clone --quiet "https://x-access-token:$TAP_TOKEN@github.com/markdbenson/homebrew-tap.git" tap
+          packaging/homebrew/update-formula.sh "$version" > tap/Formula/dapper.rb
+          cd tap
+          if git diff --quiet; then
+            echo "The formula is already at $version."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -am "dapper $version"
+          git push --quiet origin HEAD:main
