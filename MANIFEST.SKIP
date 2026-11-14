@@ -12,3 +12,8 @@
 ^distcheck\.log$
 ^cover_db/
 \.DS_Store$
+^dist/
+^packaging/
+^Dockerfile$
+^\.dockerignore$
+^\.dapper/

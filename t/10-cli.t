@@ -8,6 +8,7 @@ use DapperTest;
 use App::Dapper;
 use Cwd qw(abs_path);
 use File::Spec;
+use JSON ();
 
 my $dapper = abs_path(File::Spec->catfile('bin', 'dapper'));
 my $lib = abs_path('lib');
@@ -48,6 +49,18 @@ ok(-f 'other/index.html', '-o chooses the output directory');
 
 ($status, $output) = run('--output=third', '--quiet', 'build');
 ok(-f 'third/index.html', 'long options work');
+
+($status, $output) = run('check');
+is($status, 0, 'check exits 0 on a clean site');
+like($output, qr/Checked 1 page: 0 errors/, 'check summary');
+
+spew('_source/broken.md', "---\ntitle: Broken\n---\n[x](/nowhere/)\n");
+($status, $output) = run('check', '--json');
+is($status, 1, 'check exits 1 when there are errors');
+my $report = eval { JSON->new->decode($output) };
+ok($report, 'check --json prints JSON') or diag $output;
+is($report->{errors}->[0]->{type}, 'link', 'and reports the broken link');
+unlink '_source/broken.md';
 
 unlink '_config.yml';
 ($status, $output) = run('build');

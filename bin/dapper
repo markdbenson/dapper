@@ -18,6 +18,7 @@ use lib "$FindBin::Bin/../lib";
 use Pod::Usage;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use App::Dapper;
+use JSON ();
 
 my $SOURCE  = undef;
 my $OUTPUT  = undef;
@@ -27,6 +28,12 @@ my $PORT    = 8000;
 my $QUIET   = 0;
 my $HELP    = 0;
 my $VERSION = 0;
+my $JSON    = 0;
+my $TEMPLATE = undef;
+my $DIRECTORY = undef;
+my $DRY_RUN  = 0;
+my $FORCE    = 0;
+my $NO_BUILD = 0;
 
 =head1 SYNOPSIS
 
@@ -34,6 +41,16 @@ my $VERSION = 0;
 
     # Initialize the current directory with a fresh skeleton of a site
     $ dapper init
+
+    # ...or with a complete starter blog
+    $ dapper init --template blog
+
+    # ...or a portfolio, business or docs site, or a theme from git
+    $ dapper init --template business
+    $ dapper init --template https://github.com/someone/dapper-theme.git
+
+    # List the starter templates
+    $ dapper templates
 
     # Build the site
     $ dapper build
@@ -44,6 +61,20 @@ my $VERSION = 0;
 
     # Rebuild the site whenever a file (source, layout, config) changes
     $ dapper watch
+
+    # Check the site for problems (add --json for a machine-readable report)
+    $ dapper check
+
+    # Build, check and publish the site (to S3, GitHub Pages, or a command)
+    $ dapper deploy
+    $ dapper deploy --dry-run
+    $ dapper deploy s3    # with several targets, name one
+
+    # Let AI assistants work on the site over MCP
+    $ dapper -C /path/to/site mcp
+
+    # Write or update AGENTS.md, which explains the project to AI coding agents
+    $ dapper agents
 
     # Get help on usage and switches
     $ dapper -h
@@ -89,6 +120,25 @@ Specify the port to use for the serve command. This option is only used for the 
 
 Only print errors.
 
+=item B<-C>, B<--directory>=I<directory>
+
+Run in this directory instead of the current one.
+
+=item B<-t>, B<--template>=I<name>
+
+For the init command: the starter to create, a built-in template (see
+C<dapper templates>), a directory, or a git URL.
+
+=item B<--dry-run>, B<--force>, B<--no-build>
+
+For the deploy command: show what would happen without publishing; deploy even
+if C<dapper check> finds errors; deploy the output directory without building
+it first.
+
+=item B<--json>
+
+For the check command: print the report as JSON.
+
 =item B<-h>, B<--help>
 
 Get help on available commands and options.
@@ -104,6 +154,7 @@ Print the version and exit.
 sub dapper {
     my $d = App::Dapper->new($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->{quiet} = $QUIET;
+    $d->{template} = $TEMPLATE;
     return $d;
 }
 
@@ -119,10 +170,26 @@ sub watch {
     dapper()->watch();
 }
 
+sub check {
+    my $report = dapper()->check();
+    if ($JSON) {
+        print JSON->new->canonical->pretty->encode($report);
+    }
+    else {
+        print App::Dapper::Check::text($report);
+    }
+    exit($report->{ok} ? 0 : 1);
+}
+
 sub serve {
     my $pid = fork();
     die "error: could not fork: $!\n" unless defined $pid;
-    if ($pid == 0) { watch(); exit(0); }
+    if ($pid == 0) {
+        my $d = dapper();
+        $d->{live_reload} = 1;
+        $d->watch();
+        exit(0);
+    }
     dapper()->serve($PORT);
 }
 
@@ -145,10 +212,20 @@ GetOptions(
     'q|quiet'    => \$QUIET,
     'h|help'     => \$HELP,
     'v|version'  => \$VERSION,
+    'json'       => \$JSON,
+    't|template=s' => \$TEMPLATE,
+    'C|directory=s' => \$DIRECTORY,
+    'dry-run'    => \$DRY_RUN,
+    'force'      => \$FORCE,
+    'no-build'   => \$NO_BUILD,
 ) or help(2);
 
 help(0) if $HELP;
 version() if $VERSION;
+
+if (defined $DIRECTORY) {
+    chdir $DIRECTORY or do { print STDERR "error: could not change to \"$DIRECTORY\": $!\n"; exit(1) };
+}
 
 my $COMMAND = shift @ARGV;
 help(0) if not defined $COMMAND or $COMMAND eq 'help';
@@ -158,6 +235,11 @@ my $switch = {
     'build' => \&build,
     'serve' => \&serve,
     'watch' => \&watch,
+    'check' => \&check,
+    'deploy' => sub { dapper()->deploy(shift(@ARGV), dry_run => $DRY_RUN, force => $FORCE, no_build => $NO_BUILD) },
+    'mcp'   => sub { dapper()->mcp() },
+    'agents' => sub { dapper()->agents() },
+    'templates' => sub { print map { sprintf("%-10s %s\n", $_, App::Dapper::Init::description($_)) } App::Dapper::Init::templates() },
 };
 
 if (not $switch->{$COMMAND}) {
