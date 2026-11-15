@@ -95,6 +95,9 @@ sub run {
     }
     die "error: there are no \"$target\" deploy settings in $dapper->{config}\n" unless exists $settings->{$target};
 
+    # Drafts and pages dated in the future are never published
+    local $dapper->{drafts} = 0;
+
     if (not $options{no_build}) {
         $dapper->build();
 

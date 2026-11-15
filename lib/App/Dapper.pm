@@ -27,6 +27,8 @@ use App::Dapper::Check;
 use App::Dapper::MCP;
 use App::Dapper::Agents;
 use App::Dapper::Deploy;
+use App::Dapper::Images;
+use App::Dapper::Import;
 
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
@@ -215,7 +217,7 @@ L<Template::Alloy> (the Template Toolkit mini-language). The initial layout
 file that is given after you run the C<dapper init> command, is this:
 
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <title>[% page.title %]</title>
@@ -243,7 +245,7 @@ is specified by the input file. For the default site, the following output
 file is created:
 
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <title>Welcome</title>
@@ -495,6 +497,7 @@ sub build {
     $self->{problems} = [];
     $self->{written} = {};
     $self->{page_owner} = {};
+    $self->{held} = [];
 
     $self->parse();
     $self->transform();
@@ -579,6 +582,9 @@ sub render {
 
     # sitemap, feed and llms.txt
     $self->attempt($self->{config}, sub { $self->write_generated() });
+
+    # image sizes, responsive copies and lazy loading (with "images" set)
+    $self->attempt($self->{config}, sub { App::Dapper::Images::process($self) });
 
     # with live reload on, a new value here tells open pages to reload
     if ($self->{live_reload}) {
@@ -910,6 +916,22 @@ C<no_build>. See L<App::Dapper::Deploy>.
 sub deploy {
     my ($self, $target, %options) = @_;
     return App::Dapper::Deploy::run($self, $target, %options);
+}
+
+=head2 import_from
+
+Import the pages of another site into the source directory. Takes the kind
+of site (C<wordpress>, C<jekyll>, C<hugo> or C<medium>), the file or
+directory to import, and options: C<to> (the directory for posts, default
+C<blog>) and C<dry_run>. See L<App::Dapper::Import>.
+
+    $d->import_from('wordpress', 'export.xml');
+
+=cut
+
+sub import_from {
+    my ($self, $kind, $from, %options) = @_;
+    return App::Dapper::Import::run($self, $kind, $from, %options);
 }
 
 =head2 mcp
@@ -1275,6 +1297,20 @@ sub build_inventory {
     $date->set_time_zone($timezone) if $date->time_zone->is_floating;
     $page{timezone} = $timezone;
 
+    # Drafts, and pages dated in the future, are held back unless drafts are
+    # being shown (as "dapper serve" does)
+    if (not $self->{drafts}) {
+        my $reason = App::Dapper::Publish::is_draft(\%page) ? 'draft'
+                   : !($self->{site}->{future} && App::Dapper::Publish::enabled($self->{site}, 'future'))
+                     && DateTime->compare($date, $self->{site}->{time}) > 0 ? 'scheduled'
+                   : undef;
+        if ($reason) {
+            push @{$self->{held}}, { file => $source_file_name, reason => $reason, date => $date };
+            $self->_log("Held back $source_file_name ($reason" . ($reason eq 'scheduled' ? " for $date" : '') . ")");
+            return;
+        }
+    }
+
     $page{date}   = $date;
     $page{year}   = $date->year();
     $page{month}  = $date->month();
@@ -1320,7 +1356,17 @@ sub build_inventory {
 
     if ($page{source_file_extension} eq ".md") {
         $page{markdown} = $page{content};
-        $page{content} = App::Dapper::Markdown::to_html($page{content});
+        my @unknown;
+        $page{content} = App::Dapper::Markdown::to_html($page{content}, {
+            layout  => $self->{layout},
+            vars    => { site => $self->{site}, page => \%page },
+            unknown => \@unknown,
+        });
+        my %seen;
+        for my $name (grep { !$seen{$_}++ } @unknown) {
+            $self->problem('warning', $source_file_name, "$source_file_name uses the component \"::: $name\", which doesn't exist; the built-in ones are "
+                . join(', ', App::Dapper::Components::names()) . ", and others can be added in $self->{layout}/components");
+        }
 
         # Save first paragraph of content as excerpt
         $page{excerpt} = $1 if $page{content} =~ /(<p>.*?<\/p>)/s;

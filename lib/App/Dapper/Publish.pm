@@ -136,6 +136,17 @@ sub enabled {
     return 1;
 }
 
+=head2 is_draft
+
+Returns true if a page's front matter says it is a draft (C<draft: true>).
+
+=cut
+
+sub is_draft {
+    my ($page) = @_;
+    return defined $page->{draft} && enabled($page, 'draft');
+}
+
 =head2 twin_path
 
 Takes a page and returns the output path of its Markdown copy:

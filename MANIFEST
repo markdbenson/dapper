@@ -9,9 +9,12 @@ lib/App/Dapper.pm
 lib/App/Dapper/Agents.pm
 lib/App/Dapper/Check.pm
 lib/App/Dapper/Collections.pm
+lib/App/Dapper/Components.pm
 lib/App/Dapper/Defaults.pm
 lib/App/Dapper/Deploy.pm
 lib/App/Dapper/Filters.pm
+lib/App/Dapper/Images.pm
+lib/App/Dapper/Import.pm
 lib/App/Dapper/Init.pm
 lib/App/Dapper/MCP.pm
 lib/App/Dapper/Markdown.pm
@@ -43,4 +46,9 @@ t/18-mcp.t
 t/19-agents.t
 t/20-redirects.t
 t/21-deploy.t
+t/22-drafts.t
+t/23-quality.t
+t/24-images.t
+t/25-components.t
+t/26-import.t
 t/lib/DapperTest.pm

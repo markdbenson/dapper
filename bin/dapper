@@ -34,6 +34,8 @@ my $DIRECTORY = undef;
 my $DRY_RUN  = 0;
 my $FORCE    = 0;
 my $NO_BUILD = 0;
+my $DRAFTS   = 0;
+my $TO       = undef;
 
 =head1 SYNOPSIS
 
@@ -55,6 +57,9 @@ my $NO_BUILD = 0;
     # Build the site
     $ dapper build
 
+    # ...including drafts and pages dated in the future
+    $ dapper build --drafts
+
     # Build the site, then serve it locally at http://localhost:8000,
     # rebuilding whenever a file changes
     $ dapper serve
@@ -75,6 +80,10 @@ my $NO_BUILD = 0;
 
     # Write or update AGENTS.md, which explains the project to AI coding agents
     $ dapper agents
+
+    # Bring in the pages of a WordPress, Jekyll, Hugo or Medium site
+    $ dapper import wordpress export.xml
+    $ dapper import jekyll ../old-site --dry-run
 
     # Get help on usage and switches
     $ dapper -h
@@ -133,7 +142,18 @@ C<dapper templates>), a directory, or a git URL.
 
 For the deploy command: show what would happen without publishing; deploy even
 if C<dapper check> finds errors; deploy the output directory without building
-it first.
+it first. C<--dry-run> also works for the import command.
+
+=item B<--to>=I<directory>
+
+For the import command: the directory in the source directory that imported
+posts go in (default: C<blog>).
+
+=item B<--drafts>
+
+For the build, watch and check commands: include drafts and pages dated in
+the future, which are otherwise held back. C<dapper serve> always includes
+them; C<dapper deploy> never does.
 
 =item B<--json>
 
@@ -155,6 +175,7 @@ sub dapper {
     my $d = App::Dapper->new($SOURCE, $OUTPUT, $LAYOUT, $CONFIG);
     $d->{quiet} = $QUIET;
     $d->{template} = $TEMPLATE;
+    $d->{drafts} = $DRAFTS;
     return $d;
 }
 
@@ -187,6 +208,7 @@ sub serve {
     if ($pid == 0) {
         my $d = dapper();
         $d->{live_reload} = 1;
+        $d->{drafts} = 1;
         $d->watch();
         exit(0);
     }
@@ -218,6 +240,8 @@ GetOptions(
     'dry-run'    => \$DRY_RUN,
     'force'      => \$FORCE,
     'no-build'   => \$NO_BUILD,
+    'drafts'     => \$DRAFTS,
+    'to=s'       => \$TO,
 ) or help(2);
 
 help(0) if $HELP;
@@ -239,6 +263,7 @@ my $switch = {
     'deploy' => sub { dapper()->deploy(shift(@ARGV), dry_run => $DRY_RUN, force => $FORCE, no_build => $NO_BUILD) },
     'mcp'   => sub { dapper()->mcp() },
     'agents' => sub { dapper()->agents() },
+    'import' => sub { dapper()->import_from(shift(@ARGV), shift(@ARGV), to => $TO, dry_run => $DRY_RUN) },
     'templates' => sub { print map { sprintf("%-10s %s\n", $_, App::Dapper::Init::description($_)) } App::Dapper::Init::templates() },
 };
 

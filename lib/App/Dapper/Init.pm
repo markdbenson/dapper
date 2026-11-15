@@ -91,7 +91,7 @@ FILE
 
     '_layout/index.html' => <<'FILE',
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>[% page.title %]</title>
@@ -230,6 +230,7 @@ FILE
     '_source/index.html' => <<'FILE',
 ---
 title: Home
+description: The newest posts on this blog.
 template: true
 paginate:
   category: blog

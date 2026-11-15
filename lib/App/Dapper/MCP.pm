@@ -170,13 +170,13 @@ my @TOOLS = (
     },
     {
         name        => 'build',
-        description => 'Build the site into the output directory.',
-        inputSchema => { type => 'object', properties => {} },
+        description => 'Build the site into the output directory. Drafts (draft: true) and pages dated in the future are left out unless drafts is true.',
+        inputSchema => { type => 'object', properties => { drafts => { type => 'boolean', description => 'Include drafts and pages dated in the future (default: false)' } } },
     },
     {
         name        => 'check',
-        description => 'Check the site for problems (front matter, schemas, layouts, templates, broken links) without touching the output directory.',
-        inputSchema => { type => 'object', properties => {} },
+        description => 'Check the site for problems (front matter, schemas, layouts, templates, broken links, accessibility, SEO) without touching the output directory. The report lists the drafts and scheduled pages left out (in held); set drafts to true to check them too.',
+        inputSchema => { type => 'object', properties => { drafts => { type => 'boolean', description => 'Include drafts and pages dated in the future (default: false)' } } },
     },
 );
 
@@ -809,9 +809,10 @@ The C<build> tool.
 =cut
 
 sub build {
-    my ($dapper) = @_;
+    my ($dapper, $args) = @_;
 
     local $dapper->{quiet} = 1;
+    local $dapper->{drafts} = ref $args eq 'HASH' && $args->{drafts} ? 1 : 0;
     $dapper->build();
 
     return {
@@ -829,8 +830,9 @@ The C<check> tool.
 =cut
 
 sub check {
-    my ($dapper) = @_;
+    my ($dapper, $args) = @_;
 
+    local $dapper->{drafts} = ref $args eq 'HASH' && $args->{drafts} ? 1 : 0;
     return $dapper->check();
 }
 
