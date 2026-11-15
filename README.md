@@ -76,7 +76,11 @@ purpose.
 * Layouts in the TT3 mini-language from Template::Alloy. Content is safe by default: it is never run as template code unless a page asks.
 * Front matter schemas, data files, categories, tags, pagination, and generated category and tag pages.
 * A built-in sitemap, Atom feed, SEO and structured data tags, and Markdown copies of pages with an `llms.txt` index for AI tools.
-* `dapper check` finds broken links and front matter mistakes; `dapper serve` rebuilds and reloads the browser as you edit.
+* Components for callouts, videos, galleries, buttons, figures and maps in Markdown, without template code.
+* Image sizes, responsive copies, WebP and lazy loading, with one setting.
+* Drafts, and posts scheduled for a future date.
+* `dapper check` finds broken links, front matter mistakes, and accessibility and SEO problems; `dapper serve` rebuilds and reloads the browser as you edit.
+* `dapper import` brings in a WordPress, Jekyll, Hugo or Medium site.
 * An MCP server, so AI assistants can write, check and build the site, with your schemas as guardrails.
 * Starter themes for a blog, a portfolio, a small business and documentation, or any theme from a folder or git repository.
 * `AGENTS.md` in every project, so AI coding agents know its conventions from the start.
@@ -94,6 +98,7 @@ result to your favorite web host.
     * [Usage](#usage)
     * [Directory Structure](#directory-structure)
 * [Templates and themes](#templates-and-themes)
+* [Importing a site](#importing-a-site)
 * [Tutorial: Build a Blog](#tutorial-build-a-blog)
 * [Configuration](#configuration)
 * [Source](#source)
@@ -102,13 +107,16 @@ result to your favorite web host.
     * [Data files](#data-files)
     * [Source file types](#source-file-types)
     * [Assets](#assets)
-    * [Drafts and clean builds](#drafts-and-clean-builds)
+    * [Drafts and scheduled posts](#drafts-and-scheduled-posts)
+    * [Clean builds](#clean-builds)
     * [Headings](#headings)
     * [Text](#text)
     * [Lists](#lists)
     * [Tables](#tables)
     * [Images](#images)
+    * [Image sizes and responsive images](#image-sizes-and-responsive-images)
     * [Footnotes](#footnotes)
+    * [Components](#components)
 * [Layout](#layout)
     * [Variables](#variables)
     * [Pagination](#pagination)
@@ -139,6 +147,7 @@ result to your favorite web host.
     * [Amazon S3](#amazon-s3)
     * [GitHub Pages](#github-pages)
 * [What Dapper Doesn't Do](#what-dapper-doesnt-do)
+* [Upgrading from 1.0](#upgrading-from-10)
 * [Upgrading to 1.0](#upgrading-to-10)
 * [Upgrading from 0.21](#upgrading-from-021)
 * [Troubleshooting](#troubleshooting)
@@ -347,8 +356,9 @@ the *-p* option:
     # Serve the site locally at http://localhost:9000
     $ dapper -p 9000 serve
 
-While `dapper serve` is running, pages in your browser reload by themselves
-after each rebuild. The server listens on every network interface, so other
+`dapper serve` shows [drafts](#drafts-and-scheduled-posts) and pages dated
+in the future, so you can see them before they're published. While it is
+running, pages in your browser reload by themselves after each rebuild. The server listens on every network interface, so other
 devices on your network can reach it too, which is handy for testing on a
 phone.
 
@@ -363,7 +373,34 @@ nowhere, and pages without a title.
 
     $ dapper check
     error: _source/blog/new.md: links to /contact.html, which is not in the site
-    Checked 12 pages: 1 error, 0 warnings.
+    warning: _source/about.md: the image team.jpg has no alt text; describe it, or use alt="" if it is decoration
+    Checked 12 pages: 1 error, 1 warning.
+
+It also warns about problems for people using screen readers and for search
+engines:
+
+* **Accessibility:** images without alt text, headings that skip a level
+  (an `h2` followed by an `h4`), an `<html>` tag without a `lang`
+  attribute, and links with no text or only "click here" or "here".
+* **SEO:** pages with no description (from `description` in the front
+  matter, or the first paragraph), two pages with the same title or
+  description, titles over 70 characters and descriptions over 160.
+  Generated pages, pages with `sitemap: false`, `404.html` and the second
+  and later pages of a list are left out.
+
+Turn either group off in `_config.yml`:
+
+    check:
+      accessibility: false
+      seo: false
+
+A Markdown image needs its alt text in the brackets: `![The team](team.jpg)`.
+`![](team.jpg)` is reported. For an image that is only decoration, write
+`<img src="team.jpg" alt="">` instead.
+
+`dapper check` checks the site as `dapper build` would build it, so drafts
+and pages dated in the future are left out and listed at the end. Add
+`--drafts` to check them too.
 
 It exits with status 1 when there are errors, so it can stop a deploy
 script or a CI job. Add `--json` for a report that scripts and AI
@@ -384,6 +421,14 @@ Amazon S3, GitHub Pages, or wherever a command of your own sends it. See
 
 The `dapper agents` command writes or updates `AGENTS.md`, which explains the
 project to AI coding agents. See [AI Assistants (MCP)](#ai-assistants-mcp).
+
+### Import
+
+The `dapper import` command brings in the pages of a WordPress, Jekyll, Hugo
+or Medium site. See [Importing a site](#importing-a-site).
+
+    $ dapper import wordpress export.xml
+    $ dapper import jekyll ../old-site --dry-run
 
 ### MCP
 
@@ -407,7 +452,9 @@ Option                     | Description
 `-C`, `--directory` *dir* | Run in this directory instead of the current one
 `-t`, `--template` *name* | For `init`: a built-in template (see `dapper templates`), a directory, or a git URL
 `--json`                   | For `check`: print the report as JSON
-`--dry-run`                | For `deploy`: show what would happen without publishing
+`--drafts`                 | For `build`, `watch` and `check`: include drafts and pages dated in the future
+`--to` *dir*               | For `import`: the directory in `_source` that posts go in (default: `blog`)
+`--dry-run`                | For `deploy` and `import`: show what would happen without doing it
 `--force`                  | For `deploy`: publish even if `dapper check` finds errors
 `--no-build`               | For `deploy`: publish the output directory as it is
 `-h`, `--help`             | Print usage
@@ -499,7 +546,7 @@ template system. The initial layout file that is given after you run the `dapper
 init` command, is this:
 
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <title>[% page.title %]</title>
@@ -545,7 +592,7 @@ that is specified by the input file. For the default site, the following
 output file is created:
 
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <title>Welcome</title>
@@ -587,6 +634,39 @@ the project below it.
 To make a theme, build a site the way you like it, add a `_schema.yml` for
 each kind of page and notes for assistants in `AGENTS.md`, check it with
 `dapper check`, and publish the directory as a git repository.
+
+# Importing a site
+
+`dapper import` brings the writing from a WordPress, Jekyll, Hugo or Medium
+site into a Dapper project. Start a project with the starter you like, then
+import into it:
+
+    $ dapper init --template blog
+    $ dapper import wordpress ~/Downloads/export.xml
+    Imported 48 posts and 5 pages into _source (3 as drafts).
+    Check: images that still load from the old WordPress site (wp-content/uploads); copy them into the site (12 pages, such as _source/blog/hello-world.html)
+    Run "dapper check" to find links that need fixing.
+
+Add `--dry-run` to see what would happen first, and `--to posts` to put
+posts in `_source/posts` instead of `_source/blog`. Nothing already in the
+source directory is overwritten, so it's safe to run again.
+
+Source | Give it | What comes in
+-------|---------|--------------
+`wordpress` | The export file from Tools, Export | Posts (into `blog`) and pages, as HTML, with their title, date, categories, tags and excerpt. Drafts, pending and private posts become drafts. `[caption]` becomes a figure, and `[embed]` or a YouTube or Vimeo address on its own line becomes a video.
+`jekyll` | The site's folder | Posts from `_posts`, drafts from `_drafts`, and every other page. `highlight` blocks, `site.baseurl`, `relative_url` and `post_url` are converted. Folders like `assets` and `images` are copied.
+`hugo` | The site's folder | Every page in `content`, with YAML, TOML or JSON front matter. Page bundles bring their files, `static` is copied, `aliases` become [redirects](#redirects), and the `youtube`, `vimeo` and `figure` shortcodes become [components](#components).
+`medium` | The export zip from Medium's settings, or its folder | Each story, as HTML without Medium's markup. Unpublished stories become drafts.
+
+Pages keep their old addresses where they had their own (WordPress, Jekyll
+and Hugo), using `urlpattern`, so links from elsewhere keep working. Posts
+get the project's `post` layout if it has one.
+
+When it's done, `dapper import` lists what it couldn't convert, such as
+WordPress shortcodes, Liquid tags or Hugo shortcodes it doesn't know, and
+images that still load from the old site. Look at those pages, then run
+`dapper serve` to see the result and `dapper check` to find links that need
+fixing.
 
 # Tutorial: Build a Blog
 
@@ -634,7 +714,7 @@ canonical link, feed link, Open Graph tags and structured data.
 
 ```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>[% page.title | html %] - [% site.name | html %]</title>
@@ -1165,13 +1245,38 @@ places:
 Link to assets with absolute paths (`/css/site.css`) so the links work from
 pages at any depth.
 
-## Drafts and clean builds
+## Drafts and scheduled posts
 
-Dapper has no draft setting: every page in the source directory is
-published. Keep work in progress outside the source directory (for
-instance in a top-level `_drafts` directory, which the default `ignore`
-patterns keep out of the output) and move it into `_source` when it's
-ready.
+A page with `draft: true` in its front matter is a draft. `dapper build`
+and `dapper deploy` leave it out, along with any page whose `date` is in the
+future. They are left out completely: they aren't in `site.pages`, the
+categories and tags, the feed, the sitemap or `llms.txt`.
+
+    ---
+    title: Coming soon
+    draft: true
+    ---
+
+`dapper serve` shows drafts and pages dated in the future, so you can see
+them as you write. `dapper build --drafts` and `dapper check --drafts`
+include them too. `dapper deploy` never does.
+
+To publish a draft, remove `draft: true` (or set it to `false`). A page
+dated in the future is published by the first build after its date, so to
+publish posts on schedule, build and deploy the site regularly, for
+example every morning from a scheduled CI job. Set `future: true` in
+`_config.yml` to publish pages dated in the future straight away.
+
+`dapper check` lists the pages it left out:
+
+    $ dapper check
+    Not published: 1 draft, 2 scheduled (use --drafts to include them).
+    Checked 12 pages: 0 errors, 0 warnings.
+
+A link to a draft from a published page is reported as a broken link, since
+the draft isn't on the site yet.
+
+## Clean builds
 
 When you rename or remove a source file, the next build removes the file it
 used to produce. Dapper keeps a list of the files it writes (in
@@ -1313,6 +1418,52 @@ text. Alternatively, here are some short-hand notations:
 
 `[img_id]: img.png "This is a title" height=50px width=200px`
 
+## Image sizes and responsive images
+
+Add one line to `_config.yml`, and Dapper makes the images on every page
+load faster:
+
+    images: true
+
+* Each image of a PNG, JPEG, GIF or WebP file in the site gets `width` and
+  `height`, so the page doesn't jump about as images load.
+* Images after the first on a page get `loading="lazy"`, so the browser
+  only fetches them as they scroll into view.
+* JPEG and PNG images wider than 480, 960 or 1600 pixels are resized to
+  those widths (`photo-480w.jpg`, `photo-960w.jpg`, ...), and the image
+  gets a `srcset` listing them, so phones download small files.
+* A WebP copy of each size is made too, and the image is wrapped in a
+  `<picture>` that offers it to browsers that support it.
+
+This works for images in layouts as well as in pages. For a photo that is
+2000 pixels wide, `![The shop](shop.jpg)` becomes:
+
+    <picture><source type="image/webp" srcset="shop-480w.webp 480w, shop-960w.webp 960w,
+      shop-1600w.webp 1600w, shop.webp 2000w" sizes="(max-width: 2000px) 100vw, 2000px">
+    <img src="shop.jpg" alt="The shop" width="2000" height="1000" srcset="shop-480w.jpg 480w,
+      shop-960w.jpg 960w, shop-1600w.jpg 1600w, shop.jpg 2000w" sizes="(max-width: 2000px) 100vw, 2000px"></picture>
+
+Resizing needs [ImageMagick](https://imagemagick.org) (`brew install
+imagemagick`) or [libvips](https://www.libvips.org) (`brew install vips`).
+Without either, Dapper says so once, and still adds sizes and lazy
+loading. Resized copies are kept in `.dapper/images`, so each is made only
+once.
+
+Each part can be set:
+
+    images:
+      dimensions: true          # width and height
+      lazy: true                # loading="lazy" after the first image
+      sizes: [480, 960, 1600]   # widths to resize to; [] turns resizing off
+      webp: true                # WebP copies
+      quality: 82               # JPEG and WebP quality
+      command: vips             # magick, convert or vips (default: whichever is installed)
+
+An image that has a `srcset` of its own, or is already inside a
+`<picture>`, keeps it. Images inside code blocks are left alone. Keep your
+originals large; Dapper never makes an image bigger. `dapper check` warns
+about [images without alt text](#check).
+
 ## Footnotes
 
 Footnotes can be accomplished as follows:
@@ -1325,6 +1476,87 @@ continue your thought...
 
 This is an example of an inline footnote.[^This is the *actual* footnote.]
 ```
+
+## Components
+
+Components add things Markdown can't express (callouts, videos, galleries,
+buttons, figures and maps) without any template code, so they're safe for
+anyone writing content, people and AI assistants alike. A component starts
+with three colons and its name. Most wrap Markdown and end with three colons
+on their own line:
+
+    ::: warning "Before you start"
+    Back up your site first. **Really.**
+    :::
+
+    ::: details "Show all the opening hours"
+    - Monday to Friday: 9am to 6pm
+    - Saturday: 10am to 4pm
+    :::
+
+    ::: gallery
+    ![The shop](shop.jpg)
+    ![The team](team.jpg)
+    :::
+
+Others are a single line:
+
+    ::: youtube https://www.youtube.com/watch?v=dQw4w9WgXcQ "Our story"
+    ::: vimeo 76979871 "A short film"
+    ::: button /contact/ "Get in touch"
+    ::: figure shop.jpg "The shop at night" "Open until 9pm on Fridays"
+    ::: map "1 Main Street, Springfield"
+
+Component | What it makes
+----------|--------------
+`note`, `tip`, `info`, `warning`, `caution`, `important` | A box that stands out, with an optional title: `<aside class="callout callout-warning">`. `::: callout warning` is the same as `::: warning`.
+`details` | A section that opens when clicked, with the summary given.
+`gallery` | The images inside, in a `<div class="gallery">`.
+`youtube`, `vimeo` | An embedded video, from its address or ID, with a title for screen readers. YouTube videos use youtube-nocookie.com.
+`button` | A link styled as a button: `<a class="button">`.
+`figure` | An image with alt text and an optional caption.
+`map` | A map of an address, from Google Maps.
+
+Put quotes around arguments with spaces. To put a component inside another,
+give the outer one more colons:
+
+    :::: note
+    ::: details "More"
+    Hidden text
+    :::
+    ::::
+
+Components are styled by the site's stylesheet. A starting point:
+
+    .callout { border-left: 4px solid #3b82f6; background: #eff6ff; padding: 0.75em 1em; margin: 1.5em 0; }
+    .callout-warning, .callout-caution { border-color: #f59e0b; background: #fffbeb; }
+    .callout-title { font-weight: bold; margin: 0 0 0.25em; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5em; }
+    .gallery img { width: 100%; height: auto; }
+    .video, .map { position: relative; aspect-ratio: 16 / 9; }
+    .video iframe, .map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .button { display: inline-block; padding: 0.6em 1.2em; background: #1d4ed8; color: #fff; border-radius: 6px; text-decoration: none; }
+
+**Components of your own.** A theme or site can add components, or change
+how the built-in ones look, with templates in `_layout/components`.
+`_layout/components/pricing.html` is used for `::: pricing`:
+
+    <div class="price">
+      <h3>[% args.0 %]</h3>
+      [% content %]
+      <a class="button" href="[% args.link %]">Choose [% args.0 %]</a>
+    </div>
+
+    ::: pricing Pro link=/signup/
+    **$10** a month
+    :::
+
+In the template, `args.0` is the first argument, `args.link` the one written
+`link=...`, `args.list` all of them (for a `FOR` loop), and `content` the
+HTML of the Markdown inside. `page` and `site` are there too. A component of
+your own is a single line unless a matching line of colons closes it. A
+name that isn't a component is left as text, and `dapper check` warns about
+it.
 
 # Layout
 
@@ -1460,7 +1692,7 @@ The body of my post.
 Example `_layout/index.html`:
 
 ```
-<html>
+<html lang="en">
 <head>
     <title>[% page.title %] - [% site.name %]</title>
 </head>
@@ -1474,7 +1706,7 @@ Example `_layout/index.html`:
 This would produce the following:
 
 ```
-<html>
+<html lang="en">
 <head>
     <title>The title of my post - Mark Benson Portfolio</title>
 </head>
@@ -2570,16 +2802,32 @@ automatically available on github.io. Here are the steps:
 
 Dapper is deliberately small. It does not have:
 
-* **Drafts or scheduled posts.** See [Drafts and clean
-  builds](#drafts-and-clean-builds).
-* **Asset processing** (Sass, minification, image resizing, bundling). Run
-  those tools separately and let Dapper copy their output.
+* **Asset processing** (Sass, minification, bundling). Run those tools
+  separately and let Dapper copy their output. Images are the exception;
+  see [Image sizes and responsive images](#image-sizes-and-responsive-images).
 * **Server-side code highlighting.** Code blocks are marked with their
   language for a client-side highlighter instead.
 * **Incremental builds.** Every build processes the whole site, which is
   fast for sites of a few hundred pages.
 
 The [roadmap](ROADMAP.md) has what's planned next.
+
+# Upgrading from 1.0
+
+Two kinds of page that 1.0 published are now held back:
+
+* **Pages with `draft: true`.** 1.0 had no drafts, so it published them.
+* **Pages dated in the future.** They are published by the first build
+  after their date. Set `future: true` in `_config.yml` to publish them
+  straight away, as 1.0 did.
+
+`dapper check` lists any pages it leaves out, so run it after upgrading.
+It also has new [accessibility and SEO warnings](#check), which don't stop
+a deploy. Turn them off with `check: { accessibility: false, seo: false }`
+if you don't want them.
+
+Everything else is new and turned off until you use it: `images` in
+`_config.yml`, `:::` components in Markdown, and `dapper import`.
 
 # Upgrading to 1.0
 
@@ -2601,7 +2849,7 @@ And builds now write more files than before:
   `/llms-full.txt`, and (with `url` set) `/sitemap.xml`. Turn them off
   with `markdown_twins: false`, `llms_txt: false` and `sitemap: false`.
 * Files left over from earlier builds are now removed (only files Dapper
-  wrote; see [Drafts and clean builds](#drafts-and-clean-builds)). The
+  wrote; see [Clean builds](#clean-builds)). The
   list starts with your first 1.0 build, so delete the output directory
   once for a fully clean start. Add `.dapper/` to your `.gitignore`.
 
@@ -2709,8 +2957,8 @@ use their methods (`[% page.date.xmlschema %]`,
 built-in methods (`[% page.json(1) %]`).
 
 **A page I deleted is still on the site.** Dapper removes output only for
-files it wrote since your first 1.0 build (see [Drafts and clean
-builds](#drafts-and-clean-builds)), and not at all with `clean: false`.
+files it wrote since your first 1.0 build (see [Clean
+builds](#clean-builds)), and not at all with `clean: false`.
 Delete the output directory once and build again.
 
 **Accented characters look garbled.** Save source files, layouts and

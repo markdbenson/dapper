@@ -96,41 +96,43 @@ looking starting points, and makes publishing one command:
   - `--dry-run` shows what would happen; credentials always come from the
     standard tools' own configuration, never from `_config.yml`.
 
+## Done since 1.0 (not released yet)
+
+Images (sizes, responsive copies, WebP, lazy loading), components in
+Markdown (callouts, details, galleries, videos, buttons, figures, maps, and
+components of your own), drafts and scheduled posts, accessibility and SEO
+checks in `dapper check`, and `dapper import` from WordPress, Jekyll, Hugo
+and Medium.
+
 ## Next
 
-The biggest gaps left for real users are **images** (no resizing or alt
-text checks), **rich content** without template code, and **quality
-checks** beyond links and front matter.
+The biggest gap left is making Dapper easy to hand to an AI assistant: to
+set up, to see what it changed, and to undo.
 
-### Rich content, safely
+### Working with AI assistants
 
-- **Components for content.** A safe way to add callouts, YouTube and
-  Vimeo embeds, image galleries, buttons, maps and notices to Markdown
-  without template code, for example `::: callout` blocks. Themes can add
-  their own components.
-- **Images.** Resize photos into responsive sizes, add width and height,
-  optionally convert to WebP, and require alt text (enforced by `check`).
-  Uses ImageMagick or libvips when installed, and does nothing when not.
-- **Drafts and scheduling.** `draft: true` pages are built by `dapper
-  serve` but never by `build` or `deploy`; `publish_date` holds a page until
-  its time.
+- **One-step setup:** list Dapper in the MCP registry, and ship it as a
+  Claude Code plugin and a Claude Desktop extension, so `dapper mcp` is one
+  click away.
+- **Let the assistant see its work:** an MCP tool that starts a preview and
+  returns a screenshot of a page.
+- **Review and undo:** every change through MCP becomes a git commit with a
+  summary of what changed in the built site, and undoing the last one is
+  one tool call.
 - **More MCP tools:** add an image (copied, resized, with alt text), delete a
-  page (with a redirect), start a preview and return its URL, and undo the
-  last change through git.
+  page (with a redirect), and a deploy that runs `check` first and asks the
+  owner before publishing.
 
-### Quality and migration
+### Quality and content
 
-- **Accessibility checks:** missing alt text, skipped heading levels, the
-  page language, empty or vague link text ("click here").
-- **SEO checks:** missing or duplicate titles and descriptions, titles that
-  are too long, pages missing from the sitemap.
 - **Weight checks:** oversized images and heavy pages.
 - **External link checks:** `dapper check --external` follows links to
   other sites and reports the dead ones.
-- **Importers:** `dapper import` from a WordPress export, a Jekyll or Hugo
-  site, and Medium, so people can bring their existing writing.
 - **Pages from data:** a page per entry in a data file (a team member, a
   product, an event), with a layout.
+- **Themes from HTML templates:** `dapper theme import` takes a free HTML
+  template (from HTML5 UP or Start Bootstrap, say) apart into Dapper
+  layouts, keeping its license.
 
 ### Later
 

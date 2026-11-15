@@ -1,5 +1,43 @@
 Revision history for App-Dapper
 
+NEXT    (not released yet)
+        Images load faster, Markdown gains components, drafts and scheduled
+        posts work, dapper check looks for accessibility and SEO problems,
+        and dapper import brings in a WordPress, Jekyll, Hugo or Medium
+        site. See "Upgrading from 1.0" in the README.
+
+        Changed: pages with draft: true, and pages dated in the future, are
+        no longer published by dapper build or dapper deploy. dapper serve
+        shows them, as do build, watch and check with --drafts. Set
+        future: true in _config.yml to publish pages dated in the future.
+
+        Added: images in _config.yml gives every image width and height,
+        lazy loading after the first on a page, resized copies listed in a
+        srcset, and WebP copies in a <picture>. Resizing uses ImageMagick
+        or libvips when one is installed, and copies are kept in
+        .dapper/images.
+
+        Added: components in Markdown, without template code: callouts
+        (note, tip, info, warning, caution, important), details, gallery,
+        youtube, vimeo, button, figure and map. Themes and sites can add
+        their own, or restyle the built-in ones, with templates in
+        _layout/components.
+
+        Added: dapper check warns about images without alt text, skipped
+        heading levels, a page with no language, links with no text or
+        only "click here", and missing, duplicate or overlong titles and
+        descriptions. check: { accessibility: false, seo: false } turns
+        them off. Its report lists the drafts and scheduled pages it left
+        out.
+
+        Added: dapper import wordpress|jekyll|hugo|medium, which brings a
+        site's pages into the source directory, keeping their addresses,
+        dates, categories, tags and drafts, converting what it can
+        (captions, embeds, Liquid, shortcodes) and listing what it can't.
+
+        Changed: the default starter's layout sets <html lang="en">, and the
+        blog starter's home page has a description.
+
 1.00    2026-11-13
         Dapper 1.0 makes page content safe by default, adds what a modern
         static site needs (schemas, data files, pagination, feeds,
