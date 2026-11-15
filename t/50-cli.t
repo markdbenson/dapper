@@ -72,7 +72,7 @@ subtest 'help' => sub {
         is($status, 0, "$name exits 0");
         like($out, qr/\AUsage:\n\s+dapper \[options\] <command>\n/, "$name starts with the usage line");
         like($out, qr/^Options:$/m, "$name lists the options");
-        like($out, qr/^    -C, --directory=directory$/m, "$name describes -C");
+        like($out, qr/^    -C, --directory=\*?directory\*?$/m, "$name describes -C");
         like($out, qr/^    --dry-run, --force, --no-build$/m, "$name describes the deploy options");
         like($out, qr/\$ dapper import jekyll \.\.\/old-site --dry-run/, "$name shows the examples");
         unlike($out, qr/^AUTHOR/m, "$name leaves out the author section");

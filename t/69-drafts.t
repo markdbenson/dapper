@@ -6,6 +6,7 @@ use Test::More;
 use lib 't/lib';
 use DapperTest;
 use App::Dapper;
+use POSIX ();
 use App::Dapper::Check;
 
 # Drafts and pages dated in the future: what is held back, and what check says
@@ -28,6 +29,21 @@ sub build_site {
 
 sub held { my ($d) = @_; [ map { "$_->{file} $_->{reason}" } @{ $d->{held} } ] }
 sub page { my ($title, $extra) = @_; "---\ntitle: $title\n" . (defined $extra ? $extra : '') . "---\n$title\n" }
+
+subtest 'an undated page is never scheduled, whatever the time zones' => sub {
+    # The file's modified time is a moment, not a clock reading: a site time
+    # zone west of the machine's must not push it into the future
+    local $ENV{TZ} = 'UTC';
+    POSIX::tzset();
+    for my $zone (qw( America/Chicago Pacific/Pago_Pago Pacific/Kiritimati )) {
+        make_site({ '_config.yml' => "---\nname: x\ntimezone: $zone\n", '_source/undated.md' => page('Undated') });
+        my $d = build_site();
+        is_deeply(held($d), [], "not held back with the site in $zone");
+        ok(-f '_output/undated.html', "and written");
+        is($d->{site}->{pages}->[0]->{date}->time_zone->name, $zone, "its date is shown in $zone");
+    }
+};
+POSIX::tzset();
 
 subtest 'which values make a draft' => sub {
     my %drafts = (true => 1, yes => 1, on => 1, 1 => 1, 'Yes' => 1, 'anything' => 1,

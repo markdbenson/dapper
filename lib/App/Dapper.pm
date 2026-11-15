@@ -1292,8 +1292,12 @@ sub build_inventory {
         $page{slug} = App::Dapper::Utils::slugify(basename(App::Dapper::Utils::filter_stem($source_file_name)));
     }
 
+    # A page without a date takes its file's modified time, which is a moment
+    # (not a clock reading), so it keeps the local time zone it was read in
     my $date = App::Dapper::Utils::parse_date(
-        defined $page{date} ? $page{date} : App::Dapper::Utils::get_modified_time($source_file_name),
+        defined $page{date} ? $page{date}
+            : DateTime->from_epoch( epoch => (stat $source_file_name)[9],
+                                    time_zone => DateTime::TimeZone->new( name => 'local' ) ),
         $source_file_name);
 
     # A date written without a time zone is in the page's time zone: its
@@ -1304,7 +1308,7 @@ sub build_inventory {
                  : undef;
     die "error: unknown time zone \"" . (ref $zone ? '(a list or map)' : $zone) . "\" in \"$source_file_name\"\n"
         unless $timezone;
-    $date->set_time_zone($timezone) if $date->time_zone->is_floating;
+    $date->set_time_zone($timezone) if $date->time_zone->is_floating or not defined $page{date};
     $page{timezone} = $timezone;
 
     # Drafts, and pages dated in the future, are held back unless drafts are

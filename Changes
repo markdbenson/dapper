@@ -41,6 +41,10 @@ NEXT    (not released yet)
         Fixed: AGENTS.md and CLAUDE.md, written by dapper init, were copied
         into the output directory and published with the site.
 
+        Fixed: a page without a date (which takes its file's modified time)
+        was held back as scheduled when the site's time zone is west of the
+        computer's, as on a server running in UTC.
+
         Fixed: a file without front matter (in the source directory, or at
         the top of the project) silently replaced a page written to the
         same place. It is now an error, like two pages writing one file.
