@@ -306,6 +306,8 @@ sub date_string {
     return unless defined $date;
     $date = "$date";
     return if $date =~ /^0000-/;
+    # Jekyll writes "2019-12-31 23:00:00 +0100"
+    $date =~ s/^(\d{4}-\d\d-\d\d)[ T](\d\d:\d\d(?::\d\d)?)\s*([+-]\d\d):?(\d\d)$/$1T$2$3:$4/;
     my $parsed = eval { App::Dapper::Utils::parse_date($date) } or return;
     my $out = $parsed->strftime('%Y-%m-%dT%H:%M:%S');
     if (not $parsed->time_zone->is_floating) {
@@ -377,14 +379,17 @@ sub wordpress {
 
         my (@categories, @tags);
         while ($item =~ m{<category\s+domain="(category|post_tag)"[^>]*>(.*?)</category>}gs) {
-            my $name = $cdata->($2);
+            # WordPress keeps names escaped, even in CDATA
+            my $name = decode_entities($cdata->($2));
             next if $1 eq 'category' and $name eq 'Uncategorized';
             push @{ $1 eq 'category' ? \@categories : \@tags }, $name;
         }
 
         my $draft = $status =~ /^(?:draft|pending|private)$/ ? 1 : 0;
-        my $link = url_path($get->('link'));
-        my $urlpattern = !$draft && defined $link && $link !~ /[?&]p(?:age_id)?=/ ? $link : undef;
+        # A link like /?p=5 only means "post 5"; the post has no address of its own
+        my $raw_link = $get->('link');
+        my $link = defined $raw_link && $raw_link !~ /[?&](?:p|page_id)=/ ? url_path($raw_link) : undef;
+        my $urlpattern = !$draft && defined $link ? $link : undef;
 
         my $path = $type eq 'post' ? "$state->{to}/$slug.html" : "$slug.html";
         my $body = wordpress_html($state, $get->('content:encoded'), $path);
@@ -497,13 +502,17 @@ sub jekyll {
     # Work out every post's address first, for {% post_url %}
     my %post_url;
     for my $item (@items) {
-        my ($front, $body) = App::Dapper::Utils::split_frontmatter(App::Dapper::Utils::read_file($item->{file}), $item->{file});
+        my $text = App::Dapper::Utils::read_file($item->{file});
+        my ($front, $body) = App::Dapper::Utils::split_frontmatter($text, $item->{file});
+        # A post without front matter is all body
+        $body = $text unless defined $front;
         $item->{front} = ref $front eq 'HASH' ? $front : {};
         $item->{body} = defined $body ? $body : '';
         my $f = $item->{front};
-        $item->{draft} = 1 if defined $f->{published} and $f->{published} =~ /^(?:false|0|no)$/i;
-        my $date = defined $f->{date} ? $f->{date} : $item->{date};
-        $item->{date_string} = date_string($date);
+        # YAML reads published: false as an empty string
+        $item->{draft} = 1 if defined $f->{published} and (!$f->{published} or $f->{published} =~ /^(?:false|no)$/i);
+        $item->{date_string} = date_string($f->{date});
+        $item->{date_string} = date_string($item->{date}) unless defined $item->{date_string};
 
         if (defined $f->{permalink}) {
             $item->{url} = jekyll_url($f->{permalink}, $item, $f);
@@ -525,7 +534,7 @@ sub jekyll {
         my $path = $item->{kind} eq 'post' ? "$state->{to}/$item->{slug}.$ext" : "$item->{rel}.$ext";
         my $body = jekyll_body($state, $item->{body}, $markdown, \%post_url, $config, "$state->{source}/$path");
 
-        my @categories = @{ list(defined $f->{categories} ? $f->{categories} : $f->{category}) };
+        my @categories = @{ jekyll_categories($f) };
         my %done = map { $_ => 1 } qw/ title date layout categories category tags permalink published description excerpt draft /;
         my @rest = map { [ $_ => $f->{$_} ] } grep { !$done{$_} } sort keys %$f;
 
@@ -548,12 +557,21 @@ sub jekyll {
     copy_files($state, "$from/favicon.ico", "favicon.ico") if -f "$from/favicon.ico";
 }
 
+# jekyll_categories(front matter) - A page's categories as Jekyll reads them:
+# "categories" is a list (or words separated by spaces), and "category" is one.
+sub jekyll_categories {
+    my ($front) = @_;
+    return list($front->{categories}) if defined $front->{categories};
+    return defined $front->{category} && !ref $front->{category} && length $front->{category}
+        ? [ $front->{category} ] : list($front->{category});
+}
+
 # jekyll_url(pattern, item, front matter) - The address Jekyll gives a page.
 sub jekyll_url {
     my ($pattern, $item, $front) = @_;
 
     my $date = eval { App::Dapper::Utils::parse_date($item->{date_string}) } if defined $item->{date_string};
-    my @categories = map { App::Dapper::Utils::slugify($_) } @{ list(defined $front->{categories} ? $front->{categories} : $front->{category}) };
+    my @categories = map { App::Dapper::Utils::slugify($_) } @{ jekyll_categories($front) };
     my $title = defined $item->{slug} ? $item->{slug} : basename($item->{rel} || '');
     my %token = (
         categories => join('/', @categories),
@@ -632,6 +650,13 @@ sub hugo {
     for my $file (sort @files) {
         my $rel = substr($file, length($content) + 1);
         my $name = basename($rel);
+
+        # In a page bundle (a folder with an index.md), other Markdown files
+        # are the page's resources, not pages
+        if ($name !~ /^_?index\./ and grep { -f catfile(dirname($file), "index.$_") } qw/ md markdown html /) {
+            note($state, 'Markdown files inside page bundles were left out (Hugo treats them as resources, not pages)', $file);
+            next;
+        }
         if ($name =~ /^_index\./) {
             note($state, 'Hugo section pages (_index.md) were not imported; Dapper lists pages with paginate', $file);
             next;
@@ -739,8 +764,12 @@ sub hugo_body {
     my $args = sub {
         my ($text) = @_;
         my %named;
-        $named{$1} = defined $2 ? $2 : $3 while $text =~ /(\w+)=(?:"([^"]*)"|(\S+))/g;
-        (my $positional = $text) =~ s/\w+=(?:"[^"]*"|\S+)//g;
+        while ($text =~ /(\w+)=(?:"((?:[^"\\]|\\.)*)"|(\S+))/g) {
+            my ($key, $value) = ($1, defined $2 ? $2 : $3);
+            $value =~ s/\\(["\\])/$1/g;
+            $named{$key} = $value;
+        }
+        (my $positional = $text) =~ s/\w+=(?:"(?:[^"\\]|\\.)*"|\S+)//g;
         my @list = App::Dapper::Components::parse_args($positional);
         return (\%named, \@list);
     };
@@ -765,8 +794,8 @@ sub hugo_body {
         my $target = $1;
         $target =~ s{\.md$}{};
         $target =~ s{(?:^|/)index$}{};
-        $target =~ s{^/?}{/};
-        "$target/"
+        $target =~ s{^/+}{};
+        length $target ? "/$target/" : '/'
     }ge;
 
     my %shortcodes;
@@ -779,8 +808,11 @@ sub hugo_body {
 =head2 toml
 
 Takes TOML text and returns it as a hash reference. It reads what front
-matter and Hugo's settings use: keys and values (text, numbers, true and
-false, dates and lists) and tables (C<[params]>), not every part of TOML.
+matter and Hugo's settings use: keys (including dotted keys) and values
+(text with escapes, multi-line text, numbers, true and false, dates, and
+lists, including lists of lists), tables (C<[params]>) and comments. Numbers
+and dates are kept as they are written. Inline tables are kept as text, and
+an array of tables (C<[[menu]]>) is read as one table.
 
 =cut
 
@@ -792,31 +824,74 @@ sub toml {
     my @lines = split /\r?\n/, $text;
 
     while (defined(my $line = shift @lines)) {
-        $line =~ s/^\s+|\s+$//g;
-        next if $line eq '' or $line =~ /^#/;
+        my $plain = _toml_strip($line);
+        next if $plain eq '';
 
-        if ($line =~ /^\[\[?\s*([^\]]+?)\s*\]\]?$/) {
+        if ($plain =~ /^\[\[?\s*([^\]]+?)\s*\]\]?$/) {
             $table = \%data;
             for my $part (split /\./, $1) {
-                $part =~ s/^["']|["']$//g;
-                $table = $table->{$part} ||= {};
+                $part =~ s/^\s*["']|["']\s*$//g;
+                $part =~ s/^\s+|\s+$//g;
+                $table = $table->{$part} = ref $table->{$part} eq 'HASH' ? $table->{$part} : {};
             }
             next;
         }
 
-        my ($key, $value) = $line =~ /^("[^"]+"|'[^']+'|[\w.-]+)\s*=\s*(.*)$/ or next;
-        $key =~ s/^["']|["']$//g;
+        my ($key, $value) = $plain =~ /^((?:"[^"]*"|'[^']*'|[\w-]+)(?:\s*\.\s*(?:"[^"]*"|'[^']*'|[\w-]+))*)\s*=\s*(.*)$/
+            or next;
 
-        # A list can go over several lines
-        while ($value =~ /^\[/ and _brackets($value) > 0 and @lines) {
-            my $next = shift @lines;
-            $next =~ s/^\s+|\s+$//g;
-            $value .= " $next";
+        # Text over several lines, between """ or '''
+        if ($value =~ /^("""|''')/) {
+            my $quote = $1;
+            my ($raw) = $line =~ /=\s*\Q$quote\E(.*)$/;
+            $raw = '' unless defined $raw;
+            until ($raw =~ /\Q$quote\E/ or not @lines) {
+                $raw .= "\n" . shift @lines;
+            }
+            $raw =~ s/\Q$quote\E.*\z//s;
+            $raw =~ s/^\n//;
+            $value = $quote eq '"""' ? _toml_unescape($raw) : $raw;
         }
-        $table->{$key} = _toml_value($value);
+        else {
+            # A list can go over several lines
+            while ($value =~ /^\[/ and _brackets($value) > 0 and @lines) {
+                my $next = _toml_strip(shift @lines);
+                $value .= " $next" if length $next;
+            }
+            $value = _toml_value($value);
+        }
+
+        # A dotted key (a.b = 1) puts the value in a table
+        my @parts = $key =~ /("[^"]*"|'[^']*'|[\w-]+)/g;
+        s/^["']|["']$//g for @parts;
+        my $last = pop @parts;
+        my $target = $table;
+        $target = $target->{$_} = ref $target->{$_} eq 'HASH' ? $target->{$_} : {} for @parts;
+        $target->{$last} = $value;
     }
 
     return \%data;
+}
+
+# _toml_strip(line) - The line without its comment and the spaces around it.
+sub _toml_strip {
+    my ($line) = @_;
+
+    my ($out, $quote) = ('', '');
+    for (my $i = 0; $i < length $line; $i++) {
+        my $c = substr($line, $i, 1);
+        if ($quote) {
+            $out .= $c;
+            if ($quote eq '"' and $c eq '\\') { $out .= substr($line, ++$i, 1); next }
+            $quote = '' if $c eq $quote;
+            next;
+        }
+        last if $c eq '#';
+        $quote = $c if $c eq '"' or $c eq "'";
+        $out .= $c;
+    }
+    $out =~ s/^\s+|\s+$//g;
+    return $out;
 }
 
 sub _brackets {
@@ -825,29 +900,66 @@ sub _brackets {
     return ($plain =~ tr/[//) - ($plain =~ tr/]//);
 }
 
+sub _toml_unescape {
+    my ($s) = @_;
+    my %simple = (n => "\n", t => "\t", r => "\r", b => "\b", f => "\f", '"' => '"', '\\' => '\\');
+    $s =~ s/\\(?:u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8})|(.))/
+        defined $1 ? chr(hex $1) : defined $2 ? chr(hex $2) : exists $simple{$3} ? $simple{$3} : "\\$3"/gse;
+    return $s;
+}
+
+# _toml_value(text) - A value; text that can't be read is kept as it is.
 sub _toml_value {
-    my ($value) = @_;
+    my ($text) = @_;
 
-    $value =~ s/\s+#[^"']*$//;
-    $value =~ s/^\s+|\s+$//g;
+    my $pos = 0;
+    my $value = _toml_parse($text, \$pos);
+    return $text unless defined $value;
+    return $text if substr($text, $pos) =~ /\S/;
+    return $$value;
+}
 
-    if ($value =~ /^"((?:[^"\\]|\\.)*)"/) {
+# _toml_parse(text, \pos) - Reads one value from the text at pos, and returns
+# a reference to it, or nothing if it can't.
+sub _toml_parse {
+    my ($text, $pos) = @_;
+
+    pos($text) = $$pos;
+    $text =~ /\G\s*/gc;
+
+    if ($text =~ /\G"((?:[^"\\]|\\.)*)"/gc) {
+        $$pos = pos($text);
+        my $s = _toml_unescape($1);
+        return \$s;
+    }
+    if ($text =~ /\G'([^']*)'/gc) {
+        $$pos = pos($text);
         my $s = $1;
-        $s =~ s/\\n/\n/g; $s =~ s/\\t/\t/g; $s =~ s/\\(["\\])/$1/g;
-        return $s;
+        return \$s;
     }
-    return $1 if $value =~ /^'([^']*)'/;
-    return 1 if $value eq 'true';
-    return 0 if $value eq 'false';
-    if ($value =~ /^\[(.*)\]$/s) {
-        my $inner = $1;
+    if ($text =~ /\G\[/gc) {
         my @items;
-        while ($inner =~ /\G\s*("(?:[^"\\]|\\.)*"|'[^']*'|[^,\s\]][^,\]]*)\s*(?:,|$)/gc) {
-            push @items, _toml_value($1);
+        my $p = pos($text);
+        while (1) {
+            pos($text) = $p;
+            if ($text =~ /\G\s*\]/gc) { $$pos = pos($text); return \\@items }
+            my $item = _toml_parse($text, \$p) or return;
+            push @items, $$item;
+            pos($text) = $p;
+            if ($text =~ /\G\s*,/gc) { $p = pos($text); next }
+            if ($text =~ /\G\s*\]/gc) { $$pos = pos($text); return \\@items }
+            return;
         }
-        return \@items;
     }
-    return $value;
+    return if $text =~ /\G["']/gc;
+    if ($text =~ /\G([^,\]]+)/gc) {
+        my $bare = $1;
+        $bare =~ s/\s+$//;
+        $$pos = pos($text);
+        my $v = $bare eq 'true' ? 1 : $bare eq 'false' ? 0 : $bare;
+        return \$v;
+    }
+    return;
 }
 
 # --- Medium ----------------------------------------------------------------
@@ -883,8 +995,9 @@ sub medium {
         my $slug;
         if (defined $canonical and $canonical =~ m{/([^/?#]+?)(?:-[0-9a-f]{8,12})?(?:[?#].*)?$}) { $slug = $1 }
         $slug = App::Dapper::Utils::slugify($title) unless defined $slug and length $slug;
-        $slug = basename($file, '.html') unless length $slug;
+        $slug = App::Dapper::Utils::slugify(basename($file, '.html')) unless length $slug;
         $slug =~ s/^draft_//;
+        $slug = 'untitled' unless length $slug;
 
         add_page($state, "$state->{to}/$slug.html", [
             [ title       => $title ],

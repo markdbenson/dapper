@@ -135,7 +135,7 @@ sub parse_date {
     $date .= ":00" if $date =~ /T\d{2}:\d{2}$/;
 
     my $dt = eval { DateTime::Format::XSD->parse_datetime($date) };
-    die "error: could not understand the date \"$input\""
+    die "error: could not understand the date \"" . (defined $input ? $input : '') . "\""
         . (defined $name ? " in \"$name\"" : "")
         . ". Use the ISO 8601 format, e.g. 2014-05-02T10:30:00\n"
         unless $dt;
@@ -240,8 +240,11 @@ sub create_dir {
     $dirname = canonpath $dirname;
 
     return if -d $dirname;
-    make_path($dirname)
-        or die "error: could not create directory \"$dirname\": $!\n";
+    make_path($dirname, { error => \my $errors });
+    if ($errors and @$errors) {
+        my ($message) = values %{ $errors->[-1] };
+        die "error: could not create directory \"$dirname\": $message\n";
+    }
 }
 
 =head2 name_chars

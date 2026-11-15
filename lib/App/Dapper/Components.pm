@@ -185,7 +185,8 @@ sub expand {
             : built_in($name, \@args, $inner);
 
         push @html, $result;
-        push @out, '', "DAPPERCOMPONENT$#html", '';
+        my $placeholder = defined $options->{placeholder} ? $options->{placeholder} : 'DAPPERCOMPONENT';
+        push @out, '', "$placeholder$#html", '';
         $i = defined $end ? $end + 1 : $i + 1;
     }
 
@@ -315,7 +316,9 @@ sub built_in {
     if ($name eq 'map') {
         my $place = join(' ', @args);
         return error($name, 'needs an address or place') unless length $place;
-        (my $query = $place) =~ s/([^A-Za-z0-9\-._~ ])/sprintf('%%%02X', ord $1)/ge;
+        my $query = $place;
+        utf8::encode($query);
+        $query =~ s/([^A-Za-z0-9\-._~ ])/sprintf('%%%02X', ord $1)/ge;
         $query =~ s/ /+/g;
         return qq{<div class="map"><iframe src="https://maps.google.com/maps?q=$query&amp;output=embed" title="Map of }
              . escape($place) . qq{" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>};
@@ -339,7 +342,7 @@ sub video_id {
         return $video if $video =~ /^[\w-]{6,}$/;
         return;
     }
-    return $1 if $video =~ m{vimeo\.com/(?:video/)?(\d+)};
+    return $1 if $video =~ m{vimeo\.com/(?:.*/)?(\d+)(?:[/?#]|$)};
     return $video if $video =~ /^\d+$/;
     return;
 }

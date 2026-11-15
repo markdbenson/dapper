@@ -36,6 +36,7 @@ use JSON ();
 use File::Spec;
 
 use App::Dapper::Filters;
+use Scalar::Util ();
 use App::Dapper::Utils;
 
 =head2 absolute_url
@@ -133,6 +134,8 @@ sub enabled {
     my $value = $site->{$name};
     return 1 unless defined $value;
     return 0 if !ref $value and $value =~ /^(?:0|false|no|off|)$/i;
+    # A boolean object, such as JSON::false, is off when it is false
+    return 0 if Scalar::Util::blessed($value) and !$value;
     return 1;
 }
 
@@ -455,7 +458,9 @@ sub redirects {
     my ($site) = @_;
 
     my %redirects;
-    for my $source ($site->{redirects}, ref $site->{data} eq 'HASH' ? $site->{data}->{redirects} : undef) {
+    # Copied first: looping over the hash elements directly would create them
+    my @sources = ($site->{redirects}, ref $site->{data} eq 'HASH' ? $site->{data}->{redirects} : undef);
+    for my $source (@sources) {
         next unless defined $source;
         die "error: redirects must be pairs of an old URL and a new one, e.g. /old/: /new/\n"
             unless ref $source eq 'HASH';

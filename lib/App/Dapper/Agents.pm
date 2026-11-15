@@ -94,6 +94,8 @@ sub guide {
 
     my $site = $dapper->{site};
     my ($source, $layout, $output, $data) = map { $dapper->{$_} } qw/ source layout output data_dir /;
+    # Without a project file the directories are not resolved; use the defaults
+    $data = defined $site->{data_dir} ? $site->{data_dir} : '_data' unless defined $data;
     my $name = defined $site->{name} ? $site->{name} : 'this site';
 
     my $text = <<"MD";
@@ -200,6 +202,7 @@ MD
   directives. Use names like `later` or `count` instead.
 - Don't edit or commit the output directory or `.dapper/`.
 MD
+    $text =~ s{`_data\/redirects\.yml`}{`$data\/redirects.yml`}g;
 
     return $text;
 }

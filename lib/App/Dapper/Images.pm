@@ -254,7 +254,7 @@ sub variants {
 
     (my $ext = $file) =~ s/.*\.//;
     for my $format (@formats) {
-        my $out_ext = $format eq 'webp' ? 'webp' : lc $ext;
+        my $out_ext = $format eq 'webp' ? 'webp' : $ext;
         my @sizes = @$widths;
         push @sizes, $width if $format eq 'webp';
         for my $size (@sizes) {

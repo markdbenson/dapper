@@ -105,6 +105,16 @@ sub run {
         push @problems, quality($dapper);
     }
 
+    # Name the real output directory, not the temporary one, in messages
+    my $temporary = catfile($tmp, 'site');
+    my $real = defined $dapper->{site}->{output} && $dapper->{site}->{output} ne $temporary
+        ? $dapper->{site}->{output} : $saved{output};
+    for my $problem (@problems) {
+        for my $key (qw/ file message /) {
+            $problem->{$key} =~ s/\Q$temporary\E/$real/g if defined $problem->{$key};
+        }
+    }
+
     $dapper->{$_} = $saved{$_} for keys %saved;
     $dapper->{explicit}->{output} = $explicit_output;
 
@@ -170,6 +180,7 @@ sub links {
     my $site = $dapper->{site};
     my $output = $dapper->{output};
     my %source_of = %{ $dapper->{page_owner} || {} };
+    $source_of{$_->{output}} = $_->{source} for @{ $dapper->{static_files} || [] };
     my $base = defined $site->{url} ? $site->{url} : '';
     $base =~ s{/+$}{};
 
@@ -199,7 +210,8 @@ sub links {
             push @problems, {
                 severity => 'error',
                 type     => 'link',
-                file     => $source_of{$file} || $file,
+                # A file copied from the project directory is reported by its own name
+                file     => $source_of{$file} || $relative,
                 message  => "links to $link, which is not in the site",
             };
         }
@@ -222,7 +234,8 @@ sub target_path {
     $link =~ s/^\s+|\s+$//g;
     return if $link eq '' or $link =~ /^#/;
 
-    if (length $base and index($link, $base) == 0) {
+    # A link to the site's own address: the address, then the end or /, ? or #
+    if (length $base and index($link, $base) == 0 and substr($link, length $base) =~ m{^(?:$|[/?#])}) {
         $link = substr($link, length $base);
         $link = '/' unless length $link;
     }
@@ -360,7 +373,7 @@ sub quality {
 
             while ($html =~ /<img\b([^>]*)>/gi) {
                 my $attributes = $1;
-                next if $attributes =~ /\balt\s*=/i;
+                next if $attributes =~ /(?:^|\s)alt(?:\s*=|\s|\/|$)/i;
                 my ($src) = $attributes =~ /\bsrc\s*=\s*["']([^"']*)/i;
                 $src = '(no src)' unless defined $src;
                 $warn->('accessibility', $file, "the image $src has no alt text; describe it, or use alt=\"\" if it is decoration")
@@ -376,6 +389,7 @@ sub quality {
                 }
                 $previous = $level;
             }
+            pos($html) = undef;
 
             if ($html =~ /<html\b([^>]*)>/i and $1 !~ /\blang\s*=/i) {
                 my $name = $page->{layout} || 'index';

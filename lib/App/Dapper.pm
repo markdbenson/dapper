@@ -30,6 +30,7 @@ use App::Dapper::Deploy;
 use App::Dapper::Images;
 use App::Dapper::Import;
 
+use Scalar::Util ();
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
 use File::Spec::Functions qw/ canonpath catfile /;
@@ -573,6 +574,11 @@ sub render {
 
     # copy source files that have no front matter (images, etc.) as they are
     for my $file (@{$self->{static_files}}) {
+        my $owner = $self->{page_owner}->{canonpath($file->{output})};
+        if (defined $owner) {
+            $self->problem('error', $file->{source}, "$file->{source} and $owner both write " . canonpath($file->{output}));
+            next;
+        }
         $self->record_written(App::Dapper::Utils::copy_recursive($file->{source}, $file->{output}));
         $self->_log("Copied $file->{source}");
     }
@@ -1168,6 +1174,7 @@ sub read_templates {
         my $path = "$self->{layout}/$file";
         next unless -f $path;
         $raw{App::Dapper::Utils::filter_stem($file)} = App::Dapper::Utils::read_file($path);
+        $self->{layout_file}->{App::Dapper::Utils::filter_stem($file)} = $path;
     }
 
     $self->{layout_content} = {};
@@ -1186,7 +1193,7 @@ sub expand_layout {
     die "error: layout \"$name\" is part of a loop of layouts\n" if $seen->{$name};
 
     my ($frontmatter, $content) =
-        App::Dapper::Utils::split_frontmatter($raw->{$name}, "$self->{layout}/$name");
+        App::Dapper::Utils::split_frontmatter($raw->{$name}, $self->{layout_file}->{$name} || "$self->{layout}/$name");
 
     return $raw->{$name} unless defined $frontmatter;
 
@@ -1278,7 +1285,7 @@ sub build_inventory {
     my @categories = ref $page{categories} eq 'ARRAY' ? @{$page{categories}}
                    : defined $page{categories}        ? ($page{categories})
                    : ();
-    @categories = grep { defined and length } @categories;
+    @categories = grep { defined and !ref and length } @categories;
 
     $page{slug} = App::Dapper::Utils::slugify($page{title});
     if (not defined $page{slug} or not length $page{slug}) {
@@ -1292,8 +1299,11 @@ sub build_inventory {
     # A date written without a time zone is in the page's time zone: its
     # "timezone" setting, the site's, or the local time zone
     my $zone = $page{timezone} || $self->{site}->{timezone} || 'local';
-    my $timezone = ref $zone ? $zone : eval { DateTime::TimeZone->new( name => $zone ) }
-        or die "error: unknown time zone \"$zone\" in \"$source_file_name\"\n";
+    my $timezone = Scalar::Util::blessed($zone) && $zone->isa('DateTime::TimeZone') ? $zone
+                 : !ref $zone ? eval { DateTime::TimeZone->new( name => $zone ) }
+                 : undef;
+    die "error: unknown time zone \"" . (ref $zone ? '(a list or map)' : $zone) . "\" in \"$source_file_name\"\n"
+        unless $timezone;
     $date->set_time_zone($timezone) if $date->time_zone->is_floating;
     $page{timezone} = $timezone;
 
@@ -1439,9 +1449,24 @@ sub copy {
             next ENTRY if ($file =~ m/$i/);
         }
 
+        # The notes for AI coding agents are for the project, not the site
+        next if $dir eq '.' and $file =~ /^(?:AGENTS|CLAUDE)\.md$/;
+
         my $path = $dir eq '.' ? $file : "$dir/$file";
         my $abs = abs_path($path);
         next if defined $abs and $skip{$abs};
+
+        # A symbolic link to nothing can't be copied
+        if (-l $path and not -e $path) {
+            $self->problem('warning', $path, "$path is a symbolic link to something that doesn't exist, so it was not copied");
+            next;
+        }
+
+        my $target = canonpath(catfile($output, $file));
+        if (-f $path and defined(my $owner = $self->{page_owner}->{$target})) {
+            $self->problem('error', $path, "$path and $owner both write $target");
+            next;
+        }
 
         $self->record_written(App::Dapper::Utils::copy_recursive($path, catfile($output, $file), $self->{output}));
         $self->_log("Copied $path");
