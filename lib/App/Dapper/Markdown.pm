@@ -18,6 +18,9 @@ C<< <pre><code class="language-perl"> >>, with its contents HTML-escaped and
 left untouched by Markdown. The C<language-*> class is what client-side
 highlighters such as Prism and highlight.js look for.
 
+It also expands components such as C<::: note> and C<::: youtube>; see
+L<App::Dapper::Components>.
+
 =cut
 
 use utf8;
@@ -26,35 +29,59 @@ use strict;
 use warnings;
 
 use Text::MultiMarkdown ();
+use App::Dapper::Components;
 
 =head2 to_html
 
-Takes Markdown text and returns HTML.
+Takes Markdown text and returns HTML. Options (a hash reference) are passed
+to L<App::Dapper::Components/expand>.
 
 =cut
 
 sub to_html {
-    my ($text) = @_;
+    my ($text, $options) = @_;
 
     return '' unless defined $text;
+    $options ||= {};
 
-    my @blocks;
+    my (@blocks, @fences);
+
+    # Placeholders are made from a word that is not in the text, so the text
+    # can't be mistaken for one
+    my $tag = 'DAPPERBLOCK';
+    $tag .= 'Q' while index($text, $tag) >= 0;
+    my ($code_tag, $component_tag) = ("${tag}C", "${tag}K");
 
     # Replace each fenced code block with a placeholder paragraph, so that
     # Markdown leaves its contents alone, and put the HTML back afterwards
     $text =~ s{
-        ^([ ]{0,3})(`{3,}|~{3,})[ \t]*([\w+#.-]*)[^\n]*\n   # opening fence and language
+        ^([ ]{0,3})((?>`{3,}|~{3,}))[ \t]*([\w+#.-]*)[^\n]*\n   # opening fence and language
         (.*?)                                               # code
         ^[ ]{0,3}\2[`~]*[ \t]*$                              # closing fence
     }{
+        push @fences, $&;
         push @blocks, code_block($4, $3);
-        "\n\nDAPPERCODEBLOCK" . $#blocks . "\n\n";
+        "\n\n$code_tag" . $#blocks . "\n\n";
     }gemsx;
+
+    # Components (::: note, ::: youtube, ...); the Markdown inside them is
+    # converted with its code blocks put back
+    my $components = [];
+    if ($text =~ /^[ ]{0,3}:{3,}[ \t]*[A-Za-z]/m) {
+        ($text, $components) = App::Dapper::Components::expand($text, sub {
+            my ($body, $opts) = @_;
+            $body =~ s{^\Q$code_tag\E(\d+)$}{$fences[$1]}gm;
+            return to_html($body, { %$opts, placeholder => undef });
+        }, { %$options, placeholder => $component_tag });
+    }
 
     my $html = Text::MultiMarkdown::markdown($text);
 
-    $html =~ s{<p>DAPPERCODEBLOCK(\d+)</p>}{$blocks[$1]}g;
-    $html =~ s{DAPPERCODEBLOCK(\d+)}{$blocks[$1]}g;
+    $html =~ s{<p>\Q$component_tag\E(\d+)</p>}{$components->[$1]}g;
+    $html =~ s{\Q$component_tag\E(\d+)}{$components->[$1]}g;
+
+    $html =~ s{<p>\Q$code_tag\E(\d+)</p>}{$blocks[$1]}g;
+    $html =~ s{\Q$code_tag\E(\d+)}{$blocks[$1]}g;
 
     return $html;
 }

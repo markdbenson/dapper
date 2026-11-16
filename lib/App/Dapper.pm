@@ -27,7 +27,10 @@ use App::Dapper::Check;
 use App::Dapper::MCP;
 use App::Dapper::Agents;
 use App::Dapper::Deploy;
+use App::Dapper::Images;
+use App::Dapper::Import;
 
+use Scalar::Util ();
 use YAML::PP qw/ LoadFile /;
 use File::Spec;
 use File::Spec::Functions qw/ canonpath catfile /;
@@ -215,7 +218,7 @@ L<Template::Alloy> (the Template Toolkit mini-language). The initial layout
 file that is given after you run the C<dapper init> command, is this:
 
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <title>[% page.title %]</title>
@@ -243,7 +246,7 @@ is specified by the input file. For the default site, the following output
 file is created:
 
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <title>Welcome</title>
@@ -495,6 +498,7 @@ sub build {
     $self->{problems} = [];
     $self->{written} = {};
     $self->{page_owner} = {};
+    $self->{held} = [];
 
     $self->parse();
     $self->transform();
@@ -570,6 +574,11 @@ sub render {
 
     # copy source files that have no front matter (images, etc.) as they are
     for my $file (@{$self->{static_files}}) {
+        my $owner = $self->{page_owner}->{canonpath($file->{output})};
+        if (defined $owner) {
+            $self->problem('error', $file->{source}, "$file->{source} and $owner both write " . canonpath($file->{output}));
+            next;
+        }
         $self->record_written(App::Dapper::Utils::copy_recursive($file->{source}, $file->{output}));
         $self->_log("Copied $file->{source}");
     }
@@ -579,6 +588,9 @@ sub render {
 
     # sitemap, feed and llms.txt
     $self->attempt($self->{config}, sub { $self->write_generated() });
+
+    # image sizes, responsive copies and lazy loading (with "images" set)
+    $self->attempt($self->{config}, sub { App::Dapper::Images::process($self) });
 
     # with live reload on, a new value here tells open pages to reload
     if ($self->{live_reload}) {
@@ -912,6 +924,22 @@ sub deploy {
     return App::Dapper::Deploy::run($self, $target, %options);
 }
 
+=head2 import_from
+
+Import the pages of another site into the source directory. Takes the kind
+of site (C<wordpress>, C<jekyll>, C<hugo> or C<medium>), the file or
+directory to import, and options: C<to> (the directory for posts, default
+C<blog>) and C<dry_run>. See L<App::Dapper::Import>.
+
+    $d->import_from('wordpress', 'export.xml');
+
+=cut
+
+sub import_from {
+    my ($self, $kind, $from, %options) = @_;
+    return App::Dapper::Import::run($self, $kind, $from, %options);
+}
+
 =head2 mcp
 
 Run a Model Context Protocol server on standard input and output, so that AI
@@ -1146,6 +1174,7 @@ sub read_templates {
         my $path = "$self->{layout}/$file";
         next unless -f $path;
         $raw{App::Dapper::Utils::filter_stem($file)} = App::Dapper::Utils::read_file($path);
+        $self->{layout_file}->{App::Dapper::Utils::filter_stem($file)} = $path;
     }
 
     $self->{layout_content} = {};
@@ -1164,7 +1193,7 @@ sub expand_layout {
     die "error: layout \"$name\" is part of a loop of layouts\n" if $seen->{$name};
 
     my ($frontmatter, $content) =
-        App::Dapper::Utils::split_frontmatter($raw->{$name}, "$self->{layout}/$name");
+        App::Dapper::Utils::split_frontmatter($raw->{$name}, $self->{layout_file}->{$name} || "$self->{layout}/$name");
 
     return $raw->{$name} unless defined $frontmatter;
 
@@ -1256,24 +1285,45 @@ sub build_inventory {
     my @categories = ref $page{categories} eq 'ARRAY' ? @{$page{categories}}
                    : defined $page{categories}        ? ($page{categories})
                    : ();
-    @categories = grep { defined and length } @categories;
+    @categories = grep { defined and !ref and length } @categories;
 
     $page{slug} = App::Dapper::Utils::slugify($page{title});
     if (not defined $page{slug} or not length $page{slug}) {
         $page{slug} = App::Dapper::Utils::slugify(basename(App::Dapper::Utils::filter_stem($source_file_name)));
     }
 
+    # A page without a date takes its file's modified time, which is a moment
+    # (not a clock reading), so it keeps the local time zone it was read in
     my $date = App::Dapper::Utils::parse_date(
-        defined $page{date} ? $page{date} : App::Dapper::Utils::get_modified_time($source_file_name),
+        defined $page{date} ? $page{date}
+            : DateTime->from_epoch( epoch => (stat $source_file_name)[9],
+                                    time_zone => DateTime::TimeZone->new( name => 'local' ) ),
         $source_file_name);
 
     # A date written without a time zone is in the page's time zone: its
     # "timezone" setting, the site's, or the local time zone
     my $zone = $page{timezone} || $self->{site}->{timezone} || 'local';
-    my $timezone = ref $zone ? $zone : eval { DateTime::TimeZone->new( name => $zone ) }
-        or die "error: unknown time zone \"$zone\" in \"$source_file_name\"\n";
-    $date->set_time_zone($timezone) if $date->time_zone->is_floating;
+    my $timezone = Scalar::Util::blessed($zone) && $zone->isa('DateTime::TimeZone') ? $zone
+                 : !ref $zone ? eval { DateTime::TimeZone->new( name => $zone ) }
+                 : undef;
+    die "error: unknown time zone \"" . (ref $zone ? '(a list or map)' : $zone) . "\" in \"$source_file_name\"\n"
+        unless $timezone;
+    $date->set_time_zone($timezone) if $date->time_zone->is_floating or not defined $page{date};
     $page{timezone} = $timezone;
+
+    # Drafts, and pages dated in the future, are held back unless drafts are
+    # being shown (as "dapper serve" does)
+    if (not $self->{drafts}) {
+        my $reason = App::Dapper::Publish::is_draft(\%page) ? 'draft'
+                   : !($self->{site}->{future} && App::Dapper::Publish::enabled($self->{site}, 'future'))
+                     && DateTime->compare($date, $self->{site}->{time}) > 0 ? 'scheduled'
+                   : undef;
+        if ($reason) {
+            push @{$self->{held}}, { file => $source_file_name, reason => $reason, date => $date };
+            $self->_log("Held back $source_file_name ($reason" . ($reason eq 'scheduled' ? " for $date" : '') . ")");
+            return;
+        }
+    }
 
     $page{date}   = $date;
     $page{year}   = $date->year();
@@ -1320,7 +1370,17 @@ sub build_inventory {
 
     if ($page{source_file_extension} eq ".md") {
         $page{markdown} = $page{content};
-        $page{content} = App::Dapper::Markdown::to_html($page{content});
+        my @unknown;
+        $page{content} = App::Dapper::Markdown::to_html($page{content}, {
+            layout  => $self->{layout},
+            vars    => { site => $self->{site}, page => \%page },
+            unknown => \@unknown,
+        });
+        my %seen;
+        for my $name (grep { !$seen{$_}++ } @unknown) {
+            $self->problem('warning', $source_file_name, "$source_file_name uses the component \"::: $name\", which doesn't exist; the built-in ones are "
+                . join(', ', App::Dapper::Components::names()) . ", and others can be added in $self->{layout}/components");
+        }
 
         # Save first paragraph of content as excerpt
         $page{excerpt} = $1 if $page{content} =~ /(<p>.*?<\/p>)/s;
@@ -1393,9 +1453,24 @@ sub copy {
             next ENTRY if ($file =~ m/$i/);
         }
 
+        # The notes for AI coding agents are for the project, not the site
+        next if $dir eq '.' and $file =~ /^(?:AGENTS|CLAUDE)\.md$/;
+
         my $path = $dir eq '.' ? $file : "$dir/$file";
         my $abs = abs_path($path);
         next if defined $abs and $skip{$abs};
+
+        # A symbolic link to nothing can't be copied
+        if (-l $path and not -e $path) {
+            $self->problem('warning', $path, "$path is a symbolic link to something that doesn't exist, so it was not copied");
+            next;
+        }
+
+        my $target = canonpath(catfile($output, $file));
+        if (-f $path and defined(my $owner = $self->{page_owner}->{$target})) {
+            $self->problem('error', $path, "$path and $owner both write $target");
+            next;
+        }
 
         $self->record_written(App::Dapper::Utils::copy_recursive($path, catfile($output, $file), $self->{output}));
         $self->_log("Copied $path");

@@ -95,6 +95,9 @@ sub run {
     }
     die "error: there are no \"$target\" deploy settings in $dapper->{config}\n" unless exists $settings->{$target};
 
+    # Drafts and pages dated in the future are never published
+    local $dapper->{drafts} = 0;
+
     if (not $options{no_build}) {
         $dapper->build();
 
@@ -136,7 +139,15 @@ sub run_command {
 
     $dapper->_log('+ ' . join(' ', map { /\s/ ? "'$_'" : $_ } @command));
     system(@command) == 0
-        or die "error: " . join(' ', @command[0, 1]) . " failed (exit status " . ($? >> 8) . ")\n";
+        or die "error: " . join(' ', @command[0, 1]) . " failed (" . exit_status($?) . ")\n";
+}
+
+# exit_status($?) - Why a command failed, in words.
+sub exit_status {
+    my ($status) = @_;
+    return "it could not be run: $!" if $status == -1;
+    return "it was stopped by signal " . ($status & 127) if $status & 127;
+    return "exit status " . ($status >> 8);
 }
 
 =head2 s3
@@ -277,7 +288,7 @@ sub command {
 
     local $ENV{DAPPER_OUTPUT} = $dapper->{output};
     $dapper->_log("+ $command");
-    system($command) == 0 or die "error: the deploy command failed (exit status " . ($? >> 8) . ")\n";
+    system($command) == 0 or die "error: the deploy command failed (" . exit_status($?) . ")\n";
     $dapper->_log('Deployed.');
     return 1;
 }

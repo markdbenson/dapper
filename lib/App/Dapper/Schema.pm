@@ -174,7 +174,7 @@ sub check_value {
         if ($rules->{values}) {
             my %allowed = map { $_ => 1 } @{$rules->{values}};
             for my $item (@items) {
-                push @problems, "\"$name\" has \"$item\", which is not one of: " . join(', ', @{$rules->{values}})
+                push @problems, "\"$name\" has \"" . (defined $item ? $item : '') . "\", which is not one of: " . join(', ', @{$rules->{values}})
                     unless defined $item and $allowed{$item};
             }
         }

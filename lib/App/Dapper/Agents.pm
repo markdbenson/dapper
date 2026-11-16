@@ -94,6 +94,8 @@ sub guide {
 
     my $site = $dapper->{site};
     my ($source, $layout, $output, $data) = map { $dapper->{$_} } qw/ source layout output data_dir /;
+    # Without a project file the directories are not resolved; use the defaults
+    $data = defined $site->{data_dir} ? $site->{data_dir} : '_data' unless defined $data;
     my $name = defined $site->{name} ? $site->{name} : 'this site';
 
     my $text = <<"MD";
@@ -187,6 +189,12 @@ MD
 - **Links between pages** start with `/` (for example `/about.html` or
   `/blog/2026/01/my-post/`). `dapper check` reports links that lead nowhere.
 - **Images** need meaningful alt text: `![A loaf of sourdough on a board](/images/loaf.jpg)`.
+- **Components** add what Markdown can't, without template code: `::: note`, `::: tip`
+  and `::: warning` boxes (closed with `:::` on its own line), `::: details "Summary"`,
+  `::: gallery`, and single lines such as `::: youtube <address> "Title"`,
+  `::: button /contact/ "Get in touch"` and `::: figure photo.jpg "Alt text" "Caption"`.
+- **Drafts:** `draft: true` keeps a page off the site, and so does a `date` in the
+  future, until that date. `dapper serve` shows them; `dapper check` lists them.
 - When you rename or move a page, add a redirect from its old URL in
   `_data/redirects.yml` (`/old-url/: /new-url/`).
 - In layouts, don't name template variables after directives (`next`, `last`, `loop`,
@@ -194,6 +202,7 @@ MD
   directives. Use names like `later` or `count` instead.
 - Don't edit or commit the output directory or `.dapper/`.
 MD
+    $text =~ s{`_data\/redirects\.yml`}{`$data\/redirects.yml`}g;
 
     return $text;
 }

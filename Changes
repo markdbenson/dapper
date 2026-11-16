@@ -1,5 +1,97 @@
 Revision history for App-Dapper
 
+NEXT    (not released yet)
+        Images load faster, Markdown gains components, drafts and scheduled
+        posts work, dapper check looks for accessibility and SEO problems,
+        and dapper import brings in a WordPress, Jekyll, Hugo or Medium
+        site. See "Upgrading from 1.0" in the README.
+
+        Changed: pages with draft: true, and pages dated in the future, are
+        no longer published by dapper build or dapper deploy. dapper serve
+        shows them, as do build, watch and check with --drafts. Set
+        future: true in _config.yml to publish pages dated in the future.
+
+        Added: images in _config.yml gives every image width and height,
+        lazy loading after the first on a page, resized copies listed in a
+        srcset, and WebP copies in a <picture>. Resizing uses ImageMagick
+        or libvips when one is installed, and copies are kept in
+        .dapper/images.
+
+        Added: components in Markdown, without template code: callouts
+        (note, tip, info, warning, caution, important), details, gallery,
+        youtube, vimeo, button, figure and map. Themes and sites can add
+        their own, or restyle the built-in ones, with templates in
+        _layout/components.
+
+        Added: dapper check warns about images without alt text, skipped
+        heading levels, a page with no language, links with no text or
+        only "click here", and missing, duplicate or overlong titles and
+        descriptions. check: { accessibility: false, seo: false } turns
+        them off. Its report lists the drafts and scheduled pages it left
+        out.
+
+        Added: dapper import wordpress|jekyll|hugo|medium, which brings a
+        site's pages into the source directory, keeping their addresses,
+        dates, categories, tags and drafts, converting what it can
+        (captions, embeds, Liquid, shortcodes) and listing what it can't.
+
+        Changed: the default starter's layout sets <html lang="en">, and the
+        blog starter's home page has a description.
+
+        Fixed: AGENTS.md and CLAUDE.md, written by dapper init, were copied
+        into the output directory and published with the site.
+
+        Fixed: a page without a date (which takes its file's modified time)
+        was held back as scheduled when the site's time zone is west of the
+        computer's, as on a server running in UTC.
+
+        Fixed: a file without front matter (in the source directory, or at
+        the top of the project) silently replaced a page written to the
+        same place. It is now an error, like two pages writing one file.
+
+        Fixed: dapper check ignored links that came before a skipped
+        heading, treated a link to another site whose address starts with
+        the site's own (example.com.other.org) as a page of the site,
+        named a copied HTML file by its temporary path, and reported
+        <img alt> as having no alt text.
+
+        Fixed: a code block could be closed by a shorter fence, and text
+        that happened to match Dapper's internal placeholders was replaced.
+
+        Fixed: a list or map given as a category ended up in the URL, and
+        a list given as a time zone crashed the build. A symbolic link to
+        nothing at the top of the project stopped the build; it is now
+        skipped with a warning. Settings set to JSON false through MCP
+        counted as on.
+
+        Fixed: the MCP server's write_page wrote empty front matter that
+        Dapper couldn't read, and followed symbolic links out of the source
+        directory. Valid JSON that isn't a request now gets an Invalid
+        Request error instead of a parse error.
+
+        Fixed: a deploy command that couldn't be started reported a
+        nonsense exit status; a file:// template address was taken for a
+        folder; and AGENTS.md named _data/redirects.yml even when data
+        files are elsewhere.
+
+        Fixed: in dapper import, WordPress ?p= links became the home
+        page's address and category names kept &amp;; Jekyll posts with
+        published: false, a date with a time zone offset, no front matter,
+        or a category with a space were read wrongly; Hugo shortcodes with
+        escaped quotes were cut off, a ref to the home page became //, and
+        Markdown files inside a page bundle became pages; Medium stories
+        with no title were written as .html. The TOML reader now handles
+        comments, \u escapes, multi-line strings, nested arrays and dotted
+        keys.
+
+        Fixed: images with an upper-case extension (PHOTO.JPG) got resized
+        copies with a lower-case extension, which srcset didn't name. Maps
+        of places with accented or non-Latin names had a broken address,
+        and more forms of Vimeo address are recognized.
+
+        The test suite grows from 220 to over 5,000 checks, covering 98% of
+        the code.
+
 1.00    2026-11-13
         Dapper 1.0 makes page content safe by default, adds what a modern
         static site needs (schemas, data files, pagination, feeds,

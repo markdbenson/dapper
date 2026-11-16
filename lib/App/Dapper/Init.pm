@@ -91,7 +91,7 @@ FILE
 
     '_layout/index.html' => <<'FILE',
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>[% page.title %]</title>
@@ -230,6 +230,7 @@ FILE
     '_source/index.html' => <<'FILE',
 ---
 title: Home
+description: The newest posts on this blog.
 template: true
 paginate:
   category: blog
@@ -423,9 +424,11 @@ sub template_files {
     return ($TEMPLATES{$template}, $NOTES{$template}) if $TEMPLATES{$template};
 
     my $dir = $template;
-    if ($template =~ m{^(?:https?|git|ssh)://|^git@|\.git$}) {
+    if ($template =~ m{^(?:https?|git|ssh|file)://|^git@|\.git$}) {
         $dir = tempdir(CLEANUP => 1) . '/template';
-        system('git', 'clone', '--quiet', '--depth', '1', '--', $template, $dir) == 0
+        # A shallow clone of a local repository makes git warn, so clone those in full
+        my @depth = $template =~ m{^(?:https?|git|ssh)://|^git@} ? ('--depth', '1') : ();
+        system('git', 'clone', '--quiet', @depth, '--', $template, $dir) == 0
             or die "error: could not clone the template from $template (is git installed, and is the URL right?)\n";
     }
     elsif (not -d $dir) {

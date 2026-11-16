@@ -81,6 +81,7 @@ use YAML::PP;
 use File::Spec;
 use File::Spec::Functions qw/ canonpath catfile /;
 use File::Basename qw/ dirname /;
+use Cwd ();
 use File::Path qw/ make_path /;
 use Template::Alloy;
 use File::Find ();
@@ -170,13 +171,13 @@ my @TOOLS = (
     },
     {
         name        => 'build',
-        description => 'Build the site into the output directory.',
-        inputSchema => { type => 'object', properties => {} },
+        description => 'Build the site into the output directory. Drafts (draft: true) and pages dated in the future are left out unless drafts is true.',
+        inputSchema => { type => 'object', properties => { drafts => { type => 'boolean', description => 'Include drafts and pages dated in the future (default: false)' } } },
     },
     {
         name        => 'check',
-        description => 'Check the site for problems (front matter, schemas, layouts, templates, broken links) without touching the output directory.',
-        inputSchema => { type => 'object', properties => {} },
+        description => 'Check the site for problems (front matter, schemas, layouts, templates, broken links, accessibility, SEO) without touching the output directory. The report lists the drafts and scheduled pages left out (in held); set drafts to true to check them too.',
+        inputSchema => { type => 'object', properties => { drafts => { type => 'boolean', description => 'Include drafts and pages dated in the future (default: false)' } } },
     },
 );
 
@@ -231,10 +232,16 @@ sub serve {
     while (my $line = <STDIN>) {
         next unless $line =~ /\S/;
 
-        my $request = eval { $json->decode($line) };
-        if (not $request or ref $request ne 'HASH') {
+        my $request = eval { $json->allow_nonref->decode($line) };
+        if ($@) {
             print $out $json->encode({ jsonrpc => '2.0', id => undef,
                 error => { code => -32700, message => 'Parse error' } }), "\n";
+            next;
+        }
+        # Valid JSON that is not a request object
+        if (ref $request ne 'HASH') {
+            print $out $json->encode({ jsonrpc => '2.0', id => undef,
+                error => { code => -32600, message => 'Invalid Request' } }), "\n";
             next;
         }
 
@@ -555,7 +562,16 @@ sub source_path {
     die "error: \"$path\" must not contain ..\n" if grep { $_ eq '..' } @parts;
     die "error: \"$path\" must not be a hidden file\n" if grep { /^\./ } @parts;
 
-    return canonpath(catfile($source, $relative));
+    # A symbolic link must not lead out of the source directory
+    my $file = canonpath(catfile($source, $relative));
+    my $root = Cwd::abs_path($source);
+    my $dir = $file;
+    $dir = File::Basename::dirname($dir) until -e $dir or $dir eq '.' or $dir eq '/';
+    my $real = Cwd::abs_path($dir);
+    die "error: \"$path\" is outside the source directory\n"
+        if defined $root and defined $real and $real ne $root and index($real, "$root/") != 0;
+
+    return $file;
 }
 
 =head2 read_page
@@ -630,8 +646,9 @@ sub write_page {
         }
     }
 
-    my $yaml = YAML::PP->new(boolean => 'JSON::PP')->dump_string($front_matter);
-    $yaml = "---\n$yaml" unless $yaml =~ /^---/;
+    # Empty front matter is written as two lines of dashes, which Dapper reads
+    my $yaml = %$front_matter ? YAML::PP->new(boolean => 'JSON::PP')->dump_string($front_matter) : "---\n";
+    $yaml = "---\n$yaml" unless $yaml =~ /^---\n/;
     $yaml .= "\n" unless $yaml =~ /\n\z/;
     $body .= "\n" unless $body =~ /\n\z/;
 
@@ -809,9 +826,10 @@ The C<build> tool.
 =cut
 
 sub build {
-    my ($dapper) = @_;
+    my ($dapper, $args) = @_;
 
     local $dapper->{quiet} = 1;
+    local $dapper->{drafts} = ref $args eq 'HASH' && $args->{drafts} ? 1 : 0;
     $dapper->build();
 
     return {
@@ -829,8 +847,9 @@ The C<check> tool.
 =cut
 
 sub check {
-    my ($dapper) = @_;
+    my ($dapper, $args) = @_;
 
+    local $dapper->{drafts} = ref $args eq 'HASH' && $args->{drafts} ? 1 : 0;
     return $dapper->check();
 }
 

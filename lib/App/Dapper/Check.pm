@@ -27,6 +27,11 @@ It reports:
 
 =item * settings that need C<url> when it isn't set, and pages without a title
 
+=item * images without alt text, skipped heading levels, pages with no language,
+and links with no text or only "click here" (see L</quality>)
+
+=item * missing, duplicate or overlong titles and descriptions
+
 =back
 
 With C<--json>, the report is printed as JSON, for scripts and AI assistants:
@@ -52,6 +57,7 @@ use File::Spec::Functions qw/ catfile /;
 use JSON ();
 
 use App::Dapper::Utils;
+use App::Dapper::Publish;
 
 =head2 run
 
@@ -72,6 +78,7 @@ sub run {
     $dapper->{quiet} = 1;
 
     my ($pages, @problems) = (0);
+    my @held;
     my $ok = eval {
         # Resolve the real directories first, then build into the temporary one
         $dapper->read_project();
@@ -92,8 +99,20 @@ sub run {
 
     if ($ok) {
         $pages = scalar @{ $dapper->{site}->{pages} };
+        @held = map { { file => $_->{file}, reason => $_->{reason} } } @{ $dapper->{held} || [] };
         push @problems, links($dapper);
         push @problems, warnings($dapper);
+        push @problems, quality($dapper);
+    }
+
+    # Name the real output directory, not the temporary one, in messages
+    my $temporary = catfile($tmp, 'site');
+    my $real = defined $dapper->{site}->{output} && $dapper->{site}->{output} ne $temporary
+        ? $dapper->{site}->{output} : $saved{output};
+    for my $problem (@problems) {
+        for my $key (qw/ file message /) {
+            $problem->{$key} =~ s/\Q$temporary\E/$real/g if defined $problem->{$key};
+        }
     }
 
     $dapper->{$_} = $saved{$_} for keys %saved;
@@ -111,6 +130,7 @@ sub run {
         pages    => $pages,
         errors   => [ map { _clean($_) } @errors ],
         warnings => [ map { _clean($_) } @warnings ],
+        held     => \@held,
     };
 }
 
@@ -128,8 +148,8 @@ sub _clean {
 =head2 classify
 
 Takes a problem and returns a short name for its kind: C<schema>,
-C<front_matter>, C<layout>, C<template>, C<duplicate>, C<link>, C<setting> or
-C<other>.
+C<front_matter>, C<layout>, C<template>, C<duplicate>, C<link>, C<setting>,
+C<component>, C<accessibility>, C<seo> or C<other>.
 
 =cut
 
@@ -143,6 +163,7 @@ sub classify {
     return 'template'     if $message =~ /could not process/;
     return 'duplicate'    if $message =~ /both write|already writes/;
     return 'setting'      if $message =~ /needs the site|needs a layout|needs Pagefind|must be settings/;
+    return 'component'    if $message =~ /uses the component|component template/;
     return 'other';
 }
 
@@ -159,6 +180,7 @@ sub links {
     my $site = $dapper->{site};
     my $output = $dapper->{output};
     my %source_of = %{ $dapper->{page_owner} || {} };
+    $source_of{$_->{output}} = $_->{source} for @{ $dapper->{static_files} || [] };
     my $base = defined $site->{url} ? $site->{url} : '';
     $base =~ s{/+$}{};
 
@@ -188,7 +210,8 @@ sub links {
             push @problems, {
                 severity => 'error',
                 type     => 'link',
-                file     => $source_of{$file} || $file,
+                # A file copied from the project directory is reported by its own name
+                file     => $source_of{$file} || $relative,
                 message  => "links to $link, which is not in the site",
             };
         }
@@ -211,7 +234,8 @@ sub target_path {
     $link =~ s/^\s+|\s+$//g;
     return if $link eq '' or $link =~ /^#/;
 
-    if (length $base and index($link, $base) == 0) {
+    # A link to the site's own address: the address, then the end or /, ? or #
+    if (length $base and index($link, $base) == 0 and substr($link, length $base) =~ m{^(?:$|[/?#])}) {
         $link = substr($link, length $base);
         $link = '/' unless length $link;
     }
@@ -293,6 +317,149 @@ sub warnings {
     return @problems;
 }
 
+=head2 quality
+
+Takes a Dapper object that has just been built, and returns warnings about
+accessibility (images without alt text, skipped heading levels, a page with no
+language, links with no text or only vague text such as "click here") and
+search engines (missing, duplicate or overlong titles and descriptions).
+C<check: { accessibility: false }> or C<check: { seo: false }> in
+C<_config.yml> turns a group off.
+
+=cut
+
+my %VAGUE = map { $_ => 1 } ('click here', 'click', 'here', 'this', 'link', 'this link', 'this page');
+
+sub quality {
+    my ($dapper) = @_;
+
+    my $site = $dapper->{site};
+    my $settings = ref $site->{check} eq 'HASH' ? $site->{check} : {};
+    my $a11y = App::Dapper::Publish::enabled($settings, 'accessibility');
+    my $seo  = App::Dapper::Publish::enabled($settings, 'seo');
+    return unless $a11y or $seo;
+
+    my (@problems, %title_of, %description_of, %no_lang);
+    my $warn = sub {
+        my ($type, $file, $message) = @_;
+        push @problems, { severity => 'warning', type => $type, file => $file, message => $message };
+    };
+
+    for my $page (@{$site->{pages}}) {
+        next unless App::Dapper::Publish::is_html($page);
+        next if $page->{paginator} && $page->{paginator}->{page} > 1;
+        # Pages that failed to render, or lost their file to another page, are
+        # reported already
+        next unless -f $page->{filename};
+        my $owner = $dapper->{page_owner}->{$page->{filename}};
+        next if defined $owner and $owner ne $page->{source};
+        my $html = App::Dapper::Utils::read_file($page->{filename});
+        $html =~ s/<!--.*?-->//gs;
+        $html =~ s{<(script|style|pre|code)\b.*?</\1>}{}gis;
+        my $file = $page->{source};
+
+        if ($a11y) {
+            my %alt_missing;
+
+            # Markdown writes ![](photo.png) as alt="", which looks deliberate in
+            # the HTML, so look for it in the Markdown
+            my $markdown = defined $page->{markdown} ? $page->{markdown} : '';
+            $markdown =~ s/^([ ]{0,3})(`{3,}|~{3,}).*?^[ ]{0,3}\2[`~]*[ \t]*$//gms;
+            $markdown =~ s/`[^`\n]*`//g;
+            while ($markdown =~ /!\[\s*\]\(\s*<?([^)\s>]+)/g) {
+                $warn->('accessibility', $file, "the image $1 has no alt text; describe it, or use alt=\"\" if it is decoration")
+                    unless $alt_missing{$1}++;
+            }
+
+            while ($html =~ /<img\b([^>]*)>/gi) {
+                my $attributes = $1;
+                next if $attributes =~ /(?:^|\s)alt(?:\s*=|\s|\/|$)/i;
+                my ($src) = $attributes =~ /\bsrc\s*=\s*["']([^"']*)/i;
+                $src = '(no src)' unless defined $src;
+                $warn->('accessibility', $file, "the image $src has no alt text; describe it, or use alt=\"\" if it is decoration")
+                    unless $alt_missing{$src}++;
+            }
+
+            my $previous;
+            while ($html =~ /<h([1-6])\b[^>]*>(.*?)<\/h\1>/gis) {
+                my ($level, $text) = ($1, App::Dapper::Publish::plain_text($2));
+                if (defined $previous and $level > $previous + 1) {
+                    $warn->('accessibility', $file, "the heading \"$text\" skips from h$previous to h$level; use h" . ($previous + 1));
+                    last;
+                }
+                $previous = $level;
+            }
+            pos($html) = undef;
+
+            if ($html =~ /<html\b([^>]*)>/i and $1 !~ /\blang\s*=/i) {
+                my $name = $page->{layout} || 'index';
+                my ($layout) = grep { App::Dapper::Utils::filter_stem($_) eq $name } App::Dapper::Utils::read_dir($dapper->{layout});
+                $layout = "$dapper->{layout}/" . (defined $layout ? $layout : $name);
+                $warn->('accessibility', $layout, 'the <html> tag has no lang attribute (for example <html lang="en">), so screen readers may read the page in the wrong language')
+                    unless $no_lang{$layout}++;
+            }
+
+            my %vague;
+            while ($html =~ /<a\b([^>]*)>(.*?)<\/a>/gis) {
+                my ($attributes, $inner) = ($1, $2);
+                next unless $attributes =~ /\bhref\s*=/i;
+                next if $attributes =~ /\baria-label(?:ledby)?\s*=/i;
+                my $text = lc App::Dapper::Publish::plain_text($inner);
+                $text =~ s/[.!:\s]+$//;
+                my ($href) = $attributes =~ /\bhref\s*=\s*["']([^"']*)/i;
+                $href = '' unless defined $href;
+                if (not length $text) {
+                    next if $inner =~ /<img\b[^>]*\balt\s*=\s*["'][^"']+/i or $attributes =~ /\btitle\s*=\s*["'][^"']+/i;
+                    $warn->('accessibility', $file, "the link to $href has no text; add text, alt text to its image, or an aria-label")
+                        unless $vague{"empty $href"}++;
+                }
+                elsif ($VAGUE{$text}) {
+                    $warn->('accessibility', $file, "the link to $href says only \"$text\"; say where it goes instead")
+                        unless $vague{"vague $text $href"}++;
+                }
+            }
+        }
+
+        next unless $seo;
+        next if $page->{generated} or $page->{url} =~ m{(?:^|/)404\.html$};
+        next if defined $page->{sitemap} and !App::Dapper::Publish::enabled($page, 'sitemap');
+
+        my ($title) = $html =~ /<title\b[^>]*>(.*?)<\/title>/is;
+        if (defined $title) {
+            $title = App::Dapper::Publish::plain_text($title);
+            if (length $title > 70) {
+                $warn->('seo', $file, 'the title is ' . length($title) . ' characters long; search engines show about 60');
+            }
+            if (length $title) {
+                if (defined(my $other = $title_of{$title})) {
+                    $warn->('seo', $file, "has the same title as $other (\"$title\"); give each page its own");
+                }
+                else {
+                    $title_of{$title} = $file;
+                }
+            }
+        }
+
+        my $description = App::Dapper::Publish::description($page);
+        if (not length $description) {
+            $warn->('seo', $file, 'has no description; add description to its front matter, or start it with a paragraph');
+        }
+        else {
+            my $own = defined $page->{description} && !ref $page->{description} ? $page->{description} : '';
+            $warn->('seo', $file, 'the description is ' . length($own) . ' characters long; search engines show about 160')
+                if length $own > 160;
+            if (defined(my $other = $description_of{$description})) {
+                $warn->('seo', $file, "has the same description as $other; give each page its own");
+            }
+            else {
+                $description_of{$description} = $file;
+            }
+        }
+    }
+
+    return @problems;
+}
+
 =head2 text
 
 Takes a report from L</run> and returns it as text for people.
@@ -312,6 +479,10 @@ sub text {
 
     my $errors = @{$report->{errors}};
     my $warnings = @{$report->{warnings}};
+    my $held = @{ $report->{held} || [] };
+    my $drafts = grep { $_->{reason} eq 'draft' } @{ $report->{held} || [] };
+    $out .= sprintf("Not published: %d draft%s, %d scheduled (use --drafts to include them).\n",
+        $drafts, $drafts == 1 ? '' : 's', $held - $drafts) if $held;
     $out .= sprintf("Checked %d page%s: %d error%s, %d warning%s.\n",
         $report->{pages}, $report->{pages} == 1 ? '' : 's',
         $errors, $errors == 1 ? '' : 's',
