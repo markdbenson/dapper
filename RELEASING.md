@@ -57,12 +57,19 @@ step done by hand.
 6. Check each place has the new version:
 
        brew update && brew upgrade dapper && dapper -v
-       docker run --rm ghcr.io/markdbenson/dapper:1.01 -v
+       docker run --rm --platform linux/amd64 ghcr.io/markdbenson/dapper:1.01 -v
+
+   The image is built for Intel (amd64) only, so on an Apple Silicon Mac the
+   `--platform` flag is needed.
 
 7. Copy the checksum the workflow wrote into `packaging/homebrew/dapper.rb`,
    so the copy here matches the tap:
 
-       packaging/homebrew/update-formula.sh 1.01 > packaging/homebrew/dapper.rb
+       packaging/homebrew/update-formula.sh 1.01 > dapper.rb.new &&
+           mv dapper.rb.new packaging/homebrew/dapper.rb
+
+   (Writing straight to `dapper.rb` would empty it, since the script reads
+   that file.)
 
 8. For a larger release, tell people: a news item for the
    [Perl Weekly](https://perlweekly.com) newsletter, a post on r/perl or
