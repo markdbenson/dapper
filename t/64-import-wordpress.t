@@ -343,6 +343,81 @@ subtest 'errors' => sub {
     is($out, "Imported 0 posts and 0 pages into _source.\n", 'an export with nothing in it');
 };
 
+subtest 'fitting the folder\'s schema' => sub {
+    # As in the blog starter: posts must be in "blog", with a title
+    my $old = project();
+    spew('_source/blog/_schema.yml', <<'YAML');
+required: [title, categories]
+fields:
+  title: { type: string, max_length: 20 }
+  categories: { type: list, values: [blog, news] }
+  tags: { type: list }
+  description: { type: string, max_length: 30 }
+YAML
+    my $cat = sub { qq{<category domain="category" nicename="x"><![CDATA[$_[0]]]></category>} };
+    my $tag = sub { qq{<category domain="post_tag" nicename="x"><![CDATA[$_[0]]]></category>} };
+    my $file = export($old,
+        item(title => 'One', slug => 'one', type => 'post', date => '2020-01-01 00:00:00', content => 'x',
+             extra => [ $cat->('News'), $cat->('Classic'), $cat->('Markup'), $tag->('markup'), $tag->('perl') ]),
+        item(title => 'Two', slug => 'two', type => 'post', date => '2020-01-02 00:00:00', content => 'x',
+             extra => [ $cat->('news'), $tag->('Perl'), $tag->('MARKUP') ]),
+        item(title => '', slug => 'three', type => 'post', date => '2020-01-03 00:00:00', content => 'x',
+             excerpt => 'A description that is much too long for the schema'),
+        item(title => 'A title far longer than twenty', slug => 'four', type => 'post', date => '2020-01-04 00:00:00', content => 'x'),
+        item(title => 'Page', slug => 'page', type => 'page', content => 'x', extra => [ $cat->('Classic') ]),
+    );
+    my ($state, $out) = run_import('wordpress', $file, loud => 1);
+    my $front = sub { my ($f) = App::Dapper::Utils::split_frontmatter(slurp($_[0]), $_[0]); $f };
+
+    my $one = $front->('_source/blog/one.html');
+    is_deeply($one->{categories}, ['blog'], 'with no allowed category left ("News" is not "news"), it gets the first allowed one');
+    is_deeply($one->{tags}, ['markup', 'perl', 'News', 'Classic'], 'other categories become tags, without a second "markup"');
+
+    is_deeply($front->('_source/blog/two.html')->{categories}, ['news'], 'an allowed category stays');
+    is_deeply($front->('_source/blog/two.html')->{tags}, ['perl', 'markup'], 'tags take the spelling first seen in the import');
+    my $three = $front->('_source/blog/three.html');
+    is($three->{title}, 'Untitled', 'a missing title becomes "Untitled"');
+    is_deeply($three->{categories}, ['blog'], 'a post without a category gets the first allowed one');
+    is($three->{description}, "A description that is much\x{2026}", 'a long description is shortened at a word');
+    is($front->('_source/blog/four.html')->{title}, "A title far longer\x{2026}", 'so is a long title');
+    is_deeply($front->('_source/page.html')->{categories}, ['Classic'], 'a page outside the folder is left alone');
+    like($out, qr/^Check: categories its folder's _schema\.yml doesn't allow, kept as tags \(1 page, such as _source\/blog\/one\.html\)$/m, 'noted');
+    like($out, qr/^Check: pages without a title, now called "Untitled" \(1 page/m, 'noted');
+    like($out, qr/^Check: pages given "categories: blog", which its folder's _schema\.yml requires \(2 pages/m, 'noted');
+    like($out, qr/^Check: "title" shortened to the 20 characters its folder's _schema\.yml allows \(1 page/m, 'noted');
+    is(App::Dapper->new()->check()->{ok}, 1, 'and the site checks clean');
+
+    # Without free tags, categories that don't fit are left out
+    project();
+    spew('_source/blog/_schema.yml', "fields:\n  categories: { type: list, values: [blog] }\n  tags: { type: list, values: [a] }\n");
+    ($state, $out) = run_import('wordpress', export($old, item(title => 'X', slug => 'x', type => 'post', content => 'x', extra => [ $cat->('Other') ])), loud => 1);
+    is_deeply($front->('_source/blog/x.html')->{categories}, undef, 'not required, so no category is added');
+    like($out, qr/^Check: values of "categories" its folder's _schema\.yml doesn't allow, left out/m, 'noted');
+};
+
+subtest 'non-ASCII addresses and the posts page' => sub {
+    my $old = project();
+    spew('_config.yml', "---\nname: x\ncategory_pages:\n  layout: index\n");
+    my $file = export($old,
+        item(title => 'Greek', slug => '%ce%b5%cf%80%ce%af%cf%80%ce%b5%ce%b4%ce%bf-2', type => 'page', content => 'x',
+             link => 'https://old.example.com//greek/%ce%b5%cf%80%ce%af%cf%80%ce%b5%ce%b4%ce%bf-2/'),
+        item(title => 'Blog', slug => 'blog', type => 'page', content => 'Posts', link => 'https://old.example.com/blog/'),
+        item(title => 'Slash', slug => 'a%2fb', type => 'page', content => 'x', link => 'https://old.example.com/a%2Fb/'),
+    );
+    my ($state, $out) = run_import('wordpress', $file, loud => 1);
+    my $greek = "\x{3b5}\x{3c0}\x{3af}\x{3c0}\x{3b5}\x{3b4}\x{3bf}-2";
+    my $name = App::Dapper::Utils::name_bytes("_source/$greek.html");
+    ok(-f $name, 'the file is named in Greek letters');
+    like(slurp($name), qr{^urlpattern: /greek/$greek/$}m, 'and so is its address, with one slash');
+    ok(!-e '_source/blog.html', 'the posts page is left out where the project makes the list');
+    like($out, qr{^Check: pages at the address of the list of posts \(/blog/\), left out since the project makes that list \(1 page, such as blog\.html\)$}m, 'noted');
+    like(slurp('_source/a%2fb.html'), qr{^urlpattern: /a%2Fb/$}m, 'encoded ASCII is left as it is');
+
+    project();
+    run_import('wordpress', $file);
+    ok(-f '_source/blog.html', 'kept without category pages');
+};
+
 subtest 'helpers' => sub {
     my $state = { source => '_source', taken => { '_source/README' => 1, '_source/a.b/c' => 1 }, pages => [], skipped => [], dry_run => 1 };
     App::Dapper::Import::add_page($state, '/README', [[ title => 'x' ]], '');
@@ -365,6 +440,13 @@ subtest 'helpers' => sub {
     is($u->('HTTPS://Example.com/a/b/?x=1#y'), '/a/b/', 'url_path: a full address');
     is($u->('ftp://example.com'), '/', 'url_path: no path');
     is($u->('a/b'), '/a/b', 'url_path: relative');
+    is($u->('https://example.com//a///b/'), '/a/b/', 'url_path: doubled slashes');
+    my $dp = \&App::Dapper::Import::decode_path;
+    is($dp->(undef), undef, 'decode_path: nothing');
+    is($dp->('a%20b%2F'), 'a%20b%2F', 'decode_path: encoded ASCII stays');
+    is($dp->('caf%C3%A9'), "caf\x{e9}", 'decode_path: UTF-8 letters');
+    is($dp->("\x{e9}%C3%A9"), "\x{e9}\x{e9}", 'decode_path: next to letters already decoded');
+    is($dp->('%E9t%E9'), '%E9t%E9', 'decode_path: not UTF-8, left as it is');
     my $ds = \&App::Dapper::Import::date_string;
     is($ds->(undef), undef, 'date_string: nothing');
     is($ds->('0000-00-00'), undef, 'date_string: zero');

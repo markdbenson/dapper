@@ -662,6 +662,12 @@ Pages keep their old addresses where they had their own (WordPress, Jekyll
 and Hugo), using `urlpattern`, so links from elsewhere keep working. Posts
 get the project's `post` layout if it has one.
 
+Imported pages are made to fit the `_schema.yml` of the folder they land
+in, so the site still builds. In the blog starter, posts must be in the
+`blog` category, so each post gets it, and WordPress categories become
+tags instead. A missing title becomes "Untitled", and text longer than the
+schema allows is shortened. The import lists each kind of change it made.
+
 When it's done, `dapper import` lists what it couldn't convert, such as
 WordPress shortcodes, Liquid tags or Hugo shortcodes it doesn't know, and
 images that still load from the old site. Look at those pages, then run
@@ -1636,7 +1642,7 @@ Variable           | Description
 Variable                      | Description
 ------------------------------|------------------------------------------------
 `page.content`                | The body of the page, rendered from Markdown for `.md` files.
-`page.excerpt`                | The first paragraph of a Markdown page (`<p>...</p>`).
+`page.excerpt`                | The first paragraph of the page (`<p>...</p>`), Markdown or HTML. An HTML page with template code has none.
 `page.title`, `page.layout`, ...| Anything in the page's front matter.
 `page.url`                    | The page's URL relative to the site root, e.g. `/blog/2015/08/my-post/`.
 `page.slug`                   | The title, slugified (or the file name if there is no title).
@@ -2820,6 +2826,9 @@ Two kinds of page that 1.0 published are now held back:
 * **Pages dated in the future.** They are published by the first build
   after their date. Set `future: true` in `_config.yml` to publish them
   straight away, as 1.0 did.
+
+An HTML page's first paragraph is now its excerpt, as a Markdown page's
+is, so an HTML page without a `description` gets one from that paragraph.
 
 `dapper check` lists any pages it leaves out, so run it after upgrading.
 It also has new [accessibility and SEO warnings](#check), which don't stop

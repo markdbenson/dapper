@@ -54,7 +54,7 @@ Version 1.00
 
 =cut
 
-our $VERSION = '1.00';
+our $VERSION = '1.10';
 
 our @EXPORT = qw($VERSION);
 
@@ -1384,6 +1384,11 @@ sub build_inventory {
 
         # Save first paragraph of content as excerpt
         $page{excerpt} = $1 if $page{content} =~ /(<p>.*?<\/p>)/s;
+    }
+    elsif ($page{source_file_extension} =~ /^\.html?$/i and $page{content} !~ /\[%/) {
+        # An HTML page's first paragraph too (an imported post, say), unless
+        # it holds template code, which hasn't run yet
+        $page{excerpt} = $1 if $page{content} =~ /(<p\b[^>]*>.*?<\/p>)/is;
     }
 
     # Remove leading spaces and newline

@@ -605,16 +605,7 @@ directory), or nothing.
 
 sub schema_for {
     my ($dapper, $file) = @_;
-
-    my $source = canonpath($dapper->{source});
-    my $dir = dirname($file);
-    while (1) {
-        my $schema_file = catfile($dir, '_schema.yml');
-        return App::Dapper::Schema::load($schema_file) if -f $schema_file;
-        last if canonpath($dir) eq $source or $dir eq '.' or $dir eq '/';
-        $dir = dirname($dir);
-    }
-    return;
+    return App::Dapper::Schema::for_file($dapper->{source}, $file);
 }
 
 =head2 write_page
