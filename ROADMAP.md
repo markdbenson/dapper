@@ -96,7 +96,7 @@ looking starting points, and makes publishing one command:
   - `--dry-run` shows what would happen; credentials always come from the
     standard tools' own configuration, never from `_config.yml`.
 
-## Done since 1.0 (not released yet)
+## What 1.10 adds
 
 Images (sizes, responsive copies, WebP, lazy loading), components in
 Markdown (callouts, details, galleries, videos, buttons, figures, maps, and

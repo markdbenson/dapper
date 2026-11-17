@@ -406,7 +406,7 @@ subtest 'page fields' => sub {
     is($noext->{slug}, 'noext', 'slug from the file name');
 
     my $html = $by{'_source/html.html'};
-    ok(!exists $html->{excerpt}, 'HTML pages have no excerpt');
+    is($html->{excerpt}, '<p>one</p>', 'an HTML page\'s first paragraph is its excerpt');
     is(slurp('_output/html.html'), '<p>one</p><p>two</p>', 'HTML content is not Markdown');
 };
 

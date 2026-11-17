@@ -72,9 +72,12 @@ use File::Find ();
 use File::Temp qw/ tempdir /;
 use YAML::PP ();
 use JSON ();
+use Encode ();
 
 use App::Dapper::Utils;
 use App::Dapper::Components;
+use App::Dapper::Schema;
+use App::Dapper::Publish;
 
 my %IMPORTERS = (wordpress => \&wordpress, jekyll => \&jekyll, hugo => \&hugo, medium => \&medium);
 
@@ -156,11 +159,97 @@ sub add_page {
         return;
     }
 
+    fit_schema($state, $file, $front);
+
+    # One spelling for each category and tag across the import ("Markup" on
+    # one post and "markup" on another would make two pages at one address)
+    for my $pair (grep { $_->[0] eq 'categories' or $_->[0] eq 'tags' } @$front) {
+        next unless ref $pair->[1] eq 'ARRAY';
+        my $spelling = $state->{spelling}->{$pair->[0]} ||= {};
+        my %seen;
+        $pair->[1] = [ grep { !$seen{lc $_}++ }
+                       map { my $key = lc App::Dapper::Utils::slugify($_); $spelling->{$key} = $_ unless defined $spelling->{$key}; $spelling->{$key} }
+                       grep { defined and !ref } @{$pair->[1]} ];
+    }
+
     my %front = map { $_->[0] => $_->[1] } @$front;
     push @{$state->{pages}}, { file => $file, kind => $kind || 'page', draft => $front{draft} ? 1 : 0 };
     return if $state->{dry_run};
 
     App::Dapper::Utils::write_file($file, "---\n" . front_matter($front) . "---\n" . $body);
+}
+
+# fit_schema(state, file, \@pairs) - Make an imported page's front matter fit
+# the _schema.yml of the folder it lands in, so the site still builds: a list
+# keeps only the values the schema allows (categories it doesn't allow become
+# tags where tags are free), a required list that ends up empty gets the
+# first allowed value (so a post in a blog starter is in "blog"), a required
+# title that is missing becomes "Untitled", and text that is too long is
+# shortened. Each change is noted for the report.
+sub fit_schema {
+    my ($state, $file, $pairs) = @_;
+
+    my $schema = eval { App::Dapper::Schema::for_file($state->{source}, $file) } or return;
+    my $fields = $schema->{fields} || {};
+    my %required = map { $_ => 1 } @{$schema->{required} || []};
+    my %index = map { $pairs->[$_]->[0] => $_ } 0 .. $#$pairs;
+    my $get = sub { my ($key) = @_; defined $index{$key} ? $pairs->[$index{$key}]->[1] : undef };
+    my $set = sub {
+        my ($key, $value) = @_;
+        if (defined $index{$key}) { $pairs->[$index{$key}]->[1] = $value }
+        else { push @$pairs, [ $key => $value ]; $index{$key} = $#$pairs }
+    };
+    my $schema_file = 'its folder\'s _schema.yml';
+
+    # Free tags: the schema lists "tags" as a list without fixed values, or
+    # doesn't list it but allows other fields
+    my $tag_rules = $fields->{tags};
+    my $tags_free = $tag_rules ? ($tag_rules->{type} eq 'list' && !$tag_rules->{values})
+                               : $schema->{additional};
+
+    for my $key (sort keys %$fields) {
+        my $rules = $fields->{$key};
+        next unless $rules->{type} eq 'list' and $rules->{values};
+        my $value = $get->($key);
+        my @items = ref $value eq 'ARRAY' ? @$value : defined $value && length $value ? ($value) : ();
+        my %allowed = map { $_ => 1 } @{$rules->{values}};
+        my @kept = grep { $allowed{$_} } @items;
+        my @left = grep { !$allowed{$_} } @items;
+        if (@left) {
+            if ($key eq 'categories' and $tags_free) {
+                # A category that is already a tag (in any case) isn't added twice
+                my %has = map { lc($_) => 1 } @{ $get->('tags') || [] };
+                $set->(tags => [ @{ $get->('tags') || [] }, grep { !$has{lc $_}++ } @left ]);
+                note($state, "categories $schema_file doesn't allow, kept as tags", $file);
+            }
+            else {
+                note($state, "values of \"$key\" $schema_file doesn't allow, left out", $file);
+            }
+        }
+        if (not @kept and $required{$key}) {
+            @kept = ($rules->{values}->[0]);
+            note($state, "pages given \"$key: $kept[0]\", which $schema_file requires", $file) unless @items;
+        }
+        $set->($key => \@kept);
+    }
+
+    if ($required{title}) {
+        my $title = $get->('title');
+        if (not defined $title or ref $title or not length $title) {
+            $set->(title => 'Untitled');
+            note($state, 'pages without a title, now called "Untitled"', $file);
+        }
+    }
+
+    for my $key (sort keys %$fields) {
+        my $max = $fields->{$key}->{max_length};
+        my $value = $get->($key);
+        next unless defined $max and defined $value and !ref $value and length $value > $max;
+        my $short = substr($value, 0, $max - 1);
+        $short =~ s/\s+\S*\z// if $short =~ /\s/;
+        $set->($key => "$short\x{2026}");
+        note($state, "\"$key\" shortened to the $max characters $schema_file allows", $file);
+    }
 }
 
 # front_matter(\@pairs) - YAML for front matter, in the order given, leaving
@@ -291,11 +380,25 @@ sub strip_tags {
 }
 
 # url_path(url) - The path of a URL: https://example.com/a/b/?x=1 is /a/b/.
+# decode_path(text) - Percent-encoded letters outside ASCII (as WordPress
+# writes "επίπεδο") back to the letters; encoded ASCII such as %2F is left as
+# it is, since decoding it would change what the address means.
+sub decode_path {
+    my ($text) = @_;
+    return $text unless defined $text and $text =~ /%[89A-Fa-f][0-9A-Fa-f]/;
+    my $bytes = $text =~ /[^\x00-\x7F]/ ? Encode::encode('UTF-8', $text) : $text;
+    $bytes =~ s/%([89A-Fa-f][0-9A-Fa-f])/chr hex $1/ge;
+    my $decoded = eval { Encode::decode('UTF-8', $bytes, Encode::FB_CROAK()) };
+    return defined $decoded ? $decoded : $text;
+}
+
 sub url_path {
     my ($url) = @_;
     return unless defined $url and length $url;
     $url =~ s{^[a-z]+://[^/]+}{}i;
     $url =~ s/[?#].*$//;
+    $url =~ s{/{2,}}{/}g;
+    $url = decode_path($url);
     $url = "/$url" unless $url =~ m{^/};
     return $url;
 }
@@ -373,7 +476,7 @@ sub wordpress {
 
         my $title = $get->('title');
         $title = '' unless defined $title;
-        my $slug = $get->('wp:post_name');
+        my $slug = decode_path($get->('wp:post_name'));
         $slug = App::Dapper::Utils::slugify($title) unless defined $slug and length $slug;
         $slug = 'post-' . ($get->('wp:post_id') || scalar @{$state->{pages}}) unless defined $slug and length $slug;
 
@@ -390,6 +493,16 @@ sub wordpress {
         my $raw_link = $get->('link');
         my $link = defined $raw_link && $raw_link !~ /[?&](?:p|page_id)=/ ? url_path($raw_link) : undef;
         my $urlpattern = !$draft && defined $link ? $link : undef;
+
+        # WordPress's "posts page" only holds the list of posts; where the
+        # project makes a page per category, the blog's own list page is at
+        # that address already
+        if ($type eq 'page' and defined $urlpattern and $urlpattern eq "/$state->{to}/"
+            and $state->{dapper}->{site}->{category_pages}
+            and App::Dapper::Publish::enabled($state->{dapper}->{site}, 'category_pages')) {
+            note($state, "pages at the address of the list of posts (/$state->{to}/), left out since the project makes that list", "$slug.html");
+            next;
+        }
 
         my $path = $type eq 'post' ? "$state->{to}/$slug.html" : "$slug.html";
         my $body = wordpress_html($state, $get->('content:encoded'), $path);

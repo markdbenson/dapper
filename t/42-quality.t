@@ -197,7 +197,8 @@ subtest 'seo: descriptions' => sub {
     my $no = 'has no description; add description to its front matter, or start it with a paragraph';
     is_deeply(seo_for('_source/a.html' => "---\ntitle: A\n---\n<div>x</div>\n"), ["_source/a.html: $no"], 'none');
     is_deeply(seo_for('_source/a.md' => "---\ntitle: A\n---\nA paragraph.\n"), [], 'the first paragraph of Markdown');
-    is_deeply(seo_for('_source/a.html' => "---\ntitle: A\n---\n<p>An HTML paragraph is not an excerpt.</p>\n"), ["_source/a.html: $no"], 'HTML pages have no excerpt');
+    is_deeply(seo_for('_source/a.html' => "---\ntitle: A\n---\n<p>An HTML paragraph.</p>\n"), [], 'the first paragraph of HTML');
+    is_deeply(seo_for('_source/a.html' => "---\ntitle: A\ntemplate: true\n---\n<p>[% 1 + 1 %]</p>\n"), ["_source/a.html: $no"], 'not a paragraph with template code');
     is_deeply(seo_for('_source/a.html' => "---\ntitle: A\ndescription: " . ('d' x 160) . "\n---\n<p>x</p>\n"), [], '160 characters is fine');
     is_deeply(seo_for('_source/a.html' => "---\ntitle: A\ndescription: " . ('d' x 161) . "\n---\n<p>x</p>\n"),
         ['_source/a.html: the description is 161 characters long; search engines show about 160'], '161 is too long');

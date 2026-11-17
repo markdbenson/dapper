@@ -1,6 +1,6 @@
 Revision history for App-Dapper
 
-NEXT    (not released yet)
+1.10    2026-11-16
         Images load faster, Markdown gains components, drafts and scheduled
         posts work, dapper check looks for accessibility and SEO problems,
         and dapper import brings in a WordPress, Jekyll, Hugo or Medium
@@ -34,16 +34,24 @@ NEXT    (not released yet)
         site's pages into the source directory, keeping their addresses,
         dates, categories, tags and drafts, converting what it can
         (captions, embeds, Liquid, shortcodes) and listing what it can't.
+        Pages are fitted to the _schema.yml of the folder they land in:
+        in the blog starter, posts get the blog category and their own
+        categories become tags.
 
         Changed: the default starter's layout sets <html lang="en">, and the
         blog starter's home page has a description.
+
+        Changed: an HTML page's first paragraph is its excerpt, as a
+        Markdown page's is, so it also gives the page a description.
+        An HTML page with template code has none.
 
         Fixed: AGENTS.md and CLAUDE.md, written by dapper init, were copied
         into the output directory and published with the site.
 
         Fixed: a page without a date (which takes its file's modified time)
-        was held back as scheduled when the site's time zone is west of the
-        computer's, as on a server running in UTC.
+        was given the wrong time when the site's time zone differs from the
+        computer's, which in this release would also have held it back as
+        scheduled.
 
         Fixed: a file without front matter (in the source directory, or at
         the top of the project) silently replaced a page written to the
